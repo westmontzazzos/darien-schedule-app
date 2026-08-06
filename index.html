@@ -5589,7 +5589,7 @@ async function readScheduleImage(dataUrl, type) {
 
   var prompt = '';
   if(type === 'BOH') {
-    prompt = 'You are extracting a Back of House restaurant schedule from a photo or screenshot.\n\nThe schedule is a grid where rows are employee names and columns are days of the week (Monday through Sunday). Each cell contains either a shift time or is blank/off.\n\nExtract EVERY employee and EVERY day. Do not skip anyone. Do not skip any days.\n\nMany cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells. A cell is null ONLY if it is truly blank. Before you finish, re-check every row against the image and confirm you did not leave any filled cell as null.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{\n  "MANAGERS": {"EmployeeName": ["MonShift","TueShift","WedShift","ThuShift","FriShift","SatShift","SunShift"]},\n  "PIZZA": {},\n  "KITCHEN": {},\n  "PREP": {},\n  "BUS": {},\n  "DISH": {}\n}\n\nRules:\n- Use null for days off or blank cells\n- Preserve shift times exactly as written (e.g. "4pm", "9am-8pm", "4pm-c", "4pm-cl", "1pm-close", "9am")\n- "c" or "cl" or "close" at the end means closing shift — keep it as written\n- Include ALL employees listed under each section header\n- If a section has no employees visible, use an empty object {}\n- The 7 array values correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- Employee names must be first name only or first+last — strip any phone numbers or digits in parentheses (e.g. "Jose (630-123-4567)" becomes "Jose")\n- CRITICAL: Only include employees whose name you can physically see in that section of the photo. Do NOT infer, guess, or add anyone not visibly present in a section.\n- CRITICAL: A person can appear in MULTIPLE sections. If you see the same name under both MANAGERS and PIZZA, include them in BOTH sections with their respective shifts. Do not deduplicate.\n- CRITICAL: Nick (Nicholas) is PREP only — if you see Nick anywhere other than PREP, ignore it.\n- CRITICAL: Ever is PIZZA and KITCHEN only — never put Ever in other sections unless visibly there.\n- If a section appears empty or a person is not visible in it, use null for that day. Do not fill in names from memory or context.';
+    prompt = 'You are extracting a Back of House restaurant schedule from a photo or screenshot.\n\nThe schedule is a grid where rows are employee names and columns are days of the week (Monday through Sunday). Each cell contains either a shift time or is blank/off.\n\nExtract EVERY employee and EVERY day. Do not skip anyone. Do not skip any days.\n\nMany cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells. A cell is null ONLY if it is truly blank. Before you finish, re-check every row against the image and confirm you did not leave any filled cell as null.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{\n  "MANAGERS": {"EmployeeName": ["MonShift","TueShift","WedShift","ThuShift","FriShift","SatShift","SunShift"]},\n  "PIZZA": {},\n  "KITCHEN": {},\n  "DISH": {}\n}\n\nRules:\n- Use null for days off or blank cells\n- Preserve shift times exactly as written (e.g. "4pm", "9am-8pm", "4pm-c", "4pm-cl", "1pm-close", "9am")\n- "c" or "cl" or "close" at the end means closing shift — keep it as written\n- Include ALL employees listed under each section header\n- If a section has no employees visible, use an empty object {}\n- The 7 array values correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- Employee names must be first name only or first+initial — strip any phone numbers or digits in parentheses (e.g. "Jose (630-123-4567)" becomes "Jose")\n- CRITICAL: Only include employees whose name you can physically see in that section of the photo. Do NOT infer, guess, or add anyone not visibly present in a section.\n- CRITICAL: A person can appear in MULTIPLE sections (e.g. Arturo, Laura Z, Gustavo, and Jesus regularly work both Pizza and Kitchen). If you see the same name under both sections, include them in BOTH with their respective shifts. Do not deduplicate.\n- If a section appears empty or a person is not visible in it, use null for that day. Do not fill in names from memory or context.';
   } else if(type === 'FOH') {
     prompt = 'You are extracting a Front of House restaurant schedule from a photo or screenshot.\n\nThe schedule is a grid where rows are employee names and columns are days of the week (Monday through Sunday). Each cell contains either a start time, a start-end time range, or is blank/off.\n\nExtract EVERY employee and EVERY day. Do not skip anyone. Do not skip any days.\n\nMany cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells. A cell is null ONLY if it is truly blank. Before you finish, re-check every row against the image and confirm you did not leave any filled cell as null.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{\n  "SERVERS": {"EmployeeName": [["startTime","endTimeOrC"],null,...]},\n  "BARTENDERS": {},\n  "CASHIERS": {},\n  "HOSTS": {}\n}\n\nRules:\n- Use null for days off or blank cells\n- Each working day is an array: ["startTime", "endTime"] or ["startTime", "C"] for close or ["startTime", null] if no end shown\n- Preserve times exactly as written (e.g. "4pm", "10:30am", "4:30pm")\n- "C" means closing shift\n- Include ALL employees under each section\n- The 7 array positions correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- If a section has no employees, use {}\n- Employee names must be first name only or first+last — strip any phone numbers or digits in parentheses (e.g. "Abby (630-880-4270)" becomes "Abby")';
   } else {
@@ -5603,59 +5603,11 @@ async function readScheduleImage(dataUrl, type) {
   // If this pass fails for any reason, fall back to the pass-1 result.
   try {
     if(type === 'BOH') {
-      var bohNames = await callVision(base64, mediaType, 'Look at this photo of a Back of House schedule. Read ONLY the employee names in the left column, grouped under their section headers. CRITICAL: Place each name ONLY in the section where it physically appears in the image. Do not move names between sections. Do not add names that do not appear in the image. Do not place a name under a section unless that name is visually listed under that section header in the photo. Ignore phone numbers or digits in parentheses. Return ONLY a JSON object, no markdown and no explanation, with exactly this structure: {"MANAGERS":[],"PIZZA":[],"KITCHEN":[],"PREP":[],"BUS":[],"DISH":[]} — put each name as a string in its section array, and use an empty array for any section that has no names.');
-      sched = reconcileSectioned(sched, bohNames, ['MANAGERS','PIZZA','KITCHEN','PREP','BUS','DISH']);
-      // Enforce section rules: Nick=PREP only, Ever=PIZZA only
-      if(sched.KITCHEN) {
-        Object.keys(sched.KITCHEN).forEach(function(name){
-          var n = name.toLowerCase();
-          if(n === 'ever') {
-            delete sched.KITCHEN[name];
-          }
-        });
-        // Normalize short names to full names
-        var kitchenAliases = {'nithia': 'Nithia Maldonado', 'nicholas': 'Nicholas Urbana'};
-        Object.keys(sched.KITCHEN).forEach(function(name){
-          var alias = kitchenAliases[name.toLowerCase()];
-          if(alias && alias !== name) {
-            sched.KITCHEN[alias] = sched.KITCHEN[name];
-            delete sched.KITCHEN[name];
-          }
-        });
-      }
-      // Normalize FOH names in BOH sections
-      ['PIZZA','PREP','BUS','DISH','MANAGERS'].forEach(function(sec){
-        if(!sched[sec]) return;
-        var prepAliases = {'nick': 'Nick', 'nicholas urbana': 'Nicholas Urbana'};
-        Object.keys(sched[sec]).forEach(function(name){
-          var alias = prepAliases[name.toLowerCase()];
-          if(alias && alias !== name) {
-            sched[sec][alias] = sched[sec][name];
-            delete sched[sec][name];
-          }
-        });
-      });
+      var bohNames = await callVision(base64, mediaType, 'Look at this photo of a Back of House schedule. Read ONLY the employee names in the left column, grouped under their section headers. CRITICAL: Place each name ONLY in the section where it physically appears in the image. Do not move names between sections. Do not add names that do not appear in the image. Do not place a name under a section unless that name is visually listed under that section header in the photo. Ignore phone numbers or digits in parentheses. Return ONLY a JSON object, no markdown and no explanation, with exactly this structure: {"MANAGERS":[],"PIZZA":[],"KITCHEN":[],"DISH":[]} — put each name as a string in its section array, and use an empty array for any section that has no names.');
+      sched = reconcileSectioned(sched, bohNames, ['MANAGERS','PIZZA','KITCHEN','DISH']);
     } else if(type === 'FOH') {
       var fohNames = await callVision(base64, mediaType, 'Look at this photo of a Front of House schedule. Read ONLY the employee names in the left column, grouped under their section headers. Do not read any day or shift columns. Include EVERY name in every section, even rows that look mostly blank. Ignore phone numbers or digits in parentheses. Return ONLY a JSON object, no markdown and no explanation, with exactly this structure: {"SERVERS":[],"BARTENDERS":[],"CASHIERS":[],"HOSTS":[]} — put each name as a string in its section array, and use an empty array for any section that has no names.');
       sched = reconcileSectioned(sched, fohNames, ['SERVERS','BARTENDERS','CASHIERS','HOSTS']);
-      // Move Allie from BARTENDERS to SERVERS if misplaced
-      if(sched.BARTENDERS && sched.BARTENDERS['Allie']) {
-        if(!sched.SERVERS) sched.SERVERS = {};
-        sched.SERVERS['Allie'] = sched.BARTENDERS['Allie'];
-        delete sched.BARTENDERS['Allie'];
-      }
-      // Normalize FOH short names to full names
-      var fohAliases = {'sio': 'Sio McAvoy', 'alexis': 'Alexis'};
-      ['SERVERS','BARTENDERS','CASHIERS','HOSTS'].forEach(function(sec){
-        if(!sched[sec]) return;
-        Object.keys(sched[sec]).forEach(function(name){
-          var alias = fohAliases[name.toLowerCase()];
-          if(alias && alias !== name) {
-            sched[sec][alias] = sched[sec][name];
-            delete sched[sec][name];
-          }
-        });
-      });
     } else {
       var drvNames = await callVision(base64, mediaType, 'Look at this photo of a driver schedule. Read ONLY the left-most column (the list of driver names), top to bottom. Do not read any day or shift columns. Include EVERY name, even rows where the rest of the row looks blank — a driver with only one shift all week still gets a row. Ignore any phone numbers or digits in parentheses. Return ONLY a JSON array of strings in top-to-bottom order, no markdown and no explanation, for example: ["AJ","Alex D","Andrew"]');
       if(Array.isArray(drvNames)) sched = mergeOrdered(sched, drvNames);
