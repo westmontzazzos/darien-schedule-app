@@ -1227,6 +1227,10 @@ document.addEventListener("DOMContentLoaded",function(){
       <div class="report-sub">Upload new schedule photos to update the app automatically</div>
     </div>
 
+    <div style="text-align:right;margin-bottom:8px;">
+      <a href="#" onclick="resetAnthropicKey();return false;" style="font-size:11px;color:var(--gray-400);text-decoration:underline;">Reset AI Key</a>
+    </div>
+
     <div class="summary-card" style="margin-bottom:16px;">
       <div class="summary-row">
         <span class="summary-label">Week Starting</span>
@@ -4645,6 +4649,11 @@ function applyWeek(idx) {
 }
 
 // DOM'S NOTES
+function resetAnthropicKey() {
+  if(!confirm('Clear the stored AI key on this device and enter a new one?')) return;
+  localStorage.removeItem('zp_anthropic_key');
+  location.reload();
+}
 function getAnthropicKey() {
   let k = localStorage.getItem('zp_anthropic_key');
   if (!k) {
@@ -4662,6 +4671,7 @@ function getAnthropicKey() {
       const val = document.getElementById('zp_key_input').value.trim();
       if (val.startsWith('sk-ant-')) {
         localStorage.setItem('zp_anthropic_key', val);
+        ANTHROPIC_KEY = val;
         overlay.remove();
       } else {
         alert('Invalid key — should start with sk-ant-');
@@ -4671,7 +4681,7 @@ function getAnthropicKey() {
   }
   return k;
 }
-const ANTHROPIC_KEY = getAnthropicKey();
+let ANTHROPIC_KEY = getAnthropicKey();
 const SUPABASE_URL = 'https://bkrgefddyculihfdhjwb.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJrcmdlZmRkeWN1bGloZmRoandiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAzNzM0ODEsImV4cCI6MjA5NTk0OTQ4MX0.YhIsgS3IkRyTSeVG011EPqhZvX0UbR-tXcCLGoOSMEI';
 
@@ -5278,7 +5288,7 @@ async function processSingle(type) {
       if(type==='drv') patch.driver_data = JSON.stringify(data);
       if(evPatch) patch.event_data = JSON.stringify(evPatch);
 
-      await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?id=eq.' + existing.id, {
+      var patchResp = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?id=eq.' + existing.id, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -5288,6 +5298,10 @@ async function processSingle(type) {
         },
         body: JSON.stringify(patch)
       });
+      if(!patchResp.ok) {
+        var patchErrText = await patchResp.text().catch(function(){ return ''; });
+        throw new Error('Database update failed (HTTP '+patchResp.status+'): '+patchErrText);
+      }
     } else {
       // Create new record — fill missing sections with empty objects so app doesn't break
       var emptyBOH = JSON.stringify({MANAGERS:{},PIZZA:{},KITCHEN:{},PREP:{},BUS:{},DISH:{}});
@@ -5303,7 +5317,7 @@ async function processSingle(type) {
       };
       if(evPatch) newRecord.event_data = JSON.stringify(evPatch);
 
-      await fetch(SUPABASE_URL + '/rest/v1/darien_schedules', {
+      var postResp = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -5313,6 +5327,10 @@ async function processSingle(type) {
         },
         body: JSON.stringify(newRecord)
       });
+      if(!postResp.ok) {
+        var postErrText = await postResp.text().catch(function(){ return ''; });
+        throw new Error('Database create failed (HTTP '+postResp.status+'): '+postErrText);
+      }
     }
 
     statusEl.textContent = '✓ Saved!';
