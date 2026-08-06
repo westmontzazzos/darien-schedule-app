@@ -2391,6 +2391,137 @@ function acceptErrorByIdx(idx) {
   if(!e) return;
   acceptError(e.di, e.dept, e.msg);
 }
+
+function setBouncerByIdx(idx) {
+  var e = window._currentErrorList && window._currentErrorList[idx];
+  if(!e) return;
+  var timeMatch = e.msg.match(/from\s+([\d:]+[AP]M)\s+to\s+([\d:]+[AP]M)/i);
+  var fromTime = timeMatch ? timeMatch[1] : '';
+  var toTime = timeMatch ? timeMatch[2] : '';
+
+  var overlay = document.createElement('div');
+  overlay.id = 'bouncer-modal';
+  overlay.style.cssText = 'position:fixed;inset:0;z-index:10000;background:rgba(0,0,0,0.55);display:flex;align-items:flex-end;justify-content:center;';
+  var inner = document.createElement('div');
+  inner.style.cssText = 'background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:500px;padding:20px 18px 36px;overflow-y:auto;max-height:90vh;box-sizing:border-box;';
+
+  var handle = document.createElement('div');
+  handle.style.cssText = 'width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 16px;';
+  inner.appendChild(handle);
+
+  var title = document.createElement('div');
+  title.style.cssText = 'font-family:"Bebas Neue",sans-serif;font-size:18px;letter-spacing:0.06em;color:#222;margin-bottom:4px;';
+  title.textContent = 'Set Bouncer';
+  inner.appendChild(title);
+
+  var errlbl = document.createElement('div');
+  errlbl.style.cssText = 'font-size:12px;font-weight:700;color:#8a5a00;background:#fff8ea;border:1px solid #f0d090;border-radius:8px;padding:8px 10px;margin-bottom:14px;';
+  errlbl.textContent = e.dept + ' — ' + e.msg;
+  inner.appendChild(errlbl);
+
+  var whoLbl = document.createElement('div');
+  whoLbl.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:0.06em;color:#888;margin-bottom:6px;';
+  whoLbl.textContent = 'WHO IS COVERING AS BOUNCER?';
+  inner.appendChild(whoLbl);
+
+  var whoRow = document.createElement('div');
+  whoRow.style.cssText = 'display:flex;gap:8px;margin-bottom:12px;';
+  ['Gustavo','Brett'].forEach(function(name){
+    var b = document.createElement('button');
+    b.className = 'zp-bouncer-btn';
+    b.style.cssText = 'flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;';
+    b.textContent = name;
+    b.addEventListener('click', function(){
+      document.querySelectorAll('.zp-bouncer-btn').forEach(function(x){ x.style.borderColor='#e0e0e0'; x.style.background='#fff'; });
+      b.style.borderColor = '#8a5a00'; b.style.background = '#fff8ea';
+      document.getElementById('bouncer-other-input').value = '';
+      window._bouncerName = name;
+    });
+    whoRow.appendChild(b);
+  });
+  inner.appendChild(whoRow);
+
+  var otherInp = document.createElement('input');
+  otherInp.id = 'bouncer-other-input';
+  otherInp.type = 'text';
+  otherInp.placeholder = 'Or type someone else\'s name...';
+  otherInp.style.cssText = 'width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:8px;font-size:15px;margin-bottom:16px;box-sizing:border-box;';
+  otherInp.addEventListener('input', function(){
+    if(otherInp.value.trim()) {
+      document.querySelectorAll('.zp-bouncer-btn').forEach(function(x){ x.style.borderColor='#e0e0e0'; x.style.background='#fff'; });
+      window._bouncerName = otherInp.value.trim();
+    }
+  });
+  inner.appendChild(otherInp);
+
+  var btnRow = document.createElement('div');
+  btnRow.style.cssText = 'display:flex;gap:10px;';
+  var cancelBtn = document.createElement('button');
+  cancelBtn.style.cssText = 'flex:1;padding:13px;background:#f0efed;color:#333;border:none;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.onclick = function(){ document.body.removeChild(overlay); window._bouncerName = null; };
+  var okBtn = document.createElement('button');
+  okBtn.style.cssText = 'flex:1;padding:13px;background:#8a5a00;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;';
+  okBtn.textContent = 'CONFIRM';
+  okBtn.onclick = function(){ confirmBouncer(e.di, e.dept, e.msg, fromTime, toTime, overlay); };
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(okBtn);
+  inner.appendChild(btnRow);
+
+  overlay.appendChild(inner);
+  overlay.addEventListener('click', function(ev){ if(ev.target===overlay){ document.body.removeChild(overlay); window._bouncerName = null; } });
+  document.body.appendChild(overlay);
+  window._bouncerName = null;
+}
+
+function confirmBouncer(di, dept, msg, fromTime, toTime, overlay) {
+  var name = window._bouncerName || (document.getElementById('bouncer-other-input')||{}).value;
+  name = name ? String(name).trim() : '';
+  if(!name) { alert('Please pick or type who is covering as bouncer.'); return; }
+  document.body.removeChild(overlay);
+
+  var weekRecord = window.allWeeks && window.allWeeks[window.currentWeekIdx];
+  var weekKey = (function(){ var elx = (document.getElementById('sched-week-label')||{}).textContent||''; return elx.replace(/–/g,'-').replace(/—/g,'-'); })();
+  var DAYS_FULL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+
+  // Suppress this exact gap error, same mechanism as a normal override
+  if(!window._bypassedErrors) window._bypassedErrors = {};
+  window._bypassedErrors[di+'|'+dept+'|'+msg] = true;
+  fetch(SUPABASE_URL + '/rest/v1/darien_schedule_bypasses', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'},
+    body: JSON.stringify([{week_label:weekKey, day_index:di, dept:dept, msg:msg}])
+  }).catch(function(e){ console.log('Bypass save failed:',e.message); });
+
+  // Log it distinctly so it's clear in the Schedule Log this was covered by a bouncer, not overridden
+  fetch(SUPABASE_URL + '/rest/v1/darien_override_log', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+    body: JSON.stringify([{
+      week_label: weekKey, day_index: di, day_name: DAYS_FULL[di]||'', dept: dept, msg: msg,
+      who: getCurrentUser(), ack_type: 'bouncer', logged_at: new Date().toISOString(),
+      note: 'Covered by Bouncer: ' + name
+    }])
+  }).catch(function(e){ console.log('Log save failed:',e.message); });
+
+  // Add to this week's bouncer_data so it shows on the Run Sheet, then save it
+  if(weekRecord) {
+    var bd = {};
+    try { bd = weekRecord.bouncer_data ? JSON.parse(weekRecord.bouncer_data) : {}; } catch(ex) { bd = {}; }
+    if(!bd[di]) bd[di] = [];
+    bd[di].push({name: name, dept: dept, from: fromTime, to: toTime});
+    weekRecord.bouncer_data = JSON.stringify(bd);
+    fetch(SUPABASE_URL + '/rest/v1/darien_schedules?id=eq.' + weekRecord.id, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+      body: JSON.stringify({bouncer_data: weekRecord.bouncer_data})
+    }).catch(function(e){ console.log('Bouncer save failed:',e.message); });
+  }
+
+  checkScheduleErrors();
+  renderAcceptedErrors();
+  if(typeof renderRunSheet === 'function' && typeof di === 'number') renderRunSheet(di);
+}
 function acceptError(di, dept, msg) {
   var weekKey = (function(){ var el = (document.getElementById('sched-week-label')||{}).textContent||''; if(!el && window.allWeeks && window.allWeeks[window.currentWeekIdx]) { var ws = window.allWeeks[window.currentWeekIdx].week_start; var d = new Date(ws+'T12:00:00'); var days=['Sun','Mon','Tue','Wed','Thu','Fri','Sat']; var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']; el = 'Week of '+months[d.getMonth()]+' '+d.getDate()+'-'+(d.getDate()+6)+', '+d.getFullYear(); } return el.replace(/–/g,'-').replace(/—/g,'-'); })();
   var overlay = document.createElement('div');
@@ -2425,7 +2556,7 @@ function acceptError(di, dept, msg) {
   // Who buttons
   var whoRow = document.createElement('div');
   whoRow.style.cssText = 'display:flex;gap:8px;margin-bottom:14px;';
-  ['Selena','Alex','Ely'].forEach(function(name){
+  ['Mike','Chelsea','Jeremy','Brett'].forEach(function(name){
     var b = document.createElement('button');
     b.className = 'zp-who-btn';
     b.style.cssText = 'flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;';
@@ -2715,6 +2846,15 @@ function renderRunSheet(di) {
   const managers = getBOHSection(MANAGERS, di);
   const busdish  = [...getBOHSection(BUS, di), ...getBOHSection(DISH, di)];
 
+  // Bouncer(s) assigned to cover a Pizza/Kitchen coverage gap this day, if any
+  const bouncers = (function(){
+    var wr = window.allWeeks && window.allWeeks[window.currentWeekIdx];
+    if(!wr || !wr.bouncer_data) return [];
+    var bd; try { bd = JSON.parse(wr.bouncer_data); } catch(ex) { return []; }
+    var list = bd[di] || bd[String(di)] || [];
+    return list.map(function(b){ return {n:b.name, a:b.from||'', p:b.to||'As needed'}; });
+  })();
+
   function sec(title, data, max) {
     const rows = data.slice(0,max);
     let tbody = rows.length === 0
@@ -2741,6 +2881,7 @@ function renderRunSheet(di) {
     <div class="rs-grid">
       ${sec('Managers',      managers, 4)}
       ${sec('Pizza',         pizza, 9)}
+      ${bouncers.length ? sec('Bouncer (Pizza/Kitchen Coverage)', bouncers, 3) : ''}
       ${sec('Kitchen',       kitchen, 5)}
       ${sec('Prep / Utility',prep, 3)}
       ${sec('Bus / Dish',    busdish, 4)}
@@ -2756,7 +2897,7 @@ function renderRunSheet(di) {
 
   // Update staff count in header
   var totalStaff = drivers.length + servers.length + bars.length + hosts.length + cashiers.length +
-    pizza.length + kitchen.length + prep.length + managers.length + busdish.length;
+    pizza.length + kitchen.length + prep.length + managers.length + busdish.length + bouncers.length;
   var countEl = document.getElementById('rs-staff-count');
   if(countEl) countEl.textContent = totalStaff + ' staff scheduled';
 
@@ -4288,7 +4429,7 @@ async function loadAllWeeks() {
   }, 8000);
 
   try {
-    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?order=week_start.desc&limit=10&select=id,week_start,boh_data,foh_data,driver_data,event_data', {
+    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?order=week_start.desc&limit=10&select=id,week_start,boh_data,foh_data,driver_data,event_data,bouncer_data', {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
     });
     clearTimeout(timeoutId);
@@ -4367,7 +4508,7 @@ async function refreshData() {
   var savedTab = currentTab;
   var savedWeekIdx = currentWeekIdx;
   try {
-    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?order=week_start.desc&limit=10&select=id,week_start,boh_data,foh_data,driver_data,event_data', {
+    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?order=week_start.desc&limit=10&select=id,week_start,boh_data,foh_data,driver_data,event_data,bouncer_data', {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
     });
     if(r.ok) {
@@ -5199,6 +5340,10 @@ function checkScheduleErrors() {
       }
       h += '<button onclick="event.stopPropagation();acceptErrorByIdx('+errIdx+');" '
          + 'style="flex:1;padding:9px 6px;background:#f0efed;color:#555;border:none;border-radius:8px;font-family:\'Bebas Neue\',sans-serif;font-size:13px;letter-spacing:0.05em;cursor:pointer;">⚠️ OVERRIDE RULE</button>';
+      if(e.msg && e.msg.indexOf('Gap in') === 0) {
+        h += '<button onclick="event.stopPropagation();setBouncerByIdx('+errIdx+');" '
+           + 'style="flex:1;padding:9px 6px;background:#fff3e0;color:#8a5a00;border:none;border-radius:8px;font-family:\'Bebas Neue\',sans-serif;font-size:13px;letter-spacing:0.05em;cursor:pointer;">🎯 SET BOUNCER</button>';
+      }
       h += '</div>';
       h += '</div>';
     });
