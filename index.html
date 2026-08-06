@@ -4911,7 +4911,7 @@ function checkScheduleErrors() {
       });
     }
     var gapFound = false;
-    for(var h=9; h<storeClose && !gapFound; h+=0.5) {
+    for(var h=9; h<kpClose && !gapFound; h+=0.5) {
       if(!hasCoverageAt(pizzaParsed, h) || !hasCoverageAt(kitchenParsed, h)) gapFound = true;
     }
     if(gapFound)
