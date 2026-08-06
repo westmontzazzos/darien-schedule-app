@@ -5162,6 +5162,11 @@ function checkScheduleErrors() {
             if(!raw) return;
             var rs = String(raw).trim();
             if(!rs || rs.toLowerCase()==='x') return;
+            // Only include entries that actually parse as a real shift time —
+            // excludes cross-reference labels like "Westmont", "Kitchen", "Pizza"
+            // that mean this person isn't actually working here that day.
+            var parsedCheck = parseBOHRaw ? parseBOHRaw(rs, e.di) : null;
+            if(!parsedCheck) return;
             _staffList.push({name:kv[0], raw:rs});
           });
           // Sort by start time
