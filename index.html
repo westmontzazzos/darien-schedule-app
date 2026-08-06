@@ -6183,13 +6183,7 @@ function showDomsAckModal(note) {
   var dismissCount = parseInt(localStorage.getItem('zp_doms_dismiss_count') || '0');
   var btnContainer = document.getElementById('doms-ack-buttons');
   btnContainer.innerHTML = '';
-  if(user === 'Alex') {
-    var cb = document.createElement('button');
-    cb.textContent = 'Clear';
-    cb.style.cssText = 'flex:1;padding:12px;background:#f0efed;color:#333;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;';
-    cb.onclick = function(){ modal.style.display='none'; };
-    btnContainer.appendChild(cb);
-  } else {
+  {
     var pb = document.createElement('button');
     pb.textContent = 'Print';
     pb.style.cssText = 'flex:1;padding:12px;background:#222;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;';
@@ -6377,7 +6371,7 @@ function printSchedSection(range) {
 <script>
 function checkOutstandingErrors() {
   // Don't show if main error modal is already visible
-  var errModal = document.getElementById('error-modal');
+  var errModal = document.getElementById('sched-error-modal');
   if(errModal && errModal.style.display !== 'none') return;
   // Only show to the person who uploaded (stored in localStorage)
   var uploader = localStorage.getItem('zp_last_uploader');
