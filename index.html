@@ -1131,7 +1131,7 @@ document.addEventListener("DOMContentLoaded",function(){
       <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
         Kitchen &amp; Pizza close <b>1 hour before</b> store close (10PM Sun–Thu, 11PM Fri–Sat)<br>
         Each section: opener by 9AM · 1 closer (C) required, staying until Kitchen/Pizza close<br>
-        <b>Minimum working 4–8PM:</b> Mon–Thu 2 Pizza / 2 Kitchen · Fri 6 Pizza / 3 Kitchen · Sat 5 Pizza / 3 Kitchen · Sun 4 Pizza / 2 Kitchen<br>
+        <b>Minimum working 4–8PM:</b> Mon–Thu 2 Pizza / 2 Kitchen · Fri 6 Pizza / 2 Kitchen · Sat 5 Pizza / 2 Kitchen · Sun 4 Pizza / 2 Kitchen<br>
         <b>Baseline coverage:</b> at least 1 Pizza + 1 Kitchen person on at all times the store is open — no gaps
       </div>
     </div>
@@ -1191,9 +1191,9 @@ document.addEventListener("DOMContentLoaded",function(){
         <b>Morning:</b> Mon–Thu 1 driver by 10:30AM · Fri–Sun 2 drivers by 10:30AM<br>
         1 closer (C) required, every day<br>
         <b>Mon–Thu:</b> at least 3 drivers at night — 2nd in by 4PM, all 3 in by 5:30PM<br>
-        <b>Fri:</b> at least 6 drivers — 2nd in by 4PM, all in by 5PM<br>
-        <b>Sat:</b> at least 5 drivers — 2nd in by 4PM, all in by 5PM<br>
-        <b>Sun:</b> at least 5 drivers (2 morning drivers hold over) — 3rd in by 4PM, all 5 in by 5PM
+        <b>Fri:</b> at least 6 drivers — 2nd in by 4PM, all in by 5:30PM<br>
+        <b>Sat:</b> at least 5 drivers — 2nd in by 4PM, all in by 5:30PM<br>
+        <b>Sun:</b> at least 5 drivers (2 morning drivers hold over) — 3rd in by 4PM, all 5 in by 5:30PM
       </div>
     </div>
 
@@ -5048,8 +5048,8 @@ function checkScheduleErrors() {
     var pizzaPM = pmOverlapCount(pizzaParsed), kitchenPM = pmOverlapCount(kitchenParsed);
     var pizzaMin, kitchenMin;
     if(di<=3)      { pizzaMin=2; kitchenMin=2; }
-    else if(di===4){ pizzaMin=6; kitchenMin=3; }
-    else if(di===5){ pizzaMin=5; kitchenMin=3; }
+    else if(di===4){ pizzaMin=6; kitchenMin=2; }
+    else if(di===5){ pizzaMin=5; kitchenMin=2; }
     else           { pizzaMin=4; kitchenMin=2; } // Sunday
     if(pizzaPM < pizzaMin)
       errors.BOH.push({di:di, day:day, name:'—', dept:'Pizza', msg:'Only '+pizzaPM+' pizza cook(s) between 4-8PM — need at least '+pizzaMin});
@@ -5197,9 +5197,9 @@ function checkScheduleErrors() {
       // Night headcount minimums, staggered by day
       var totalMin, by4Min, byLastMin, lastHour;
       if(ddi<=3)      { totalMin=3; by4Min=2; lastHour=17.5; byLastMin=3; }   // Mon-Thu
-      else if(ddi===4){ totalMin=6; by4Min=2; lastHour=17;   byLastMin=6; }   // Fri
-      else if(ddi===5){ totalMin=5; by4Min=2; lastHour=17;   byLastMin=5; }   // Sat
-      else            { totalMin=5; by4Min=3; lastHour=17;   byLastMin=5; }   // Sun (2 AM drivers hold over + 1 more by 4PM)
+      else if(ddi===4){ totalMin=6; by4Min=2; lastHour=17.5; byLastMin=6; }   // Fri
+      else if(ddi===5){ totalMin=5; by4Min=2; lastHour=17.5; byLastMin=5; }   // Sat
+      else            { totalMin=5; by4Min=3; lastHour=17.5; byLastMin=5; }   // Sun (2 AM drivers hold over + 1 more by 4PM)
 
       if(totalDrivers < totalMin)
         errors.Drivers.push({di:ddi, day:dday, name:'—', dept:'Drivers', msg:'Only '+totalDrivers+' driver(s) scheduled — need at least '+totalMin});
