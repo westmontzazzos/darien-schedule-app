@@ -2396,8 +2396,8 @@ function setBouncerByIdx(idx) {
   var e = window._currentErrorList && window._currentErrorList[idx];
   if(!e) return;
   var timeMatch = e.msg.match(/from\s+([\d:]+[AP]M)\s+to\s+([\d:]+[AP]M)/i);
-  var fromTime = timeMatch ? timeMatch[1] : '';
-  var toTime = timeMatch ? timeMatch[2] : '';
+  var fromTime = timeMatch ? timeMatch[1] : (e.msg.indexOf('cook(s) between 4-8PM') !== -1 ? '4PM' : '');
+  var toTime = timeMatch ? timeMatch[2] : (e.msg.indexOf('cook(s) between 4-8PM') !== -1 ? '8PM' : '');
 
   var overlay = document.createElement('div');
   overlay.id = 'bouncer-modal';
@@ -5340,7 +5340,7 @@ function checkScheduleErrors() {
       }
       h += '<button onclick="event.stopPropagation();acceptErrorByIdx('+errIdx+');" '
          + 'style="flex:1;padding:9px 6px;background:#f0efed;color:#555;border:none;border-radius:8px;font-family:\'Bebas Neue\',sans-serif;font-size:13px;letter-spacing:0.05em;cursor:pointer;">⚠️ OVERRIDE RULE</button>';
-      if(e.msg && e.msg.indexOf('Gap in') === 0) {
+      if(e.msg && (e.msg.indexOf('Gap in') === 0 || ((e.dept==='Pizza'||e.dept==='Kitchen') && e.msg.indexOf('cook(s) between 4-8PM') !== -1))) {
         h += '<button onclick="event.stopPropagation();setBouncerByIdx('+errIdx+');" '
            + 'style="flex:1;padding:9px 6px;background:#fff3e0;color:#8a5a00;border:none;border-radius:8px;font-family:\'Bebas Neue\',sans-serif;font-size:13px;letter-spacing:0.05em;cursor:pointer;">🎯 SET BOUNCER</button>';
       }
