@@ -1519,9 +1519,11 @@ function parseBOH(raw, di) {
 
 function fmtBOH(t) {
   if(!t) return '';
-  const m = t.match(/^(\d+)(?::(\d+))?(am|pm)?$/i);
+  const m = t.match(/^(\d+)(?:[:.](\d+))?(am|pm)?$/i);
   if(!m) return '';  // not a time value (e.g. "dairy","driver","x") → reject
-  let h=parseInt(m[1]), mn=parseInt(m[2]||0);
+  let h=parseInt(m[1]);
+  let mn = 0;
+  if(m[2]) mn = m[2].length === 1 ? parseInt(m[2])*10 : parseInt(m[2]);
   const ap = m[3] ? m[3].toLowerCase() : (h>=7&&h<=11?'am':'pm');
   if(ap==='pm'&&h!==12) h+=12;
   if(ap==='am'&&h===12) h=0;
@@ -1591,9 +1593,11 @@ const KNOWN_FOH = {
 function fmtFOH(t, di, isClose) {
   if(!t) return '';
   if(isClose) return 'C';
-  const m = t.match(/^(\d+)(?::(\d+))?(am|pm)?$/i);
+  const m = t.match(/^(\d+)(?:[:.](\d+))?(am|pm)?$/i);
   if(!m) return '';  // not a time value (e.g. "PHONES","PARTY") → reject
-  let h=parseInt(m[1]), mn=parseInt(m[2]||0);
+  let h=parseInt(m[1]);
+  let mn = 0;
+  if(m[2]) mn = m[2].length === 1 ? parseInt(m[2])*10 : parseInt(m[2]);
   const ap = m[3] ? m[3].toLowerCase() : (h>=7&&h<=11?'am':'pm');
   if(ap==='pm'&&h!==12) h+=12;
   if(ap==='am'&&h===12) h=0;
@@ -3285,9 +3289,15 @@ function hitlistHour(t, di) {
   var s = String(t).trim().toLowerCase();
   if(s === '') return null;
   if(s === 'c' || s === 'cl' || s === 'close') return (di===4||di===5) ? 23.25 : 22.25;
-  var m = s.match(/^(\d+)(?::(\d+))?\s*(am|pm)?$/);
+  // Accept both colon ("10:30am") and period shorthand ("10.3am" meaning 10:30am,
+  // as actually used on Darien's real schedules) as minute separators. A single
+  // digit after the separator is treated as tens-of-minutes (".3" = 30 min);
+  // two digits are used as literal minutes (".30" = 30 min, ".15" = 15 min).
+  var m = s.match(/^(\d+)(?:[:.](\d+))?\s*(am|pm)?$/);
   if(!m) return null;
-  var h = parseInt(m[1],10), mn = parseInt(m[2]||0,10);
+  var h = parseInt(m[1],10);
+  var mn = 0;
+  if(m[2]) mn = m[2].length === 1 ? parseInt(m[2],10) * 10 : parseInt(m[2],10);
   var ap = m[3] ? m[3] : (h>=7 && h<=11 ? 'am' : 'pm');
   if(ap === 'pm' && h !== 12) h += 12;
   if(ap === 'am' && h === 12) h = 0;
