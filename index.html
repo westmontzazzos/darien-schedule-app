@@ -5154,28 +5154,35 @@ function checkScheduleErrors() {
       h += '<div style="font-size:11px;color:#aaa;margin-bottom:10px;">'+dayLabel+' · '+e.dept+(e.name&&e.name!=='—'?' · '+e.name:'')+'</div>';
       // Staff time list for count-based errors
       if(e.di !== undefined && e.msg && (e.msg.indexOf('Only') === 0 || e.msg.indexOf('need at least') !== -1)) {
-        var _sectionObj = {Kitchen:KITCHEN,Pizza:PIZZA,Prep:PREP,Bus:BUS,Dish:DISH,Servers:SERVERS,Bartenders:BARTENDERS,Cashiers:CASHIERS,Hosts:HOSTS}[e.dept];
+        var _bohDepts = {Kitchen:KITCHEN,Pizza:PIZZA,Prep:PREP,Bus:BUS,Dish:DISH,Managers:MANAGERS,Drivers:DRIVERS};
+        var _fohDepts = {Servers:SERVERS,Bartenders:BARTENDERS,Cashiers:CASHIERS,Hosts:HOSTS};
+        var _sectionObj = _bohDepts[e.dept] || _fohDepts[e.dept];
+        var _isFOHDept = !!_fohDepts[e.dept];
         if(_sectionObj) {
           var _staffList = [];
           Object.entries(_sectionObj).forEach(function(kv) {
             var raw = kv[1][e.di];
             if(!raw) return;
-            var rs = String(raw).trim();
-            if(!rs || rs.toLowerCase()==='x') return;
-            // Only include entries that actually parse as a real shift time —
-            // excludes cross-reference labels like "Westmont", "Kitchen", "Pizza"
-            // that mean this person isn't actually working here that day.
-            var parsedCheck = parseBOHRaw ? parseBOHRaw(rs, e.di) : null;
-            if(!parsedCheck) return;
-            _staffList.push({name:kv[0], raw:rs});
+            if(_isFOHDept) {
+              // FOH sections store [start,end] arrays, not plain strings
+              var pf = parseFOHRaw(raw);
+              if(!pf) return;
+              var stH = hitlistHour(pf.st, e.di);
+              if(stH === null) return;
+              var display = String(pf.st).trim() + (pf.hasClose ? '-C' : (pf.hasEnd ? '-'+String(pf.en).trim() : ''));
+              _staffList.push({name:kv[0], raw:display, sortH:stH});
+            } else {
+              var rs = String(raw).trim();
+              if(!rs || rs.toLowerCase()==='x') return;
+              // Only include entries that actually parse as a real shift time —
+              // excludes cross-reference labels like "Westmont", "Kitchen", "Pizza"
+              // that mean this person isn't actually working here that day.
+              var pb = parseBOHRaw(rs, e.di);
+              if(!pb) return;
+              _staffList.push({name:kv[0], raw:rs, sortH:pb.st});
+            }
           });
-          // Sort by start time
-          _staffList.sort(function(a,b){
-            var pa = parseBOHRaw ? parseBOHRaw(a.raw,e.di) : null;
-            var pb = parseBOHRaw ? parseBOHRaw(b.raw,e.di) : null;
-            var sa = pa ? pa.st : 99, sb = pb ? pb.st : 99;
-            return sa - sb;
-          });
+          _staffList.sort(function(a,b){ return a.sortH - b.sortH; });
           if(_staffList.length) {
             h += '<div style="font-size:11px;color:#666;margin-bottom:8px;line-height:1.8;">';
             _staffList.forEach(function(s){ h += s.raw+' — '+s.name+'<br>'; });
