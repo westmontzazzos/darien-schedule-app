@@ -1770,12 +1770,22 @@ function printRunSheet() {
   var cashiers = getFOHSection(CASHIERS, di);
   var drivers  = getDriversForDay(di).map(function(d){ return {n:d.name, a:d.am, p:d.pm}; });
 
+  // Bouncer(s) covering a Pizza/Kitchen coverage gap this day, if any —
+  // same source as the on-screen run sheet (window.allWeeks[...].bouncer_data).
+  var bouncers = (function(){
+    var wr = window.allWeeks && window.allWeeks[window.currentWeekIdx];
+    if(!wr || !wr.bouncer_data) return [];
+    var bd; try { bd = JSON.parse(wr.bouncer_data); } catch(ex) { return []; }
+    var list = bd[di] || bd[String(di)] || [];
+    return list.map(function(b){ return {n:b.name, a:b.from||'', p:b.to||'As needed'}; });
+  })();
+
   // Option B: every section reserves its MAX height. Blank rows fill any
   // remainder so the sheet looks identical every day regardless of headcount.
   // If a section ever exceeds its max, the extras still print (a name is
   // never dropped) — that one section just grows a little that day.
   var MAX = {
-    'Managers':4, 'Pizza':9, 'Kitchen':5, 'Prep / Utility':3, 'Bus / Dish':4,
+    'Managers':4, 'Pizza':9, 'Bouncer (Pizza/Kitchen Coverage)':3, 'Kitchen':5, 'Prep / Utility':3, 'Bus / Dish':4,
     'Host':3, 'Servers':11, 'Bartenders':3, 'Cashiers':5, 'Drivers':10
   };
 
@@ -1784,11 +1794,14 @@ function printRunSheet() {
   // never comes into play.
   var leftCol = [
     ['Managers',       managers],
-    ['Pizza',          pizza],
+    ['Pizza',          pizza]
+  ];
+  if(bouncers.length) leftCol.push(['Bouncer (Pizza/Kitchen Coverage)', bouncers]);
+  leftCol.push(
     ['Kitchen',        kitchen],
     ['Prep / Utility', prep],
     ['Bus / Dish',     busdish]
-  ];
+  );
   var rightCol = [
     ['Host',       hosts],
     ['Servers',    servers],
