@@ -1231,6 +1231,7 @@ document.addEventListener("DOMContentLoaded",function(){
     </div>
 
     <div style="text-align:right;margin-bottom:8px;">
+      <a href="#" onclick="switchUser();return false;" style="font-size:11px;color:var(--gray-400);text-decoration:underline;margin-right:12px;">Switch User</a>
       <a href="#" onclick="resetAnthropicKey();return false;" style="font-size:11px;color:var(--gray-400);text-decoration:underline;">Reset AI Key</a>
     </div>
 
@@ -4871,6 +4872,14 @@ function applyWeek(idx) {
 }
 
 // DOM'S NOTES
+async function switchUser() {
+  var pin = await askPin('Enter PIN to switch user');
+  if(pin === null) return;
+  if(String(pin).trim() !== '9608') { alert('Incorrect PIN.'); return; }
+  localStorage.removeItem('zp_user_name');
+  location.reload();
+}
+
 function resetAnthropicKey() {
   if(!confirm('Clear the stored AI key on this device and enter a new one?')) return;
   localStorage.removeItem('zp_anthropic_key');
