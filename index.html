@@ -1241,9 +1241,13 @@ document.addEventListener("DOMContentLoaded",function(){
       </div>
     </div>
 
+    <div id="upload-restricted-note" style="display:none;background:#fff8ea;border:1px solid #f0d090;border-radius:8px;padding:10px 14px;font-size:12px;color:#8a5a00;margin-bottom:12px;">
+      Your account only has access to upload one schedule section below.
+    </div>
+
     <div style="display:grid;gap:12px;margin-bottom:16px;">
       <!-- BOH Upload -->
-      <div class="card">
+      <div class="card" id="boh-upload-card">
         <div class="card-header">1 — Back of House Schedule</div>
         <div style="padding:16px;">
           <div id="boh-preview" style="display:none;margin-bottom:10px;"><img id="boh-img" style="width:100%;border-radius:6px;max-height:200px;object-fit:cover;"></div>
@@ -1257,7 +1261,7 @@ document.addEventListener("DOMContentLoaded",function(){
       </div>
 
       <!-- FOH Upload -->
-      <div class="card">
+      <div class="card" id="foh-upload-card">
         <div class="card-header">2 — Front of House Schedule</div>
         <div style="padding:16px;">
           <div id="foh-preview" style="display:none;margin-bottom:10px;"><img id="foh-img" style="width:100%;border-radius:6px;max-height:200px;object-fit:cover;"></div>
@@ -1271,7 +1275,7 @@ document.addEventListener("DOMContentLoaded",function(){
       </div>
 
       <!-- Cashier Upload (separate from FOH) -->
-      <div class="card">
+      <div class="card" id="csh-upload-card">
         <div class="card-header">3 — Cashier Schedule</div>
         <div style="padding:16px;">
           <div id="csh-preview" style="display:none;margin-bottom:10px;"><img id="csh-img" style="width:100%;border-radius:6px;max-height:200px;object-fit:cover;"></div>
@@ -1285,7 +1289,7 @@ document.addEventListener("DOMContentLoaded",function(){
       </div>
 
       <!-- Driver Upload -->
-      <div class="card">
+      <div class="card" id="drv-upload-card">
         <div class="card-header">4 — Driver Schedule</div>
         <div style="padding:16px;">
           <div id="drv-preview" style="display:none;margin-bottom:10px;"><img id="drv-img" style="width:100%;border-radius:6px;max-height:200px;object-fit:cover;"></div>
@@ -1299,7 +1303,7 @@ document.addEventListener("DOMContentLoaded",function(){
       </div>
     </div>
 
-    <button class="btn btn-secondary" style="width:100%;" onclick="processSchedules()">
+    <button class="btn btn-secondary" id="save-all-btn" style="width:100%;" onclick="processSchedules()">
       ⚡ Save All Four At Once
     </button>
     <div id="process-status" style="margin-top:16px;"></div>
@@ -3140,6 +3144,7 @@ function checkAppLock() {
       if(modal) modal.style.display='flex';
     } else {
       setTimeout(checkDomsNotes, 500);
+      applyUploadPermissions();
     }
   } else {
     document.getElementById('app-lock-error').style.display='block';
@@ -3161,6 +3166,7 @@ function setIdentity(name) {
   var modal = document.getElementById('identity-modal');
   if(modal) modal.style.display='none';
   setTimeout(checkDomsNotes, 500);
+  applyUploadPermissions();
 }
 
 function getCurrentUser() {
@@ -5492,6 +5498,39 @@ function printScheduleErrors() {
 
 var uploadedImages = {boh: null, foh: null, csh: null, drv: null};
 
+// Upload permissions: who can save which schedule sections. Anyone NOT listed
+// here (Mike, Ely, Brett, custom names) has unrestricted access by default —
+// only Jeremy and Chelsea are locked to a single section.
+var UPLOAD_PERMISSIONS = {
+  'Jeremy': ['drv'],
+  'Chelsea': ['csh']
+};
+function canUploadType(type) {
+  var user = getCurrentUser();
+  var allowed = UPLOAD_PERMISSIONS[user];
+  if(!allowed) return true; // unrestricted
+  return allowed.indexOf(type) !== -1;
+}
+function typeLabelFor(type) {
+  return type==='boh' ? 'Back of House' : type==='foh' ? 'Front of House' : type==='csh' ? 'Cashiers' : 'Drivers';
+}
+// Shows/hides upload cards on the Update tab based on the current user's permissions.
+// Called whenever the Update tab unlocks and whenever identity changes.
+function applyUploadPermissions() {
+  var user = getCurrentUser();
+  var allowed = UPLOAD_PERMISSIONS[user]; // undefined = unrestricted
+  ['boh','foh','csh','drv'].forEach(function(type){
+    var card = document.getElementById(type+'-upload-card');
+    if(!card) return;
+    var permitted = !allowed || allowed.indexOf(type) !== -1;
+    card.style.display = permitted ? '' : 'none';
+  });
+  var saveAllBtn = document.getElementById('save-all-btn');
+  if(saveAllBtn) saveAllBtn.style.display = allowed ? 'none' : '';
+  var restrictedNote = document.getElementById('upload-restricted-note');
+  if(restrictedNote) restrictedNote.style.display = allowed ? 'block' : 'none';
+}
+
 function previewImage(type) {
   var input = document.getElementById(type+'-file');
   var file = input.files[0];
@@ -5510,6 +5549,10 @@ function previewImage(type) {
 }
 
 async function processSingle(type) {
+  if(!canUploadType(type)) {
+    alert('Your account does not have permission to upload ' + typeLabelFor(type) + ' schedules.');
+    return;
+  }
   var weekStart = snapToMonday(document.getElementById('week-start').value);
   if(!weekStart) { alert('Please select a week start date first.'); return; }
   if(!uploadedImages[type]) { alert('Please upload a photo first.'); return; }
@@ -5700,6 +5743,10 @@ async function getWeekRecord(weekStart) {
 }
 
 async function processSchedules() {
+  if(UPLOAD_PERMISSIONS[getCurrentUser()]) {
+    alert('Your account only has permission to upload one schedule section. Use the individual save button for that section instead.');
+    return;
+  }
   var weekStart = snapToMonday(document.getElementById('week-start').value);
   if(!weekStart) { alert('Please select a week start date.'); return; }
   if(!uploadedImages.boh || !uploadedImages.foh || !uploadedImages.csh || !uploadedImages.drv) {
@@ -6239,6 +6286,7 @@ function handleLockIconTap() {
     if(lockEl) lockEl.style.display = 'none';
     if(contentEl) contentEl.style.display = 'block';
     renderAcceptedErrors();
+    applyUploadPermissions();
   }
 }
 </script>
