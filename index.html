@@ -1161,7 +1161,7 @@ document.addEventListener("DOMContentLoaded",function(){
     <div class="card">
       <div class="card-header">🍽️ Server Rules</div>
       <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
-        2 servers, both starting between 4–5PM<br>
+        2 servers clocked in by 5PM<br>
         Non-closer: out at 8PM · Closer (C): stays until store close
       </div>
     </div>
@@ -4991,14 +4991,14 @@ function checkScheduleErrors() {
         errors.FOH.push({di:di, day:day, name:'—', dept:'Bartenders', msg:'No closing bartender (nobody with 5-C)'});
     }
 
-    // ---------- Servers: 2 servers starting 4-5PM; non-closer out at 8PM; closer to store close ----------
+    // ---------- Servers: 2 servers clocked in by 5PM; non-closer out at 8PM; closer to store close ----------
     var serverShifts = Object.entries(SERVERS).map(function(e){ return {n:e[0], p:parseFOHRaw(e[1][di])}; }).filter(function(x){ return x.p; });
     if(serverShifts.length){
-      var serverStartWindowCount = serverShifts.filter(function(x){
-        var stH = hitlistHour(x.p.st, di); return stH!==null && stH>=16 && stH<=17;
+      var serverByFivePM = serverShifts.filter(function(x){
+        var stH = hitlistHour(x.p.st, di); return stH!==null && stH<=17;
       }).length;
-      if(serverStartWindowCount < 2)
-        errors.FOH.push({di:di, day:day, name:'—', dept:'Servers', msg:'Only '+serverStartWindowCount+' server(s) starting between 4-5PM — need at least 2'});
+      if(serverByFivePM < 2)
+        errors.FOH.push({di:di, day:day, name:'—', dept:'Servers', msg:'Only '+serverByFivePM+' server(s) clocked in by 5PM — need at least 2'});
       if(!serverShifts.some(function(x){ return x.p.hasClose; }))
         errors.FOH.push({di:di, day:day, name:'—', dept:'Servers', msg:'No server closer (nobody with C)'});
     }
