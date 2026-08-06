@@ -1087,7 +1087,7 @@ document.addEventListener("DOMContentLoaded",function(){
     <button class="sub-btn" onclick="switchSched('boh',this)">Back of House</button>
     <button class="sub-btn" onclick="showSchedPrintMenu(this)">🖨 Print</button>
     <button class="sub-btn" onclick="showOverrideLog(this)" style="margin-left:auto;">📋 Schedule Log</button>
-    <button class="sub-btn" onclick="showDomsNotes()" style="margin-left:6px;">📝 Dom's Notes</button>
+    <button class="sub-btn" onclick="showDomsNotes()" style="margin-left:6px;">📝 Mike's Notes</button>
   </div>
   <div class="sched-wrap" id="schedule-content"></div>
   <!-- Schedule Log Modal -->
@@ -1169,86 +1169,82 @@ document.addEventListener("DOMContentLoaded",function(){
   <div style="display:grid;gap:14px;margin-bottom:24px;">
 
     <div class="card">
-      <div class="card-header">🍕 Pizza Cook Rules</div>
+      <div class="card-header">🕐 Store Hours</div>
       <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
-        <b>All days:</b> Must have opener (by 9AM) · Must have closer (C)<br>
-        <b>Mon–Thu:</b> Minimum 2 cooks · At least 2 working between 4–8PM<br>
-        <b>Fri–Sat:</b> Minimum 6 cooks<br>
-        <b>AM shifts</b> must have an end time<br>
-        <b>PM shifts</b> with no end time default to 8PM
+        Open 9AM daily<br>
+        <b>Sun–Thu:</b> Close 11PM<br>
+        <b>Fri–Sat:</b> Close Midnight
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header">🔪 Kitchen Cook Rules</div>
+      <div class="card-header">🍕 Pizza & 🔪 Kitchen Rules</div>
       <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
-        <b>All days:</b> Must have opener (by 9AM) · Must have closer (C)<br>
-        <b>Sun–Thu:</b> Minimum 2 cooks · At least 2 working between 4–8PM<br>
-        <b>Fri–Sat:</b> Minimum 3 cooks · At least 2 working between 4–8PM<br>
-        <b>AM shifts</b> must have an end time<br>
-        <b>PM shifts</b> with no end time default to 8PM
+        Kitchen &amp; Pizza close <b>1 hour before</b> store close (10PM Sun–Thu, 11PM Fri–Sat)<br>
+        Each section: opener by 9AM · 1 closer (C) required, staying until Kitchen/Pizza close<br>
+        <b>Minimum working 4–8PM:</b> Mon–Thu 2 Pizza / 2 Kitchen · Fri 6 Pizza / 3 Kitchen · Sat 5 Pizza / 3 Kitchen · Sun 4 Pizza / 2 Kitchen<br>
+        <b>Baseline coverage:</b> at least 1 Pizza + 1 Kitchen person on at all times the store is open — no gaps
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header">🧹 Prep Rules</div>
+      <div class="card-header">🍽️ Dish Rules</div>
       <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
-        Must have opener (by 9AM)<br>
-        AM shifts must have an end time
+        1 dish person covering 4PM until store close, every day<br>
+        Must have a closer (C)
       </div>
     </div>
 
     <div class="card">
-      <div class="card-header">🍽️ Bus / Dish Rules</div>
+      <div class="card-header">👔 Management Rules</div>
       <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
-        Dish must have a closer (C)<br>
-        AM shifts must have an end time
+        1 opening manager (by 9AM) · 1 closing manager (variable start, stays until store close)<br>
+        Scheduled before 9AM is flagged as informational only — not a violation (e.g. early call-in for a large order)
       </div>
     </div>
 
     <div class="card">
       <div class="card-header">🍸 Bartender Rules</div>
       <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
-        Must have opener at or before 10:30AM<br>
-        Must have closer (C)<br>
-        AM shifts must have an end time
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">💵 Cashier Rules</div>
-      <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
-        Must have opener before 11AM<br>
-        <b>Mon–Thu:</b> Minimum 1 cashier scheduled<br>
-        <b>Fri–Sat:</b> Minimum 3 cashiers working between 4–8PM<br>
-        AM shifts must have an end time
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header">🪑 Host Rules</div>
-      <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
-        Must have 1 host on: Mon, Tue, Wed, Fri, Sat, Sun<br>
-        (Thursday is off — no host required)<br>
-        If an AM host shift exists, it must have an end time
+        Opener: 9AM–5PM<br>
+        Closer: 5PM until store close, marked <b>5-C</b>
       </div>
     </div>
 
     <div class="card">
       <div class="card-header">🍽️ Server Rules</div>
       <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
-        Must have closer (C) any day servers are scheduled<br>
-        <b>Fri &amp; Sat:</b> Minimum 5 servers starting 3:30PM or later<br>
-        <b>Sunday:</b> Minimum 4 servers starting 3:30PM or later<br>
-        AM shifts must have an end time
+        2 servers, both starting between 4–5PM<br>
+        Non-closer: out at 8PM · Closer (C): stays until store close
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">🪑 Host Rules</div>
+      <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
+        Fri &amp; Sat only, 4PM–8PM
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">💵 Cashier Rules</div>
+      <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
+        <b>Sun:</b> 3 cashiers · opener by 11:30AM (only day with an opener)<br>
+        <b>Fri:</b> 3 cashiers, all in by 4PM &nbsp;·&nbsp; <b>Sat:</b> 2 cashiers, all in by 4PM<br>
+        <b>Mon–Thu:</b> 1 cashier, in by 4PM<br>
+        No cashier starts later than 4PM, any day · everyone ends at 8PM regardless of start time
       </div>
     </div>
 
     <div class="card">
       <div class="card-header">🚗 Driver Rules</div>
       <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
-        Exactly 2 AM drivers starting before 11AM — every day<br>
-        Exactly 1 closer (C) — every day
+        <b>Morning:</b> Mon–Thu 1 driver by 10:30AM · Fri–Sun 2 drivers by 10:30AM<br>
+        1 closer (C) required, every day<br>
+        <b>Mon–Thu:</b> at least 3 drivers at night — 2nd in by 4PM, all 3 in by 5:30PM<br>
+        <b>Fri:</b> at least 6 drivers — 2nd in by 4PM, all in by 5PM<br>
+        <b>Sat:</b> at least 5 drivers — 2nd in by 4PM, all in by 5PM<br>
+        <b>Sun:</b> at least 5 drivers (2 morning drivers hold over) — 3rd in by 4PM, all 5 in by 5PM
       </div>
     </div>
 
@@ -1264,6 +1260,7 @@ document.addEventListener("DOMContentLoaded",function(){
   </div>
 </div>
 <div id="tab-update" class="main" style="display:none">
+
   <!-- Update tab lock overlay -->
   <div id="update-lock" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:60px 24px;text-align:center;">
     <div id="update-lock-icon" style="font-size:64px;margin-bottom:16px;cursor:pointer;user-select:none;-webkit-user-select:none;" onclick="handleLockIconTap()">🔒</div>
@@ -1481,77 +1478,72 @@ function parseHour(raw) {
 }
 
 // DOM'S NOTES
+// Drivers deferred — Ely will provide roster/rates separately. Left empty on purpose.
 const DRIVERS = {
-  'AJ': [null,null,null,null,null,null,null],
-  'Alex D': [null,null,null,null,null,null,null],
-  'Andrew': [null,null,null,null,null,null,null],
-  'Casandra D': [null,null,null,null,null,null,null],
-  'Greg': [null,null,null,null,null,null,null],
-  'Hector': [null,null,null,null,null,null,null],
-  'Jeff Zeggebeen': [null,null,null,null,null,null,null],
-  'Jeff Pietras': [null,null,null,null,null,null,null],
-  'Joliet Mike': [null,null,null,null,null,null,null],
-  'Julie': [null,null,null,null,null,null,null],
-  'Justin D': [null,null,null,null,null,null,null],
-  'Mike G': [null,null,null,null,null,null,null],
-  'Oscar D': [null,null,null,null,null,null,null],
-  'Rhett': [null,null,null,null,null,null,null],
-  'Rick': [null,null,null,null,null,null,null],
+  'Bill': [null,null,null,null,null,null,null],
+  'Dan': [null,null,null,null,null,null,null],
+  'Duga': [null,null,null,null,null,null,null],
+  'Emily N': [null,null,null,null,null,null,null],
+  'Josh': [null,null,null,null,null,null,null],
+  'Kris': [null,null,null,null,null,null,null],
+  'Laura': [null,null,null,null,null,null,null],
+  'Paul': [null,null,null,null,null,null,null],
+  'Todd': [null,null,null,null,null,null,null],
+  'Tony': [null,null,null,null,null,null,null],
+  'Manuel': [null,null,null,null,null,null,null],
 };
 
 // Canonical driver roster, captured now before any week's data replaces DRIVERS.
 // Used by the upload repair pass so a known driver can never be silently dropped.
 const KNOWN_DRIVER_NAMES = Object.keys(DRIVERS);
 // Aliases: short names that may appear on physical schedules → canonical key in DRIVERS
-const DRIVER_ALIASES = { 'jeff z': 'Jeff Zeggebeen', 'jeff zeggeben': 'Jeff Zeggebeen' };
-// General staff name aliases: short/alt names on the physical schedule → canonical wage-roster name
-const NAME_ALIASES = { 'alex': 'Alexis A', 'alex a': 'Alexis A' };
+const DRIVER_ALIASES = {};
+// General staff name aliases: short/typo'd spellings actually observed on Darien's real
+// printed schedules → canonical roster key used in this app.
+const NAME_ALIASES = {
+  'mike': 'Mike B',
+  'fransisco': 'Francisco',
+  'franciso': 'Francisco',
+  'aurturo': 'Arturo',
+  'gustave': 'Gustavo',
+  'jose o.': 'Jose O',
+  'dillon': 'Dillon',
+};
 
 // DOM'S NOTES
 const MANAGERS = {
-  'Alexis A': [null,null,null,null,null,null,null],
   'Brett': [null,null,null,null,null,null,null],
-  'Dom': [null,null,null,null,null,null,null],
-  'Ely': [null,null,null,null,null,null,null],
-  'Selena': [null,null,null,null,null,null,null],
+  'Chelsea': [null,null,null,null,null,null,null],
+  'Jeremy': [null,null,null,null,null,null,null],
+  'Mike B': [null,null,null,null,null,null,null],
 };
 const PIZZA = {
-  'Carlos': [null,null,null,null,null,null,null],
-  'Carlos Jr': [null,null,null,null,null,null,null],
-  'Eddie': [null,null,null,null,null,null,null],
-  'Gonzo': [null,null,null,null,null,null,null],
-  'Jesus': [null,null,null,null,null,null,null],
-  'Leo': [null,null,null,null,null,null,null],
-  'Luis': [null,null,null,null,null,null,null],
-  'Monico': [null,null,null,null,null,null,null],
-  'Soto': [null,null,null,null,null,null,null],
-  'Oscar': [null,null,null,null,null,null,null],
+  'Francisco': [null,null,null,null,null,null,null],
+  'Luis B': [null,null,null,null,null,null,null],
+  'Juan': [null,null,null,null,null,null,null],
   'Victor': [null,null,null,null,null,null,null],
+  'Junior': [null,null,null,null,null,null,null],
+  'Valente': [null,null,null,null,null,null,null],
+  'Luis': [null,null,null,null,null,null,null],
   'Arturo': [null,null,null,null,null,null,null],
   'Laura Z': [null,null,null,null,null,null,null],
+  'Gustavo': [null,null,null,null,null,null,null],
 };
 const KITCHEN = {
-  'Arturo': [null,null,null,null,null,null,null],
-  'Carlos': [null,null,null,null,null,null,null],
+  'Javier': [null,null,null,null,null,null,null],
   'Jesus': [null,null,null,null,null,null,null],
-  'Jose B': [null,null,null,null,null,null,null],
-  'Nithia Maldonado': [null,null,null,null,null,null,null],
+  'Broccoli': [null,null,null,null,null,null,null],
+  'Arturo': [null,null,null,null,null,null,null],
   'Laura Z': [null,null,null,null,null,null,null],
+  'Gustavo': [null,null,null,null,null,null,null],
 };
-const PREP = {
-  'Nick': [null,null,null,null,null,null,null],
-  'Sylvia': [null,null,null,null,null,null,null],
-};
-const BUS = {
-  'Armani': [null,null,null,null,null,null,null],
-  'Eric': [null,null,null,null,null,null,null],
-  'Marco': [null,null,null,null,null,null,null],
-};
+// Darien has no Prep or Bus sections (BOH = Pizza, Kitchen, Dish only). Left empty
+// rather than removed so the rest of the app's section-rendering code needs no rework.
+const PREP = {};
+const BUS = {};
 const DISH = {
-  'Armani': [null,null,null,null,null,null,null],
-  'Gonzalo': [null,null,null,null,null,null,null],
-  'Jaxon': [null,null,null,null,null,null,null],
-  'Marco': [null,null,null,null,null,null,null],
+  'Gabe': [null,null,null,null,null,null,null],
+  'Lorenzo': [null,null,null,null,null,null,null],
 };
 
 // Canonical BOH roster per section, captured before any week's data replaces these.
@@ -1602,51 +1594,41 @@ function getBOHSection(sectionData, di) {
 
 // DOM'S NOTES
 const SERVERS = {
-  'Abby': [null,null,null,null,null,null,null],
-  'Alexis': [null,null,null,null,null,null,null],
-  'Bridget': [null,null,null,null,null,null,null],
-  'Claudia': [null,null,null,null,null,null,null],
-  'Dorris': [null,null,null,null,null,null,null],
-  'Hannah': [null,null,null,null,null,null,null],
-  'Jaime': [null,null,null,null,null,null,null],
-  'Kelly': [null,null,null,null,null,null,null],
-  'Sio': [null,null,null,null,null,null,null],
-  'Hannah M': [null,null,null,null,null,null,null],
-  'Allie': [null,null,null,null,null,null,null],
-  'Courtney': [null,null,null,null,null,null,null],
-  'Kamini': [null,null,null,null,null,null,null],
-  'Justin': [null,null,null,null,null,null,null],
-  'Julia': [null,null,null,null,null,null,null],
+  'Abi': [null,null,null,null,null,null,null],
+  'Erika H': [null,null,null,null,null,null,null],
+  'Liz': [null,null,null,null,null,null,null],
+  'Leanne': [null,null,null,null,null,null,null],
+  'Leon': [null,null,null,null,null,null,null],
+  'Katelyn': [null,null,null,null,null,null,null],
+  'Carly': [null,null,null,null,null,null,null],
+  'Carry T': [null,null,null,null,null,null,null],
+  'Maria C': [null,null,null,null,null,null,null],
+  'Steph': [null,null,null,null,null,null,null],
 };
 const BARTENDERS = {
-  'Lindsay': [null,null,null,null,null,null,null],
-  'Brooke': [null,null,null,null,null,null,null],
-  'Cheeks': [null,null,null,null,null,null,null],
+  'Mary R': [null,null,null,null,null,null,null],
+  'Dave P': [null,null,null,null,null,null,null],
   'Danielle': [null,null,null,null,null,null,null],
-  'Jaime': [null,null,null,null,null,null,null],
-  'Mary': [null,null,null,null,null,null,null],
-  'Sio': [null,null,null,null,null,null,null],
-  'Justin': [null,null,null,null,null,null,null],
-  'Lea': [null,null,null,null,null,null,null],
+  'Erika H': [null,null,null,null,null,null,null],
+  'Carry T': [null,null,null,null,null,null,null],
+  'Steph': [null,null,null,null,null,null,null],
 };
 const CASHIERS = {
-  'Jack': [null,null,null,null,null,null,null],
-  'Natalie': [null,null,null,null,null,null,null],
-  'Sio': [null,null,null,null,null,null,null],
-  'Presley': [null,null,null,null,null,null,null],
-  'Tia': [null,null,null,null,null,null,null],
-  'Emilie': [null,null,null,null,null,null,null],
-  'Ellianna': [null,null,null,null,null,null,null],
-  'Keegan': [null,null,null,null,null,null,null],
-  'Molly': [null,null,null,null,null,null,null],
-  'Charlie': [null,null,null,null,null,null,null],
+  'Alyssa': [null,null,null,null,null,null,null],
+  'Mayra': [null,null,null,null,null,null,null],
+  'Jackson': [null,null,null,null,null,null,null],
+  'Dillon': [null,null,null,null,null,null,null],
+  'Lila': [null,null,null,null,null,null,null],
+  'Nathan': [null,null,null,null,null,null,null],
+  'Jose O': [null,null,null,null,null,null,null],
+  'Selena S': [null,null,null,null,null,null,null],
+  'Ally': [null,null,null,null,null,null,null],
+  'Maria C': [null,null,null,null,null,null,null],
+  'Laura Z': [null,null,null,null,null,null,null],
+  'Gustavo': [null,null,null,null,null,null,null],
 };
 const HOSTS = {
-  'Tia': [null,null,null,null,null,null,null],
-  'Natalie': [null,null,null,null,null,null,null],
-  'Molly': [null,null,null,null,null,null,null],
-  'Charlie': [null,null,null,null,null,null,null],
-  'Ellianna': [null,null,null,null,null,null,null],
+  'Ally': [null,null,null,null,null,null,null],
 };
 
 // Canonical FOH roster per section, captured before any week's data replaces these.
@@ -2583,7 +2565,7 @@ function zpConfirmOverride(di, dept, msg) {
   if(!window._zpOverrideWho) { alert('Please select who is overriding.'); return; }
   if(!window._zpOverrideAck) { alert('Please select an acknowledgment.'); return; }
   var pin = (document.getElementById('zp-override-pin')||{}).value;
-  if(String(pin).trim() !== '1111') {
+  if(String(pin).trim() !== '2026') {
     var pinInp = document.getElementById('zp-override-pin');
     if(pinInp){ pinInp.style.borderColor='#E31010'; pinInp.value=''; pinInp.placeholder='Incorrect PIN'; }
     return;
@@ -2725,15 +2707,14 @@ function printWageRoster() {
   }
   function subRow(lbl,ann){pb(rH+2);rect(p,M,y,PW-2*M,rH,[0.93,0.93,0.91]);text(p,M+4,y+10,lbl+' Subtotal',8,true,[0.35,0.35,0.35]);rtext(p,CA,y+10,'~$'+Math.round(ann).toLocaleString()+' / yr',8.5,true);y+=rH+3;}
   var sections=[
-    {l:'Owners',r:[['Dom',true,60000],['Ely Calero',true,100000],['Lisa Barraco',true,40000]]},
-    {l:'Managers',r:[['Alexis A',false,22],['Brett',true,10000],['Selena Gonzales',true,40292]]},
-    {l:'Pizza',r:[['Laura Z',false,19],['Arturo Viveros',false,21],['Carlos Jr',false,17.5],['Carlos Mora',false,19.25],['Eddie Cruz',false,19],['Gonzo',false,17],['Jesus Murillo',false,21],['Leo',false,17.5],['Luis Perez',false,20],['Luis Soto',false,19],['Monico Esparza',false,20],['Oscar Velazquez',false,19],['Victor Cruz',false,20.5]]},
-    {l:'Kitchen',r:[['Laura Z',false,19],['Nithia Maldonado',false,17.50],['Nicholas Urbana',false,20]]},
-    {l:'Prep / Utility',r:[['Sylvia',false,15]]},
-    {l:'Bus / Dish',r:[['Armani Finley',false,16],['Eric',false,15],['Gonzalo',false,17],['Jaxon',false,15],['Marco Sanchez',false,16]]},
-    {l:'Servers',r:[['Abby',false,9],['Alexis',false,9],['Allie',false,9],['Bridget',false,9],['Claudia M',false,9],['Dorris',false,9],['Hannah',false,9],['Hannah M',false,9],['Jaime',false,9],['Julia',false,9],['Justin',false,9],['Kelly',false,9]]},
-    {l:'Bartenders',r:[['Brooke',false,9],['Carrie',false,9],['Cheeks',false,9],['Danielle',false,9],['Justin',false,9],['Lea',false,9],['Lindsay',false,9],['Mary',false,9]]},
-    {l:'Cashiers / Hosts',r:[['Ellianna',false,15],['Emilie',false,15],['Jack Ruane',false,16],['Keegan',false,15],['Molly',false,15],['Natalie',false,15],['Presley',false,15],['Sio McAvoy',false,17],['Tia',false,15]]}
+    {l:'Owners',r:[['Lisa B',true,40000],['Mike B',true,100000]]},
+    {l:'Managers',r:[['Chelsea',false,20],['Jeremy',true,70000],['Brett',true,40000]]},
+    {l:'Pizza',r:[['Francisco',false,21],['Luis B',false,20],['Juan',false,19.5],['Victor',false,20.5],['Junior',false,17.5],['Valente',false,21],['Luis',false,18],['Arturo',false,21],['Laura Z',false,20],['Gustavo',false,20]]},
+    {l:'Kitchen',r:[['Javier',false,19],['Jesus',false,21],['Broccoli',false,18],['Arturo',false,21],['Laura Z',false,20],['Gustavo',false,20]]},
+    {l:'Dish',r:[['Gabe',false,17.5],['Lorenzo',false,16.5]]},
+    {l:'Servers',r:[['Abi',false,9],['Erika H',false,9],['Liz',false,9],['Leanne',false,9],['Leon',false,9],['Katelyn',false,9],['Carly',false,9],['Carry T',false,9],['Maria C',false,9],['Steph',false,9.6]]},
+    {l:'Bartenders',r:[['Mary R',false,9],['Dave P',false,9],['Danielle',false,9]]},
+    {l:'Cashiers / Hosts',r:[['Alyssa',false,15],['Mayra',false,15],['Jackson',false,15],['Dillon',false,15],['Lila',false,15],['Nathan',false,15],['Jose O',false,16],['Selena S',false,15],['Ally',false,15],['Maria C',false,16]]}
   ];
   var grand=0;
   sections.forEach(function(sec){
@@ -2858,7 +2839,7 @@ async function toggleSchedEditMode() {
     // Ask PIN
     if(!window._editorUnlocked) {
       var pin = await askPin('Enter PIN to edit schedule');
-      if(pin !== '1111') { if(pin !== null) alert('Incorrect PIN.'); return; }
+      if(pin !== '2026') { if(pin !== null) alert('Incorrect PIN.'); return; }
       window._editorUnlocked = true;
     }
     window._schedEditMode = true;
@@ -3123,71 +3104,53 @@ function renderPrivate() {
   function fmtI$(n){return'$'+Math.round(n).toLocaleString();}
 
   var SAL=[
-    {n:'Ely Calero',s:100000,role:'Owner'},
-    {n:'Lisa Barraco',s:40000,role:'Owner'},
-    {n:'Dom',s:60000,role:'Owner'},
-    {n:'Selena Gonzales',s:40292,role:'Manager'},
-    {n:'Brett',s:10000,role:'Manager'}
+    {n:'Lisa B',s:40000,role:'Owner'},
+    {n:'Mike B',s:100000,role:'Owner'},
+    {n:'Jeremy',s:70000,role:'Manager'},
+    {n:'Brett',s:40000,role:'Manager'}
   ];
   var HLY=[
-    {n:'Alexis A',r:22,role:'Manager',src:function(){return [MANAGERS['Alexis A']]},type:'b'},
-    {n:'Laura Z',r:19,role:'Kitchen/Pizza',src:function(){return [KITCHEN['Laura Z'],PIZZA['Laura Z']]},type:'b'},
-    {n:'Nithia Maldonado',r:17.50,role:'Kitchen Cook',src:function(){return [KITCHEN['Nithia Maldonado']]},type:'b'},
-    {n:'Arturo Viveros',r:21,role:'Kitchen/Pizza',src:function(){return [PIZZA['Arturo'],KITCHEN['Arturo']]},type:'b'},
-    {n:'Jesus Murillo',r:21,role:'Pizza/Kitchen',src:function(){return [PIZZA['Jesus'],KITCHEN['Jesus']]},type:'b'},
-    {n:'Carlos Mora',r:19.25,role:'Pizza Cook',src:function(){return [PIZZA['Carlos'],KITCHEN['Carlos']]},type:'b'},
-    {n:'Nicholas Urbana',r:20,role:'Prep/Utility',src:function(){return [PREP['Nick'],KITCHEN['Nick']]},type:'b'},
-    {n:'Luis Perez',r:20,role:'Pizza Cook',src:function(){return [PIZZA['Luis']]},type:'b'},
-    {n:'Victor Cruz',r:20.50,role:'Pizza Cook',src:function(){return [PIZZA['Victor']]},type:'b'},
-    {n:'Monico Esparza',r:20,role:'Pizza Cook',src:function(){return [PIZZA['Monico']]},type:'b'},
-    {n:'Oscar Velazquez',r:19,role:'Pizza Cook',src:function(){return [PIZZA['Oscar']]},type:'b'},
-    {n:'Luis Soto',r:19,role:'Pizza Cook',src:function(){return [PIZZA['Soto']]},type:'b'},
-    {n:'Gonzo',r:17,role:'Pizza Cook',src:function(){return [PIZZA['Gonzo']]},type:'b'},
-    {n:'Carlos Jr',r:17.50,role:'Pizza Cook',src:function(){return [PIZZA['Carlos Jr']]},type:'b'},
-    {n:'Leo',r:17.50,role:'Pizza Cook',src:function(){return [PIZZA['Leo']]},type:'b'},
-    {n:'Eddie Cruz',r:19,role:'Pizza Cook',src:function(){return [PIZZA['Eddie'],PIZZA['Eddy'],KITCHEN['Eddie'],KITCHEN['Eddy']]},type:'b'},
+    {n:'Chelsea',r:20,role:'Manager',src:function(){return [MANAGERS['Chelsea']]},type:'b'},
+    {n:'Broccoli',r:18,role:'Kitchen Cook',src:function(){return [KITCHEN['Broccoli']]},type:'b'},
+    {n:'Javier',r:19,role:'Kitchen Line Cook',src:function(){return [KITCHEN['Javier']]},type:'b'},
+    {n:'Jesus',r:21,role:'Pizza/Kitchen',src:function(){return [PIZZA['Jesus'],KITCHEN['Jesus']]},type:'b'},
+    {n:'Arturo',r:21,role:'Kitchen/Pizza',src:function(){return [PIZZA['Arturo'],KITCHEN['Arturo']]},type:'b'},
+    {n:'Laura Z',r:20,role:'Pizza/Kitchen/Cashier',src:function(){return [PIZZA['Laura Z'],KITCHEN['Laura Z'],CASHIERS['Laura Z']]},type:'b'},
+    {n:'Gustavo',r:20,role:'Pizza/Kitchen/Cashier',src:function(){return [PIZZA['Gustavo'],KITCHEN['Gustavo'],CASHIERS['Gustavo']]},type:'b'},
+    {n:'Francisco',r:21,role:'Pizza Cook',src:function(){return [PIZZA['Francisco']]},type:'b'},
+    {n:'Luis B',r:20,role:'Pizza Cook',src:function(){return [PIZZA['Luis B']]},type:'b'},
+    {n:'Juan',r:19.50,role:'Pizza Cook',src:function(){return [PIZZA['Juan']]},type:'b'},
+    {n:'Victor',r:20.50,role:'Pizza Cook',src:function(){return [PIZZA['Victor']]},type:'b'},
+    {n:'Junior',r:17.50,role:'Pizza Cook',src:function(){return [PIZZA['Junior']]},type:'b'},
+    {n:'Valente',r:21,role:'Pizza Cook',src:function(){return [PIZZA['Valente']]},type:'b'},
+    {n:'Luis',r:18,role:'Pizza Cook',src:function(){return [PIZZA['Luis']]},type:'b'},
+    {n:'Gabe',r:17.50,role:'Dishwasher',src:function(){return [DISH['Gabe']]},type:'b'},
+    {n:'Lorenzo',r:16.50,role:'Dish',src:function(){return [DISH['Lorenzo']]},type:'b'},
 
-    {n:'Sylvia',r:15,role:'Prep',src:function(){return [PREP['Sylvia']]},type:'b'},
-    {n:'Jack Ruane',r:16,role:'Cashier',src:function(){return [CASHIERS['Jack']]},type:'f',role2:'cashiers'},
-    {n:'Marco Sanchez',r:16,role:'Bus/Dish',src:function(){return [BUS['Marco'],DISH['Marco']]},type:'b'},
-    {n:'Armani Finley',r:16,role:'Bus/Dish',src:function(){return [BUS['Armani'],DISH['Armani']]},type:'b'},
-    {n:'Gonzalo',r:17,role:'Bus/Dish',src:function(){return [BUS['Gonzalo'],DISH['Gonzalo']]},type:'b'},
-    {n:'Eric',r:15,role:'Bus/Dish',src:function(){return [BUS['Eric'],DISH['Eric']]},type:'b'},
-    {n:'Jaxon',r:15,role:'Bus/Dish',src:function(){return [BUS['Jaxon'],DISH['Jaxon']]},type:'b'},
-    {n:'Sio McAvoy',r:17,role:'Cashier/Server',src:function(){return [CASHIERS['Sio'],SERVERS['Sio']]},type:'f',role2:'cashiers'},
-    {n:'Sio McAvoy (Bar)',r:9,role:'Bartender',src:function(){return [BARTENDERS['Sio']]},type:'f',role2:'bartenders'},
-    {n:'Mike Henie',r:15,role:'Cashier',src:function(){return [CASHIERS['Mike']]},type:'f',role2:'cashiers'},
-    {n:'Brianna',r:9,role:'Server',src:function(){return [SERVERS['Brianna']]},type:'f',role2:'servers'},
-    {n:'Hannah Z',r:9,role:'Server',src:function(){return [SERVERS['Hannah Z'],SERVERS['Hannah Z.']]},type:'f',role2:'servers'},
-    {n:'Abby',r:9,role:'Server',src:function(){return [SERVERS['Abby']]},type:'f',role2:'servers'},
-    {n:'Alexis',r:9,role:'Server',src:function(){return [SERVERS['Alexis']]},type:'f',role2:'servers'},
-    {n:'Bridget',r:9,role:'Server',src:function(){return [SERVERS['Bridget']]},type:'f',role2:'servers'},
-    {n:'Claudia M',r:9,role:'Server',src:function(){return [SERVERS['Claudia'],SERVERS['Claudia M'],SERVERS['Claudia M.']]},type:'f',role2:'servers'},
-    {n:'Dorris',r:9,role:'Server',src:function(){return [SERVERS['Dorris']]},type:'f',role2:'servers'},
-    {n:'Hannah',r:9,role:'Server',src:function(){return [SERVERS['Hannah']]},type:'f',role2:'servers'},
-    {n:'Jaime',r:9,role:'Server',src:function(){return [SERVERS['Jaime']]},type:'f',role2:'servers'},
-    {n:'Kelly',r:9,role:'Server',src:function(){return [SERVERS['Kelly']]},type:'f',role2:'servers'},
-    {n:'Claudia G',r:9,role:'Server',src:function(){return [SERVERS['Claudia G'],SERVERS['Claudia G.']]},type:'f',role2:'servers'},
-    {n:'Hannah M',r:9,role:'Server',src:function(){return [SERVERS['Hannah M'],SERVERS['Hannah M.']]},type:'f',role2:'servers'},
-    {n:'Allie',r:9,role:'Server',src:function(){return [SERVERS['Allie']]},type:'f'},
-    {n:'Courtney',r:9,role:'Server',src:function(){return [SERVERS['Courtney']]},type:'f'},
-    {n:'Kamini',r:9,role:'Server',src:function(){return [SERVERS['Kamini']]},type:'f'},
-    {n:'Charlie',r:15,role:'Cashier',src:function(){return [CASHIERS['Charlie']]},type:'f',type:'f',role2:'servers'},
-    {n:'Justin',r:9,role:'Server/Bartender',src:function(){return [SERVERS['Justin'],BARTENDERS['Justin']]},type:'f',role2:'servers'},
-    {n:'Julia',r:9,role:'Server',src:function(){return [SERVERS['Julia']]},type:'f',role2:'servers'},
-    {n:'Lindsay',r:9,role:'Bartender',src:function(){return [BARTENDERS['Lindsay']]},type:'f',role2:'bartenders'},
-    {n:'Brooke',r:9,role:'Bartender',src:function(){return [BARTENDERS['Brooke']]},type:'f',role2:'bartenders'},
-    {n:'Cheeks',r:9,role:'Bartender',src:function(){return [BARTENDERS['Cheeks']]},type:'f',role2:'bartenders'},
+    {n:'Alyssa',r:15,role:'Cashier',src:function(){return [CASHIERS['Alyssa']]},type:'f',role2:'cashiers'},
+    {n:'Mayra',r:15,role:'Cashier',src:function(){return [CASHIERS['Mayra']]},type:'f',role2:'cashiers'},
+    {n:'Jackson',r:15,role:'Cashier',src:function(){return [CASHIERS['Jackson']]},type:'f',role2:'cashiers'},
+    {n:'Dillon',r:15,role:'Cashier',src:function(){return [CASHIERS['Dillon']]},type:'f',role2:'cashiers'},
+    {n:'Lila',r:15,role:'Cashier',src:function(){return [CASHIERS['Lila']]},type:'f',role2:'cashiers'},
+    {n:'Nathan',r:15,role:'Cashier',src:function(){return [CASHIERS['Nathan']]},type:'f',role2:'cashiers'},
+    {n:'Jose O',r:16,role:'Cashier',src:function(){return [CASHIERS['Jose O']]},type:'f',role2:'cashiers'},
+    {n:'Selena S',r:15,role:'Cashier',src:function(){return [CASHIERS['Selena S']]},type:'f',role2:'cashiers'},
+    {n:'Ally',r:15,role:'Cashier/Host',src:function(){return [CASHIERS['Ally'],HOSTS['Ally']]},type:'f',role2:'cashiers'},
+    {n:'Maria C (Cashier)',r:16,role:'Cashier',src:function(){return [CASHIERS['Maria C']]},type:'f',role2:'cashiers'},
+    {n:'Maria C (Server)',r:9,role:'Server',src:function(){return [SERVERS['Maria C']]},type:'f',role2:'servers'},
+
+    {n:'Abi',r:9,role:'Server',src:function(){return [SERVERS['Abi']]},type:'f',role2:'servers'},
+    {n:'Liz',r:9,role:'Server',src:function(){return [SERVERS['Liz']]},type:'f',role2:'servers'},
+    {n:'Leanne',r:9,role:'Server',src:function(){return [SERVERS['Leanne']]},type:'f',role2:'servers'},
+    {n:'Leon',r:9,role:'Server',src:function(){return [SERVERS['Leon']]},type:'f',role2:'servers'},
+    {n:'Katelyn',r:9,role:'Server',src:function(){return [SERVERS['Katelyn']]},type:'f',role2:'servers'},
+    {n:'Carly',r:9,role:'Server',src:function(){return [SERVERS['Carly']]},type:'f',role2:'servers'},
+    {n:'Carry T',r:9,role:'Server/Bartender',src:function(){return [SERVERS['Carry T'],BARTENDERS['Carry T']]},type:'f',role2:'servers'},
+    {n:'Steph',r:9.60,role:'Server/Bartender',src:function(){return [SERVERS['Steph'],BARTENDERS['Steph']]},type:'f',role2:'servers'},
+    {n:'Erika H',r:9,role:'Server/Bartender',src:function(){return [SERVERS['Erika H'],BARTENDERS['Erika H']]},type:'f',role2:'servers'},
+    {n:'Mary R',r:9,role:'Bartender',src:function(){return [BARTENDERS['Mary R']]},type:'f',role2:'bartenders'},
+    {n:'Dave P',r:9,role:'Bartender',src:function(){return [BARTENDERS['Dave P']]},type:'f',role2:'bartenders'},
     {n:'Danielle',r:9,role:'Bartender',src:function(){return [BARTENDERS['Danielle']]},type:'f',role2:'bartenders'},
-    {n:'Mary',r:9,role:'Bartender',src:function(){return [BARTENDERS['Mary']]},type:'f',role2:'bartenders'},
-    {n:'Natalie',r:15,role:'Cashier/Host',src:function(){return [CASHIERS['Natalie'],HOSTS['Natalie']]},type:'f',role2:'cashiers'},
-    {n:'Presley',r:15,role:'Cashier/Host',src:function(){return [CASHIERS['Presley'],HOSTS['Presley']]},type:'f',role2:'cashiers'},
-    {n:'Tia',r:15,role:'Host/Cashier',src:function(){return [HOSTS['Tia'],CASHIERS['Tia']]},type:'f',role2:'hosts'},
-    {n:'Emilie',r:15,role:'Cashier',src:function(){return [CASHIERS['Emilie']]},type:'f',role2:'cashiers'},
-    {n:'Ellianna',r:15,role:'Cashier/Host',src:function(){return [CASHIERS['Ellianna'],HOSTS['Ellianna']]},type:'f',role2:'cashiers'},
-    {n:'Keegan',r:15,role:'Cashier',src:function(){return [CASHIERS['Keegan']]},type:'f',role2:'cashiers'},
-    {n:'Molly',r:15,role:'Cashier/Host',src:function(){return [CASHIERS['Molly'],HOSTS['Molly']]},type:'f',role2:'cashiers'},
-    {n:'Lea',r:9,role:'Bartender',src:function(){return [BARTENDERS['Lea']]},type:'f',role2:'bartenders'},
   ];
   // Compute wh (weekly hours) dynamically now that data is loaded
   HLY.forEach(function(e){
@@ -3225,7 +3188,7 @@ function renderPrivate() {
   // never returned by any src() is invisible to this wage report.
   var coveredArrs = new Set();
   HLY.forEach(function(e){ e.src().forEach(function(a){ if(a) coveredArrs.add(a); }); });
-  var SAL_NAMES = {'Brett':1,'Dom':1,'Ely':1,'Selena':1,'Lisa':1};
+  var SAL_NAMES = {'Brett':1,'Jeremy':1,'Mike B':1,'Lisa B':1};
   var unmatched = [];
   [
     {d:MANAGERS,label:'Managers',type:'b'},{d:PIZZA,label:'Pizza',type:'b'},
@@ -3532,7 +3495,7 @@ function renderHitList() {
   HOURS.forEach(function(h){ dayGrid[h] = {count:0, cost:0}; });
 
   // Salaried staff — excluded from the hourly heat map (like drivers). Alexis A is hourly, so not here.
-  var SALARIED = {'Brett':1,'Dom':1,'Ely':1,'Selena':1,'Lisa':1};
+  var SALARIED = {'Brett':1,'Jeremy':1,'Mike B':1,'Lisa B':1};
 
   var bohSections = [
     {d:MANAGERS,names:{}},{d:PIZZA,names:{}},{d:KITCHEN,names:{}},
@@ -4050,7 +4013,7 @@ async function openEditor(di, focusName) {
   // Only ask PIN once per session
   if(!window._editorUnlocked) {
     var pin = await askPin('Enter PIN to edit schedule');
-    if(pin !== '1111') {
+    if(pin !== '2026') {
       if(pin !== null) alert('Incorrect PIN.');
       return;
     }
@@ -4137,6 +4100,21 @@ async function saveEdits() {
   var btn = document.querySelector('#editor-modal .btn-primary');
   btn.textContent = 'Saving...';
   btn.disabled = true;
+
+  // Snapshot which flagged (logged/overridden) errors exist for this day BEFORE the edit,
+  // so we can detect which ones this edit resolves.
+  var _preEditFlagged = [];
+  (function(){
+    var bp = window._bypassedErrors || {};
+    var cur = window._currentErrors || {BOH:[], FOH:[], Drivers:[]};
+    ['BOH','FOH','Drivers'].forEach(function(sec){
+      (cur[sec]||[]).forEach(function(e){
+        if(e.di === editorDay && bp[e.di+'|'+e.dept+'|'+e.msg]) {
+          _preEditFlagged.push({di:e.di, dept:e.dept, msg:e.msg});
+        }
+      });
+    });
+  })();
 
   var sectionMaps = {
     'MANAGERS': MANAGERS, 'PIZZA': PIZZA, 'KITCHEN': KITCHEN,
@@ -4227,6 +4205,96 @@ async function saveEdits() {
   btn.textContent = '💾 Save Changes';
   btn.disabled = false;
   refreshErrorModalAfterSave();
+  if(_preEditFlagged.length) checkForResolvedErrors(_preEditFlagged);
+}
+
+// Compares a snapshot of previously-flagged errors against the freshly recomputed
+// error list; anything that no longer appears is logged as "resolved" under its
+// original thread (same week/day/dept/msg key used for the original flag).
+function checkForResolvedErrors(preEditFlagged) {
+  setTimeout(function() {
+    var cur = window._currentErrors || {BOH:[], FOH:[], Drivers:[]};
+    var stillPresent = {};
+    ['BOH','FOH','Drivers'].forEach(function(sec){
+      (cur[sec]||[]).forEach(function(e){
+        stillPresent[e.di+'|'+e.dept+'|'+e.msg] = true;
+      });
+    });
+    var DAYS_FULL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+    var weekLabel = ((document.getElementById('sched-week-label')||{}).textContent||'').replace(/–/g,'-').replace(/—/g,'-');
+    var resolvedEntries = [];
+    preEditFlagged.forEach(function(f){
+      var key = f.di+'|'+f.dept+'|'+f.msg;
+      if(!stillPresent[key]) {
+        resolvedEntries.push({
+          week_label: weekLabel,
+          day_index: f.di,
+          day_name: DAYS_FULL[f.di] || '',
+          dept: f.dept,
+          msg: f.msg,
+          who: getCurrentUser(),
+          ack_type: 'resolved',
+          logged_at: new Date().toISOString(),
+          note: 'Resolved by schedule edit'
+        });
+        if(window._bypassedErrors) delete window._bypassedErrors[key];
+      }
+    });
+    if(resolvedEntries.length) {
+      fetch(SUPABASE_URL + '/rest/v1/darien_override_log', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+        body: JSON.stringify(resolvedEntries)
+      }).catch(function(e){ console.log('Resolved-log save failed:', e.message); });
+    }
+  }, 700); // after refreshErrorModalAfterSave's checkScheduleErrors() has updated window._currentErrors
+}
+
+// Same idea as checkForResolvedErrors() (used after a manual run-sheet edit), but
+// triggered after a schedule photo re-upload instead. Compares the errors that were
+// previously flagged/overridden for this week (window._bypassedErrors, reloaded fresh
+// from the schedule_bypasses table by loadScheduleBypasses just before this runs)
+// against the newly recomputed error list. Anything that disappeared gets logged as
+// "resolved" under its original thread — no matter how it disappeared.
+function checkForResolvedErrorsAfterUpload() {
+  var bp = window._bypassedErrors || {};
+  var cur = window._currentErrors || {BOH:[], FOH:[], Drivers:[]};
+  var stillPresent = {};
+  ['BOH','FOH','Drivers'].forEach(function(sec){
+    (cur[sec]||[]).forEach(function(e){ stillPresent[e.di+'|'+e.dept+'|'+e.msg] = true; });
+  });
+  var DAYS_FULL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  var weekLabel = ((document.getElementById('sched-week-label')||{}).textContent||'').replace(/–/g,'-').replace(/—/g,'-');
+  var resolvedEntries = [];
+  Object.keys(bp).forEach(function(key){
+    if(key.indexOf('__day_cleared_') === 0) return; // whole-day wildcard, not a specific error thread
+    if(stillPresent[key]) return; // still open, nothing resolved
+    var p1 = key.indexOf('|');
+    var p2 = key.indexOf('|', p1 + 1);
+    if(p1 < 0 || p2 < 0) return;
+    var di = parseInt(key.slice(0, p1), 10);
+    var dept = key.slice(p1 + 1, p2);
+    var msg = key.slice(p2 + 1);
+    resolvedEntries.push({
+      week_label: weekLabel,
+      day_index: di,
+      day_name: DAYS_FULL[di] || '',
+      dept: dept,
+      msg: msg,
+      who: getCurrentUser(),
+      ack_type: 'resolved',
+      logged_at: new Date().toISOString(),
+      note: 'Resolved by schedule re-upload'
+    });
+    delete window._bypassedErrors[key];
+  });
+  if(resolvedEntries.length) {
+    fetch(SUPABASE_URL + '/rest/v1/darien_override_log', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+      body: JSON.stringify(resolvedEntries)
+    }).catch(function(e){ console.log('Resolved-log (upload) save failed:', e.message); });
+  }
 }
 
 var errorsBypassed = false;  // suppressed for this session once dismissed
@@ -4539,7 +4607,7 @@ async function logUnclearedErrors() {
 
     // Determine manager label by dept
     var FOH_DEPTS = ['Servers','Bartenders','Cashiers','Hosts'];
-    var BOH_DEPTS = ['Kitchen','Pizza','Prep','Bus','Dish','Managers'];
+    var BOH_DEPTS = ['Kitchen','Pizza','Dish','Managers','Pizza/Kitchen'];
 
     var dateStr = DAYS_FULL[di] + ', ' + months[dayDate.getMonth()] + ' ' + dayDate.getDate() + ', ' + dayDate.getFullYear();
     var weekKey = ((document.getElementById('sched-week-label')||{}).textContent||'').replace(/–/g,'-').replace(/—/g,'-');
@@ -4599,6 +4667,7 @@ function applyWeek(idx) {
     setTimeout(logUnclearedErrors, 1500);
     // Log if this is a fresh upload (flag set in processSingle)
     if(window._justUploaded) {
+      setTimeout(checkForResolvedErrorsAfterUpload, 850);
       setTimeout(function(){
         var errs = window._currentErrors;
         if(errs) {
@@ -4717,14 +4786,15 @@ function checkScheduleErrors() {
   }
 
   // Parse a BOH raw string — returns {st, en, hasClose} or null
-  function parseBOHRaw(raw, di) {
+  // closeHr: the hour a "-C" shift should resolve to (varies by section/day for Darien)
+  function parseBOHRaw(raw, di, closeHr) {
     if(!raw) return null;
     var s = String(raw).trim().toLowerCase().replace(/\s+/g, '');
     if(!s || s==='x' || ['kitchen','pizza','dish','bus','prep','serve','bar','host'].includes(s)) return null;
-    var closeEnd = (di===4||di===5) ? 23.25 : 22.25;
+    if(closeHr === undefined) closeHr = (di===4||di===5) ? 24 : 23; // default: actual store close
     var hasClose = false, st = null, en = null;
     var cm = s.match(/^(.+)-c(?:l(?:ose)?)?$/);
-    if(cm) { st = hitlistHour(cm[1].trim(), di); en = closeEnd; hasClose = true; }
+    if(cm) { st = hitlistHour(cm[1].trim(), di); en = closeHr; hasClose = true; }
     else {
       var rm = s.match(/^([\d:]+(?:am|pm)?)\s*[-–]\s*([\d:]+(?:am|pm)?)$/i);
       if(rm) {
@@ -4741,6 +4811,7 @@ function checkScheduleErrors() {
     if(st === null) return null;
     return { st: st, en: en, hasClose: hasClose };
   }
+
 
   // Parse a FOH entry [start, end] array — returns {st, hasClose, hasEnd} or null
   function parseFOHRaw(entry) {
@@ -4774,92 +4845,16 @@ function checkScheduleErrors() {
   if(hasBOHData || hasFOHData || hasDriverData)
   for(var di = 0; di < 7; di++) {
     var day = dayLabel(di);
+    var isFriSat = (di===4 || di===5);          // Fri, Sat
+    var isSun    = (di===6);
+    var storeClose = isFriSat ? 24 : 23;         // midnight vs 11PM
+    var kpClose    = isFriSat ? 23 : 22;         // Kitchen/Pizza close 1hr before store close
 
-    // Skip BOH checks if no BOH scheduled today
-    var anyBOHToday = [KITCHEN,PIZZA,PREP,BUS,DISH,MANAGERS].some(function(sec){
+    var anyBOHToday = [KITCHEN,PIZZA,DISH,MANAGERS].some(function(sec){
       return Object.values(sec).some(function(d){ return d[di]; });
     });
     var anyDriverToday = Object.values(DRIVERS).some(function(d){ return d[di]; });
-    if(!anyBOHToday && !anyDriverToday) continue;
-    if(!anyBOHToday) {
-      // Skip to driver checks
-      var _skipToBOHEnd = true;
-    } else {
-      var _skipToBOHEnd = false;
-    }
-
-    // AM shifts missing end time (BOH)
-    [
-      {d:PIZZA,lbl:'Pizza'},{d:KITCHEN,lbl:'Kitchen'},
-      {d:PREP,lbl:'Prep'},{d:BUS,lbl:'Bus'},{d:DISH,lbl:'Dish'},{d:MANAGERS,lbl:'Managers'}
-    ].forEach(function(sec){
-      Object.entries(sec.d).forEach(function(e){
-        var p = parseBOHRaw(e[1][di], di);
-        if(p && p.st < 12 && p.en === null && !p.hasClose)
-          errors.BOH.push({di:di, day:day, name:e[0], dept:sec.lbl, msg:'AM shift — missing end time'});
-      });
-    });
-
-    // Openers (start ≤ 9AM)
-    if(!Object.entries(KITCHEN).concat(Object.entries(MANAGERS)).some(function(e){ var p=parseBOHRaw(e[1][di],di); return p&&p.st<=9; }))
-      errors.BOH.push({di:di, day:day, name:'—', dept:'Kitchen', msg:'No Kitchen opener (nobody at or before 9AM)'});
-    if(!Object.entries(PIZZA).concat(Object.entries(MANAGERS)).some(function(e){ var p=parseBOHRaw(e[1][di],di); return p&&p.st<=9; }))
-      errors.BOH.push({di:di, day:day, name:'—', dept:'Pizza', msg:'No Pizza opener (nobody at or before 9AM)'});
-    if(!Object.entries(PREP).some(function(e){ var p=parseBOHRaw(e[1][di],di); return p&&p.st<=9; }))
-      errors.BOH.push({di:di, day:day, name:'—', dept:'Prep', msg:'No Prep opener (nobody at or before 9AM)'});
-
-    // Closers (must have C)
-    if(!Object.entries(KITCHEN).concat(Object.entries(MANAGERS)).some(function(e){ var p=parseBOHRaw(e[1][di],di); return p&&p.hasClose; }))
-      errors.BOH.push({di:di, day:day, name:'—', dept:'Kitchen', msg:'No Kitchen closer (nobody with C)'});
-    if(!Object.entries(PIZZA).concat(Object.entries(MANAGERS)).some(function(e){ var p=parseBOHRaw(e[1][di],di); return p&&p.hasClose; }))
-      errors.BOH.push({di:di, day:day, name:'—', dept:'Pizza', msg:'No Pizza closer (nobody with C)'});
-    if(!Object.entries(DISH).some(function(e){ var p=parseBOHRaw(e[1][di],di); return p&&p.hasClose; }))
-      errors.BOH.push({di:di, day:day, name:'—', dept:'Dish', msg:'No Dish closer (nobody with C)'});
-
-    // Pizza staffing minimums
-    var _pizzaAll = Object.values(PIZZA).concat(Object.values(MANAGERS));
-    var pizzaCount = _pizzaAll.filter(function(d){ return parseBOHRaw(d[di],di); }).length;
-    var pizzaPMCount = _pizzaAll.filter(function(d){
-      var p=parseBOHRaw(d[di],di); if(!p) return false;
-      var en = p.en !== null ? p.en : (p.hasClose ? 23 : 20);
-      return p.st < 20 && en > 16; // overlaps 4-8PM window
-    }).length;
-    if(di<=3) { // Mon-Thu
-      if(pizzaCount < 2)
-        errors.BOH.push({di:di, day:day, name:'—', dept:'Pizza', msg:'Only '+pizzaCount+' pizza cook(s) — need at least 2 Mon-Thu'});
-      if(pizzaPMCount < 2)
-        errors.BOH.push({di:di, day:day, name:'—', dept:'Pizza', msg:'Only '+pizzaPMCount+' pizza cook(s) between 4-8PM — need at least 2'});
-    }
-    if(di===4||di===5) { // Fri-Sat
-      if(pizzaCount < 6)
-        errors.BOH.push({di:di, day:day, name:'—', dept:'Pizza', msg:'Only '+pizzaCount+' pizza cook(s) — need at least 6 Fri-Sat'});
-    }
-
-    // Kitchen staffing minimums
-    var _kitchenAll = Object.values(KITCHEN).concat(Object.values(MANAGERS));
-    var kitchenCount = _kitchenAll.filter(function(d){ return parseBOHRaw(d[di],di); }).length;
-    var kitchenPMCount = _kitchenAll.filter(function(d){
-      var p=parseBOHRaw(d[di],di); if(!p) return false;
-      var en = p.en !== null ? p.en : (p.hasClose ? 23 : 20);
-      return p.st < 20 && en > 16; // overlaps 4-8PM window
-    }).length;
-    if(di===0||di===1||di===2||di===3||di===6) { // Sun-Thu
-      if(kitchenCount < 2)
-        errors.BOH.push({di:di, day:day, name:'—', dept:'Kitchen', msg:'Only '+kitchenCount+' kitchen cook(s) — need at least 2 Sun-Thu'});
-      if(kitchenPMCount < 2)
-        errors.BOH.push({di:di, day:day, name:'—', dept:'Kitchen', msg:'Only '+kitchenPMCount+' kitchen cook(s) between 4-8PM — need at least 2'});
-    }
-    if(di===4||di===5) { // Fri-Sat
-      if(kitchenCount < 3)
-        errors.BOH.push({di:di, day:day, name:'—', dept:'Kitchen', msg:'Only '+kitchenCount+' kitchen cook(s) — need at least 3 Fri-Sat'});
-      if(kitchenPMCount < 2)
-        errors.BOH.push({di:di, day:day, name:'—', dept:'Kitchen', msg:'Only '+kitchenPMCount+' kitchen cook(s) between 4-8PM — need at least 2'});
-    }
-  }
-
-  // DOM'S NOTES
-  for(var di = 0; di < 7; di++) {
-    var day = dayLabel(di);
+    if(!anyBOHToday && !anyDriverToday && !hasFOHData) continue;
 
     // Helper: is this FOH entry actually a scheduled shift (not null/empty)
     function fohHasShift(entry) {
@@ -4868,9 +4863,112 @@ function checkScheduleErrors() {
       return String(entry).trim() !== '' && String(entry).trim().toLowerCase() !== 'null';
     }
 
-    // FOH checks — only if FOH schedule uploaded
+    if(anyBOHToday) {
+    // ---------- AM shifts missing end time (BOH) ----------
+    [
+      {d:PIZZA,lbl:'Pizza',close:kpClose},{d:KITCHEN,lbl:'Kitchen',close:kpClose},
+      {d:DISH,lbl:'Dish',close:storeClose},{d:MANAGERS,lbl:'Managers',close:storeClose}
+    ].forEach(function(sec){
+      Object.entries(sec.d).forEach(function(e){
+        var p = parseBOHRaw(e[1][di], di, sec.close);
+        if(p && p.st < 12 && p.en === null && !p.hasClose)
+          errors.BOH.push({di:di, day:day, name:e[0], dept:sec.lbl, msg:'AM shift — missing end time'});
+      });
+    });
+
+    // ---------- Management: 1 opener, 1 closer ----------
+    var mgrParsed = Object.entries(MANAGERS).map(function(e){ return {n:e[0], p:parseBOHRaw(e[1][di], di, storeClose)}; }).filter(function(x){ return x.p; });
+    if(mgrParsed.length){
+      if(!mgrParsed.some(function(x){ return x.p.st <= 9; }))
+        errors.BOH.push({di:di, day:day, name:'—', dept:'Managers', msg:'No opening manager (nobody at or before 9AM)'});
+      if(!mgrParsed.some(function(x){ return x.p.hasClose; }))
+        errors.BOH.push({di:di, day:day, name:'—', dept:'Managers', msg:'No closing manager (nobody with C)'});
+      // Informational only — early call-ins for big orders are expected, not a rule violation
+      mgrParsed.forEach(function(x){
+        if(x.p.st < 9)
+          errors.BOH.push({di:di, day:day, name:x.n, dept:'Managers', msg:x.n+' scheduled before 9AM — confirm this is an intentional early call-in', info:true});
+      });
+    }
+
+    // ---------- Pizza: opener by 9AM, 1 closer (closes 1hr before store close) ----------
+    var pizzaParsed = Object.entries(PIZZA).map(function(e){ return {n:e[0], p:parseBOHRaw(e[1][di], di, kpClose)}; }).filter(function(x){ return x.p; });
+    var pizzaCount = pizzaParsed.length;
+    if(pizzaCount){
+      if(!pizzaParsed.some(function(x){ return x.p.st <= 9; }) && !mgrParsed.some(function(x){ return x.p.st <= 9; }))
+        errors.BOH.push({di:di, day:day, name:'—', dept:'Pizza', msg:'No Pizza opener (nobody at or before 9AM)'});
+      if(!pizzaParsed.some(function(x){ return x.p.hasClose; }))
+        errors.BOH.push({di:di, day:day, name:'—', dept:'Pizza', msg:'No Pizza closer (nobody with C)'});
+      pizzaParsed.forEach(function(x){
+        if(x.p.st < 9)
+          errors.BOH.push({di:di, day:day, name:x.n, dept:'Pizza', msg:x.n+' scheduled before 9AM — confirm this is an intentional early call-in', info:true});
+      });
+    }
+
+    // ---------- Kitchen: opener by 9AM, 1 closer (closes 1hr before store close) ----------
+    var kitchenParsed = Object.entries(KITCHEN).map(function(e){ return {n:e[0], p:parseBOHRaw(e[1][di], di, kpClose)}; }).filter(function(x){ return x.p; });
+    var kitchenCount = kitchenParsed.length;
+    if(kitchenCount){
+      if(!kitchenParsed.some(function(x){ return x.p.st <= 9; }) && !mgrParsed.some(function(x){ return x.p.st <= 9; }))
+        errors.BOH.push({di:di, day:day, name:'—', dept:'Kitchen', msg:'No Kitchen opener (nobody at or before 9AM)'});
+      if(!kitchenParsed.some(function(x){ return x.p.hasClose; }))
+        errors.BOH.push({di:di, day:day, name:'—', dept:'Kitchen', msg:'No Kitchen closer (nobody with C)'});
+      kitchenParsed.forEach(function(x){
+        if(x.p.st < 9)
+          errors.BOH.push({di:di, day:day, name:x.n, dept:'Kitchen', msg:x.n+' scheduled before 9AM — confirm this is an intentional early call-in', info:true});
+      });
+    }
+
+    // ---------- Pizza & Kitchen minimum headcount, 4PM–8PM window ----------
+    function pmOverlapCount(parsedList){
+      return parsedList.filter(function(x){
+        var en = x.p.en !== null ? x.p.en : (x.p.hasClose ? kpClose : 20);
+        return x.p.st < 20 && en > 16;
+      }).length;
+    }
+    var pizzaPM = pmOverlapCount(pizzaParsed), kitchenPM = pmOverlapCount(kitchenParsed);
+    var pizzaMin, kitchenMin;
+    if(di<=3)      { pizzaMin=2; kitchenMin=2; }
+    else if(di===4){ pizzaMin=6; kitchenMin=3; }
+    else if(di===5){ pizzaMin=5; kitchenMin=3; }
+    else           { pizzaMin=4; kitchenMin=2; } // Sunday
+    if(pizzaPM < pizzaMin)
+      errors.BOH.push({di:di, day:day, name:'—', dept:'Pizza', msg:'Only '+pizzaPM+' pizza cook(s) between 4-8PM — need at least '+pizzaMin});
+    if(kitchenPM < kitchenMin)
+      errors.BOH.push({di:di, day:day, name:'—', dept:'Kitchen', msg:'Only '+kitchenPM+' kitchen cook(s) between 4-8PM — need at least '+kitchenMin});
+
+    // ---------- Baseline coverage: at least 1 Pizza + 1 Kitchen person, store-open to store-close, no gaps ----------
+    function hasCoverageAt(parsedList, hour){
+      return parsedList.some(function(x){
+        var en = x.p.en !== null ? x.p.en : (x.p.hasClose ? kpClose : 20);
+        return x.p.st <= hour && en >= hour;
+      });
+    }
+    var gapFound = false;
+    for(var h=9; h<storeClose && !gapFound; h+=0.5) {
+      if(!hasCoverageAt(pizzaParsed, h) || !hasCoverageAt(kitchenParsed, h)) gapFound = true;
+    }
+    if(gapFound)
+      errors.BOH.push({di:di, day:day, name:'—', dept:'Pizza/Kitchen', msg:'Gap in coverage — Pizza and Kitchen must each have at least 1 person on at all times the store is open'});
+
+    // ---------- Dish: 1 person, 4PM until close ----------
+    var dishParsed = Object.entries(DISH).map(function(e){ return {n:e[0], p:parseBOHRaw(e[1][di], di, storeClose)}; }).filter(function(x){ return x.p; });
+    if(dishParsed.length){
+      if(!dishParsed.some(function(x){ return x.p.hasClose; }))
+        errors.BOH.push({di:di, day:day, name:'—', dept:'Dish', msg:'No Dish closer (nobody with C)'});
+      var dish4pmCovered = dishParsed.some(function(x){
+        var en = x.p.en !== null ? x.p.en : (x.p.hasClose ? storeClose : 20);
+        return x.p.st <= 16 && en >= storeClose;
+      });
+      if(!dish4pmCovered)
+        errors.BOH.push({di:di, day:day, name:'—', dept:'Dish', msg:'Dish not covered continuously from 4PM until close'});
+    } else {
+      errors.BOH.push({di:di, day:day, name:'—', dept:'Dish', msg:'No dish person scheduled — need coverage 4PM until close'});
+    }
+    } // end anyBOHToday
+
+    // ================= FRONT OF HOUSE =================
     if(hasFOHData) {
-    // AM shifts missing end time — Servers, Bartenders, Hosts only (Cashiers handled separately)
+    // AM shifts missing end time — Servers, Bartenders, Hosts
     [{d:SERVERS,lbl:'Servers'},{d:BARTENDERS,lbl:'Bartenders'},{d:HOSTS,lbl:'Hosts'}].forEach(function(sec){
       Object.entries(sec.d).forEach(function(e){
         var p = parseFOHRaw(e[1][di]);
@@ -4880,8 +4978,6 @@ function checkScheduleErrors() {
           errors.FOH.push({di:di, day:day, name:e[0], dept:sec.lbl, msg:'AM shift — missing end time'});
       });
     });
-
-    // Cashiers — AM shifts missing end time
     Object.entries(CASHIERS).forEach(function(e){
       var p = parseFOHRaw(e[1][di]);
       if(!p) return;
@@ -4890,107 +4986,92 @@ function checkScheduleErrors() {
         errors.FOH.push({di:di, day:day, name:e[0], dept:'Cashiers', msg:'AM shift — missing end time'});
     });
 
-    // Bartender opener: at or before 10:30AM
+    // ---------- Bartenders: opener 9AM-5PM, closer 5PM-close (marked 5-C) ----------
     if(Object.values(BARTENDERS).some(function(d){ return fohHasShift(d[di]); })) {
       if(!Object.values(BARTENDERS).some(function(d){
         var p=parseFOHRaw(d[di]); if(!p) return false;
-        var stH=hitlistHour(p.st,di); return stH!==null && stH<=10.5;
+        var stH=hitlistHour(p.st,di); return stH!==null && stH<=9.5;
       }))
-        errors.FOH.push({di:di, day:day, name:'—', dept:'Bartenders', msg:'No bartender opener at or before 10:30AM'});
-    }
-
-    // Bartender closer
-    if(Object.values(BARTENDERS).some(function(d){ return fohHasShift(d[di]); })) {
+        errors.FOH.push({di:di, day:day, name:'—', dept:'Bartenders', msg:'No opening bartender at or before 9AM'});
       if(!Object.values(BARTENDERS).some(function(d){ return fohEntryIsCloser(d[di]); }))
-        errors.FOH.push({di:di, day:day, name:'—', dept:'Bartenders', msg:'No bartender closer (nobody with C)'});
+        errors.FOH.push({di:di, day:day, name:'—', dept:'Bartenders', msg:'No closing bartender (nobody with 5-C)'});
     }
 
-    // Cashier opener: must have someone in before 11AM
-    if(Object.values(CASHIERS).some(function(d){ return fohHasShift(d[di]); })) {
-      if(!Object.values(CASHIERS).some(function(d){
-        var p=parseFOHRaw(d[di]); if(!p) return false;
-        var stH=hitlistHour(p.st,di); return stH!==null && stH<11;
-      }))
-        errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'No cashier in before 11AM'});
-    }
-
-    // Cashier minimums
-    var cashierPMCount = Object.values(CASHIERS).filter(function(d){
-      var entry = d[di]; if(!entry) return false;
-      var startVal = Array.isArray(entry) ? entry[0] : String(entry).split(/[-–]/)[0];
-      var endVal = Array.isArray(entry) ? entry[1] : (String(entry).split(/[-–]/)[1]||null);
-      var stH = hitlistHour(startVal, di); if(stH===null) return false;
-      var hasClose = endVal && String(endVal).trim().toLowerCase().match(/^c[l]?$|^close$/);
-      var enH = hasClose ? 23 : (endVal ? hitlistHour(endVal, di) : 20);
-      if(enH===null) enH = 20;
-      return stH < 20 && enH > 16; // overlaps 4-8PM window
-    }).length;
-    var cashierCount = Object.values(CASHIERS).filter(function(d){ return fohHasShift(d[di]); }).length;
-    if(di<=3) { // Mon-Thu
-      if(cashierCount < 1)
-        errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'No cashiers scheduled — need at least 1 Mon-Thu'});
-    }
-    if(di===4||di===5) { // Fri-Sat
-      if(cashierPMCount < 3)
-        errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'Only '+cashierPMCount+' cashier(s) between 4-8PM — need at least 3 Fri-Sat'});
-    }
-
-    // Host minimums: must have 1 on Mon/Tue/Wed/Fri/Sat/Sun (not Thu=3)
-    if(di !== 3) {
-      var hostCount = Object.values(HOSTS).filter(function(d){ return fohHasShift(d[di]); }).length;
-      if(hostCount < 1)
-        errors.FOH.push({di:di, day:day, name:'—', dept:'Hosts', msg:'No host scheduled — need at least 1'});
-    }
-
-    // Server closer
-    if(Object.values(SERVERS).some(function(d){ return fohHasShift(d[di]); })) {
-      if(!Object.values(SERVERS).some(function(d){ return fohEntryIsCloser(d[di]); }))
+    // ---------- Servers: 2 servers starting 4-5PM; non-closer out at 8PM; closer to store close ----------
+    var serverShifts = Object.entries(SERVERS).map(function(e){ return {n:e[0], p:parseFOHRaw(e[1][di])}; }).filter(function(x){ return x.p; });
+    if(serverShifts.length){
+      var serverStartWindowCount = serverShifts.filter(function(x){
+        var stH = hitlistHour(x.p.st, di); return stH!==null && stH>=16 && stH<=17;
+      }).length;
+      if(serverStartWindowCount < 2)
+        errors.FOH.push({di:di, day:day, name:'—', dept:'Servers', msg:'Only '+serverStartWindowCount+' server(s) starting between 4-5PM — need at least 2'});
+      if(!serverShifts.some(function(x){ return x.p.hasClose; }))
         errors.FOH.push({di:di, day:day, name:'—', dept:'Servers', msg:'No server closer (nobody with C)'});
     }
 
-    // PM server minimums: Fri(4)/Sat(5) need 5, Sun(6) needs 4, starting 3:30PM or later
-    if(di === 4 || di === 5 || di === 6) {
-      var pmServerCount = 0;
-      Object.values(SERVERS).forEach(function(days){
-        var e = days[di];
-        if(!e || !e[0]) return;
-        var st = hitlistHour(e[0], di);
-        if(st !== null && st >= 15.5) pmServerCount++;
-      });
-      var minPM = (di === 6) ? 4 : 5;
-      if(pmServerCount < minPM)
-        errors.FOH.push({di:di, day:day, name:'—', dept:'Servers', msg:'Only '+pmServerCount+' PM server(s) starting 3:30PM+ — need at least '+minPM});
+    // ---------- Hosts: Fri & Sat only, 4PM-8PM ----------
+    if(isFriSat){
+      var hostCount = Object.values(HOSTS).filter(function(d){ return fohHasShift(d[di]); }).length;
+      if(hostCount < 1)
+        errors.FOH.push({di:di, day:day, name:'—', dept:'Hosts', msg:'No host scheduled — required Fri & Sat, 4PM-8PM'});
+    }
+
+    // ---------- Cashiers: day-specific minimum headcount, opener rule, universal 8PM end ----------
+    var cashierShifts = Object.entries(CASHIERS).map(function(e){ return {n:e[0], p:parseFOHRaw(e[1][di])}; }).filter(function(x){ return x.p; });
+    var cashierCount = cashierShifts.length;
+    var cashierMin = isSun ? 3 : (di===4 ? 3 : (di===5 ? 2 : 1)); // Sun 3, Fri 3, Sat 2, Mon-Thu 1
+    if(cashierCount < cashierMin)
+      errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'Only '+cashierCount+' cashier(s) — need at least '+cashierMin});
+    if(isSun){
+      if(!cashierShifts.some(function(x){ var stH=hitlistHour(x.p.st,di); return stH!==null && stH<=11.5; }))
+        errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'No opening cashier at or before 11:30AM (Sunday only)'});
+    }
+    cashierShifts.forEach(function(x){
+      var stH = hitlistHour(x.p.st, di);
+      if(stH !== null && stH > 16)
+        errors.FOH.push({di:di, day:day, name:x.n, dept:'Cashiers', msg:x.n+' starts after 4PM — no cashier may start later than 4PM'});
+    });
     }
   }
-
-  // DOM'S NOTES
-  for(var di = 0; di < 7; di++) {
-    var day = dayLabel(di);
-    } // end hasFOHData
-
-  } // end main BOH/FOH day loop
 
   // Separate driver loop - runs regardless of BOH data
   if(hasDriverData) {
     for(var ddi=0; ddi<7; ddi++) {
       var dday = dayLabel(ddi);
-      var amCount = 0, closerCount = 0;
-      Object.values(DRIVERS).forEach(function(days){
-        var p = parseBOHRaw(days[ddi], ddi);
-        if(!p) return;
-        if(p.hasClose) closerCount++;
-        else if(p.st <= 11) amCount++;
-      });
-      var anyDriverToday = Object.values(DRIVERS).some(function(d){ return d[ddi]; });
-      if(!anyDriverToday) continue;
-      if(amCount < 2)
-        errors.Drivers.push({di:ddi, day:dday, name:'—', dept:'Drivers', msg:'Only '+amCount+' AM driver(s) at or before 11AM — need exactly 2'});
-      if(amCount > 2)
-        errors.Drivers.push({di:ddi, day:dday, name:'—', dept:'Drivers', msg:amCount+' AM drivers at or before 11AM — maximum is 2'});
+      var dIsFriSatSun = (ddi===4||ddi===5||ddi===6);
+      var dStoreClose = (ddi===4||ddi===5) ? 24 : 23;
+      var driverParsed = Object.entries(DRIVERS).map(function(e){ return {n:e[0], p:parseBOHRaw(e[1][ddi], ddi, dStoreClose)}; }).filter(function(x){ return x.p; });
+      if(!driverParsed.length) continue;
+
+      function countStartedBy(hour){ return driverParsed.filter(function(x){ return x.p.st <= hour; }).length; }
+      var totalDrivers = driverParsed.length;
+      var closerCount = driverParsed.filter(function(x){ return x.p.hasClose; }).length;
+
+      // Morning coverage
+      var amNeeded = dIsFriSatSun ? 2 : 1;
+      var amCount = countStartedBy(10.5);
+      if(amCount < amNeeded)
+        errors.Drivers.push({di:ddi, day:dday, name:'—', dept:'Drivers', msg:'Only '+amCount+' driver(s) in by 10:30AM — need at least '+amNeeded});
+
+      // Closer
       if(closerCount === 0)
         errors.Drivers.push({di:ddi, day:dday, name:'—', dept:'Drivers', msg:'No driver closer (nobody with C)'});
-      if(closerCount > 1)
-        errors.Drivers.push({di:ddi, day:dday, name:'—', dept:'Drivers', msg:closerCount+' driver closers — should be exactly 1'});
+
+      // Night headcount minimums, staggered by day
+      var totalMin, by4Min, byLastMin, lastHour;
+      if(ddi<=3)      { totalMin=3; by4Min=2; lastHour=17.5; byLastMin=3; }   // Mon-Thu
+      else if(ddi===4){ totalMin=6; by4Min=2; lastHour=17;   byLastMin=6; }   // Fri
+      else if(ddi===5){ totalMin=5; by4Min=2; lastHour=17;   byLastMin=5; }   // Sat
+      else            { totalMin=5; by4Min=3; lastHour=17;   byLastMin=5; }   // Sun (2 AM drivers hold over + 1 more by 4PM)
+
+      if(totalDrivers < totalMin)
+        errors.Drivers.push({di:ddi, day:dday, name:'—', dept:'Drivers', msg:'Only '+totalDrivers+' driver(s) scheduled — need at least '+totalMin});
+      var by4Count = countStartedBy(16);
+      if(by4Count < by4Min)
+        errors.Drivers.push({di:ddi, day:dday, name:'—', dept:'Drivers', msg:'Only '+by4Count+' driver(s) in by 4PM — need at least '+by4Min});
+      var byLastCount = countStartedBy(lastHour);
+      if(byLastCount < byLastMin)
+        errors.Drivers.push({di:ddi, day:dday, name:'—', dept:'Drivers', msg:'Only '+byLastCount+' driver(s) in by '+(lastHour===17.5?'5:30PM':'5PM')+' — need at least '+byLastMin});
     }
   }
 
@@ -4998,34 +5079,25 @@ function checkScheduleErrors() {
   // DOM'S NOTES
   // Role violation checker
   var ROLE_MAP = {
-    'Arturo':['Kitchen','Pizza'],'Carlos':['Kitchen','Pizza'],'Jesus':['Kitchen','Pizza'],
-    'Jose B':['Kitchen'],'Derek':['Kitchen'],'Nithia Maldonado':['Kitchen'],'Nithia':['Kitchen'],
-    'Ever':['Kitchen','Pizza'],'Carlos Jr':['Pizza'],'Eddie':['Pizza'],
-    'Gonzo':['Pizza','Dish','Bus'],'Gonzalo':['Pizza','Dish','Bus'],
-    'Leo':['Pizza'],'Luis':['Pizza'],'Monico':['Pizza'],'Soto':['Pizza'],
-    'Oscar':['Pizza'],'Victor':['Pizza'],'Nick':['Prep','Kitchen'],'Sylvia':['Prep'],
-    'Marco':['Pizza','Dish','Bus'],'Armani':['Dish','Bus'],'Jaxon':['Dish','Bus'],'Eric':['Dish','Bus'],
-    'Abby':['Servers','Cashiers','Hosts'],'Alexis':['Servers'],'Bridget':['Servers'],
-    'Claudia':['Servers'],'Dorris':['Servers'],
-    'Hannah':['Servers'],'Hannah M':['Servers'],
-    'Jaime':['Servers','Bartenders'],'Kelly':['Servers','Bartenders'],
-    'Sio':['Servers','Cashiers','Bartenders'],
-    'Annaka':['Servers'],'Allie':['Servers'],
-    'Courtney':['Servers'],'Kamini':['Servers'],
-    'Justin':['Servers','Bartenders'],'Julia':['Servers'],
-    'Lindsay':['Bartenders'],'Brooke':['Bartenders'],'Cheeks':['Bartenders'],
-    'Danielle':['Bartenders'],'Mary':['Bartenders'],'Lea':['Bartenders'],
-    'Jack':['Cashiers'],'Natalie':['Cashiers','Hosts'],'Presley':['Cashiers','Hosts'],
-    'Tia':['Cashiers','Hosts'],'Emilie':['Cashiers','Hosts'],'Ellianna':['Cashiers','Hosts'],
-    'Keegan':['Cashiers','Hosts'],'Molly':['Cashiers','Hosts'],'Charlie':['Cashiers','Hosts']
+    'Francisco':['Pizza'],'Luis B':['Pizza'],'Juan':['Pizza'],'Victor':['Pizza'],
+    'Junior':['Pizza'],'Valente':['Pizza'],'Luis':['Pizza'],
+    'Arturo':['Pizza','Kitchen'],'Laura Z':['Pizza','Kitchen','Cashiers'],'Gustavo':['Pizza','Kitchen','Cashiers'],
+    'Javier':['Kitchen'],'Jesus':['Pizza','Kitchen'],'Broccoli':['Kitchen'],
+    'Gabe':['Dish'],'Lorenzo':['Dish'],
+    'Abi':['Servers'],'Erika H':['Servers','Bartenders'],'Liz':['Servers'],'Leanne':['Servers'],
+    'Leon':['Servers'],'Katelyn':['Servers'],'Carly':['Servers'],
+    'Carry T':['Servers','Bartenders'],'Maria C':['Servers','Cashiers'],'Steph':['Servers','Bartenders'],
+    'Mary R':['Bartenders'],'Dave P':['Bartenders'],'Danielle':['Bartenders'],
+    'Alyssa':['Cashiers'],'Mayra':['Cashiers'],'Jackson':['Cashiers'],'Dillon':['Cashiers'],
+    'Lila':['Cashiers'],'Nathan':['Cashiers'],'Jose O':['Cashiers'],'Selena S':['Cashiers'],
+    'Ally':['Cashiers','Hosts']
   };
   var ALL_SECS = [
-    {obj:KITCHEN,lbl:'Kitchen'},{obj:PIZZA,lbl:'Pizza'},{obj:PREP,lbl:'Prep'},
-    {obj:DISH,lbl:'Dish'},{obj:BUS,lbl:'Bus'},
+    {obj:KITCHEN,lbl:'Kitchen'},{obj:PIZZA,lbl:'Pizza'},{obj:DISH,lbl:'Dish'},
     {obj:SERVERS,lbl:'Servers'},{obj:BARTENDERS,lbl:'Bartenders'},
     {obj:CASHIERS,lbl:'Cashiers'},{obj:HOSTS,lbl:'Hosts'}
   ];
-  var BOH_SECS = ['Kitchen','Pizza','Prep','Dish','Bus'];
+  var BOH_SECS = ['Kitchen','Pizza','Dish'];
   var _managerNames = Object.keys(MANAGERS);
   ALL_SECS.forEach(function(sec) {
     Object.keys(sec.obj).forEach(function(name) {
@@ -5338,7 +5410,7 @@ async function clearWeekRecord() {
   if(!weekStart) { alert('Please select a week start date first.'); return; }
 
   var pin = await askPin('Enter PIN to clear schedule');
-  if(pin !== '1111') { if(pin !== null) alert('Incorrect PIN.'); return; }
+  if(pin !== '2026') { if(pin !== null) alert('Incorrect PIN.'); return; }
 
   var d = new Date(weekStart + 'T00:00:00');
   var end = new Date(d); end.setDate(d.getDate() + 6);
@@ -5787,63 +5859,159 @@ function showOverrideLog(btn) {
   var body = document.getElementById('override-log-body');
   body.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:20px;">Loading...</div>';
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var REQUIRED_ACK_MANAGERS = ['Chelsea','Jeremy','Brett'];
+
+  function fmtDt(iso) {
+    var dt = iso ? new Date(iso) : null;
+    return dt ? months[dt.getMonth()]+' '+dt.getDate()+', '+dt.getFullYear()+' '+dt.getHours()+':'+String(dt.getMinutes()).padStart(2,'0') : '';
+  }
+  function eventLabel(r) {
+    return r.ack_type === 'intentional' ? 'Intentional decision' :
+           r.ack_type === 'mistake' ? 'Mistake — will correct' :
+           r.ack_type === 'published' ? 'Published by Mike' :
+           r.ack_type === 'printed' ? 'Printed' :
+           r.ack_type === 'acknowledged' ? 'Acknowledged' :
+           r.ack_type === 'uncleared' ? 'Never cleared' :
+           r.ack_type === 'resolved' ? 'Resolved' :
+           r.ack_type === 'confirmed_early_start' ? 'Confirmed early start (before 9AM)' :
+           r.ack_type === 'edit' ? 'Run sheet edited' :
+           r.ack_type === 'upload' ? 'Schedule uploaded' :
+           r.ack_type === 'upload_errors' ? 'Uploaded with errors' :
+           r.ack_type === 'bypass_now' ? 'Bypassed for now' :
+           r.note || r.ack_type || '';
+  }
+  function eventColor(r) {
+    return r.ack_type === 'resolved' ? '#1a7a3c' :
+           r.ack_type === 'confirmed_early_start' ? '#666' :
+           r.ack_type === 'intentional' ? '#1a7a3c' :
+           r.ack_type === 'edit' ? '#1a7a3c' :
+           r.ack_type === 'upload' ? '#1a7a3c' :
+           r.ack_type === 'upload_errors' ? '#c8102e' :
+           r.ack_type === 'uncleared' ? '#888' :
+           r.ack_type === 'published' ? '#1a7a3c' : '#c8102e';
+  }
+  // Threads are only formed for events that represent a specific, traceable issue:
+  // schedule errors (raised -> overridden/acknowledged -> resolved) and Mike's Notes
+  // (published -> printed/acknowledged by each manager). Everything else (uploads,
+  // generic run-sheet edits with no linked error, one-off bypass decisions) stays
+  // as a standalone card since there's no "issue" to trace to completion.
+  var ERROR_ACK_TYPES = {intentional:1, mistake:1, uncleared:1, resolved:1};
 
   Promise.all([
-    fetch(SUPABASE_URL + '/rest/v1/darien_override_log?order=logged_at.desc&limit=100', {
+    fetch(SUPABASE_URL + '/rest/v1/darien_override_log?order=logged_at.desc&limit=150', {
       headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(function(r){ return r.json(); }).catch(function(){ return []; }),
     fetch(SUPABASE_URL + '/rest/v1/darien_doms_notes_ack?order=acknowledged_at.desc&limit=100', {
       headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){ return r.json(); }).catch(function(){ return []; }),
+    fetch(SUPABASE_URL + '/rest/v1/darien_doms_notes?order=created_at.desc&limit=30', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(function(r){ return r.json(); }).catch(function(){ return []; })
   ]).then(function(results){
     var overrideRows = results[0] || [];
-    var domsRows = (results[1] || []).map(function(r){
+    var domsAckRows = results[1] || [];
+    var domsNotesById = {};
+    (results[2] || []).forEach(function(n){ domsNotesById[n.id] = n; });
+
+    var domsRows = domsAckRows.map(function(r){
       return {
         logged_at: r.acknowledged_at,
         who: r.acknowledged_by,
-        dept: "Dom's Notes",
+        dept: "Mike's Notes",
         msg: r.action === 'published' ? 'Note published' : r.action === 'printed' ? 'Note printed' : 'Note acknowledged',
         ack_type: r.action || 'acknowledged',
-        day_name: '', week_label: '', note: ''
+        day_name: '', week_label: '', note: '',
+        note_id: r.note_id
       };
     });
-    var rows = overrideRows.concat(domsRows).sort(function(a,b){
-      return new Date(b.logged_at) - new Date(a.logged_at);
-    });
-    if(!rows.length) {
+
+    var allRows = overrideRows.concat(domsRows);
+    if(!allRows.length) {
       body.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:20px;">No activity logged yet.</div>';
       return;
     }
-    var html = '';
-    rows.forEach(function(r){
-      var dt = r.logged_at ? new Date(r.logged_at) : null;
-      var dtStr = dt ? months[dt.getMonth()]+' '+dt.getDate()+', '+dt.getFullYear()+' '+dt.getHours()+':'+String(dt.getMinutes()).padStart(2,'0') : '';
-      var ackLabel = r.ack_type === 'intentional' ? 'Intentional decision' :
-                    r.ack_type === 'mistake' ? 'Mistake — will correct' :
-                    r.ack_type === 'published' ? 'Published by Dom' :
-                    r.ack_type === 'printed' ? 'Printed' :
-                    r.ack_type === 'acknowledged' ? 'Acknowledged' :
-                    r.ack_type === 'uncleared' ? 'Never cleared' :
-                    r.ack_type === 'edit' ? 'Run sheet edited' :
-                    r.ack_type === 'upload' ? 'Schedule uploaded' :
-                    r.ack_type === 'upload_errors' ? 'Uploaded with errors' :
-                    r.note || '';
-      var ackColor = r.ack_type === 'intentional' ? '#1a7a3c' :
-                    r.ack_type === 'edit' ? '#1a7a3c' :
-                    r.ack_type === 'upload' ? '#1a7a3c' :
-                    r.ack_type === 'upload_errors' ? '#c8102e' :
-                    r.ack_type === 'uncleared' ? '#888' :
-                    r.ack_type === 'published' ? '#1a7a3c' : '#c8102e';
-      html += '<div style="border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:10px;">';
-      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">';
-      html += '<div style="font-size:13px;font-weight:700;color:#222;">'+(r.day_name||'')+(r.week_label?' — '+r.week_label:'')+'</div>';
-      html += '<div style="font-size:11px;color:#aaa;">'+dtStr+'</div>';
-      html += '</div>';
-      html += '<div style="font-size:12px;color:#c8102e;margin-bottom:4px;"><b>'+r.dept+'</b> — '+r.msg+'</div>';
-      html += '<div style="font-size:11px;font-weight:700;color:'+ackColor+';margin-bottom:2px;">'+ackLabel+'</div>';
-      html += '<div style="font-size:11px;color:#666;">'+(r.who==='SYSTEM'?'<i style="color:#aaa;">Auto-logged</i>':'By: <b>'+(r.who||'—')+'</b>')+'</div>';
-      html += '</div>';
+
+    // Group into threads. threadKey === null means "standalone" (own card, no grouping).
+    var threads = {}; // key -> array of rows
+    var standalone = [];
+    allRows.forEach(function(r){
+      var key = null;
+      if(r.dept === "Mike's Notes") {
+        key = 'doms:' + (r.note_id != null ? r.note_id : 'unknown-' + r.logged_at);
+      } else if(ERROR_ACK_TYPES[r.ack_type] && r.dept && r.msg) {
+        key = 'err:' + (r.week_label||'') + '|' + r.day_index + '|' + r.dept + '|' + r.msg;
+      }
+      if(key) {
+        if(!threads[key]) threads[key] = [];
+        threads[key].push(r);
+      } else {
+        standalone.push(r);
+      }
     });
+
+    // Build renderable thread objects
+    var threadCards = Object.keys(threads).map(function(key){
+      var events = threads[key].slice().sort(function(a,b){ return new Date(a.logged_at) - new Date(b.logged_at); });
+      var latest = events[events.length - 1];
+      var isDoms = key.indexOf('doms:') === 0;
+      var status, statusColor, headerTitle, headerSub;
+      if(isDoms) {
+        var noteId = events[0].note_id;
+        var note = noteId != null ? domsNotesById[noteId] : null;
+        var preview = note ? [note.drivers, note.foh, note.boh].filter(Boolean).join(' • ').slice(0,80) : '';
+        headerTitle = "Mike's Note" + (note && note.created_by ? ' — by ' + note.created_by : '');
+        headerSub = preview || '(note text unavailable)';
+        var ackedBy = {};
+        events.forEach(function(e){ if(e.ack_type === 'acknowledged' || e.ack_type === 'printed') ackedBy[e.who] = true; });
+        var missing = REQUIRED_ACK_MANAGERS.filter(function(m){ return !ackedBy[m]; });
+        if(missing.length === 0) { status = 'ACKNOWLEDGED'; statusColor = '#1a7a3c'; }
+        else { status = 'PENDING: ' + missing.join(', '); statusColor = '#c8102e'; }
+      } else {
+        headerTitle = latest.dept + (latest.day_name ? ' — ' + latest.day_name : '') + (latest.week_label ? ' — ' + latest.week_label : '');
+        headerSub = events[0].msg;
+        var wasResolved = events.some(function(e){ return e.ack_type === 'resolved'; });
+        status = wasResolved ? 'RESOLVED' : 'OPEN';
+        statusColor = wasResolved ? '#1a7a3c' : '#c8102e';
+      }
+      return {
+        latestTime: new Date(latest.logged_at),
+        html: (function(){
+          var h = '<div style="border:1px solid #eee;border-left:4px solid '+statusColor+';border-radius:10px;padding:12px;margin-bottom:10px;">';
+          h += '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">';
+          h += '<div style="font-size:13px;font-weight:700;color:#222;">'+headerTitle+'</div>';
+          h += '<div style="font-size:10px;font-weight:700;color:'+statusColor+';white-space:nowrap;margin-left:8px;">'+status+'</div>';
+          h += '</div>';
+          h += '<div style="font-size:12px;color:#c8102e;margin-bottom:8px;">'+headerSub+'</div>';
+          h += '<div style="border-top:1px solid #f2f2f2;padding-top:6px;">';
+          events.forEach(function(e){
+            h += '<div style="margin-bottom:6px;padding-left:8px;border-left:2px solid #eee;">';
+            h += '<div style="font-size:11px;font-weight:700;color:'+eventColor(e)+';">'+eventLabel(e)+'</div>';
+            h += '<div style="font-size:11px;color:#666;">'+(e.who==='SYSTEM'?'<i style="color:#aaa;">Auto-logged</i>':'By: <b>'+(e.who||'—')+'</b>')+' &nbsp;·&nbsp; '+fmtDt(e.logged_at)+'</div>';
+            h += '</div>';
+          });
+          h += '</div></div>';
+          return h;
+        })()
+      };
+    });
+
+    var standaloneCards = standalone.map(function(r){
+      return {
+        latestTime: new Date(r.logged_at),
+        html: '<div style="border:1px solid #eee;border-radius:10px;padding:12px;margin-bottom:10px;">'
+          + '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">'
+          + '<div style="font-size:13px;font-weight:700;color:#222;">'+(r.day_name||'')+(r.week_label?' — '+r.week_label:'')+'</div>'
+          + '<div style="font-size:11px;color:#aaa;">'+fmtDt(r.logged_at)+'</div>'
+          + '</div>'
+          + '<div style="font-size:12px;color:#c8102e;margin-bottom:4px;"><b>'+r.dept+'</b> — '+r.msg+'</div>'
+          + '<div style="font-size:11px;font-weight:700;color:'+eventColor(r)+';margin-bottom:2px;">'+eventLabel(r)+'</div>'
+          + '<div style="font-size:11px;color:#666;">'+(r.who==='SYSTEM'?'<i style="color:#aaa;">Auto-logged</i>':'By: <b>'+(r.who||'—')+'</b>')+'</div>'
+          + '</div>'
+      };
+    });
+
+    var allCards = threadCards.concat(standaloneCards).sort(function(a,b){ return b.latestTime - a.latestTime; });
+    var html = allCards.map(function(c){ return c.html; }).join('');
     body.innerHTML = html;
   }).catch(function(e){
     body.innerHTML = '<div style="color:#c8102e;font-size:13px;text-align:center;padding:20px;">Failed to load log.</div>';
@@ -5908,10 +6076,11 @@ function handleLockIconTap() {
     <div style="font-family:'Bebas Neue',sans-serif;font-size:22px;letter-spacing:0.08em;color:#222;margin-bottom:8px;">Who are you?</div>
     <div style="font-size:13px;color:#888;margin-bottom:20px;">This is a one-time setup. Your name will be saved on this device.</div>
     <div style="display:flex;flex-direction:column;gap:10px;">
+      <button onclick="setIdentity('Mike B')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Mike</button>
+      <button onclick="setIdentity('Chelsea')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Chelsea</button>
+      <button onclick="setIdentity('Jeremy')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Jeremy</button>
+      <button onclick="setIdentity('Brett')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Brett</button>
       <button onclick="setIdentity('Ely')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Ely</button>
-      <button onclick="setIdentity('Selena')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Selena</button>
-      <button onclick="setIdentity('Alex')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Alex</button>
-      <button onclick="setIdentity('Dom')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Dom</button>
       <button onclick="showIdentityInput()" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;color:#888;">Add / Not Listed</button>
       <div id="identity-input-wrap" style="display:none;">
         <input id="identity-custom-input" type="text" placeholder="Enter your name" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:10px;font-size:16px;box-sizing:border-box;margin-bottom:8px;">
@@ -5922,10 +6091,10 @@ function handleLockIconTap() {
 </div>
 
 
-<!-- Dom's Notes compose popup -->
+<!-- Mike's Notes compose popup -->
 <div id="doms-notes-panel" style="display:none;position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:10001;background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,0.22);width:92%;max-width:460px;overflow:hidden;">
   <div id="doms-notes-header" style="background:var(--red);padding:14px 16px;cursor:grab;display:flex;align-items:center;justify-content:space-between;user-select:none;">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.08em;color:#fff;">Dom's Notes</div>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.08em;color:#fff;">Mike's Notes</div>
     <button onclick="document.getElementById('doms-notes-panel').style.display='none';" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:18px;width:30px;height:30px;border-radius:50%;cursor:pointer;line-height:1;">✕</button>
   </div>
   <div style="padding:16px;max-height:80vh;overflow-y:auto;">
@@ -5944,11 +6113,11 @@ function handleLockIconTap() {
   </div>
 </div>
 
-<!-- Dom's Notes acknowledgment popup -->
+<!-- Mike's Notes acknowledgment popup -->
 <div id="doms-ack-modal" style="display:none;position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:14px;width:92%;max-width:440px;overflow:hidden;">
     <div style="background:var(--red);padding:14px 16px;">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.08em;color:#fff;">Dom's Notes</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.08em;color:#fff;">Mike's Notes</div>
       <div id="doms-ack-date" style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:2px;"></div>
     </div>
     <div id="doms-ack-body" style="padding:16px;max-height:60vh;overflow-y:auto;"></div>
@@ -6108,12 +6277,12 @@ function checkDomsNotes() {
 
 function showDomsAckModal(note) {
   var user = getCurrentUser();
-  if(user === 'Dom') return;
+  if(user === 'Mike B') return;
   var modal = document.getElementById('doms-ack-modal');
   if(!modal) return;
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var d = new Date(note.created_at);
-  document.getElementById('doms-ack-date').textContent = months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + ' - By: ' + (note.created_by || 'Dom');
+  document.getElementById('doms-ack-date').textContent = months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + ' - By: ' + (note.created_by || 'Mike');
   var body = '';
   if(note.drivers) body += '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#888;margin-bottom:4px;">DRIVERS</div><div style="font-size:13px;white-space:pre-wrap;">'+note.drivers+'</div></div>';
   if(note.foh) body += '<div style="margin-bottom:14px;"><div style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#888;margin-bottom:4px;">FRONT OF HOUSE</div><div style="font-size:13px;white-space:pre-wrap;">'+note.foh+'</div></div>';
