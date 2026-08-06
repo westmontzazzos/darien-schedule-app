@@ -1031,6 +1031,7 @@ document.addEventListener("DOMContentLoaded",function(){
     <button class="sub-btn active" onclick="switchSched('drivers',this)">Drivers</button>
     <button id="sched-inline-save" onclick="saveSchedInlineEdits()" style="display:none;margin-left:auto;padding:6px 14px;background:var(--red);color:#fff;border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.06em;cursor:pointer;">💾 Save Schedule</button>
     <button class="sub-btn" onclick="switchSched('foh',this)">Front of House</button>
+    <button class="sub-btn" onclick="switchSched('cashiers',this)">Cashiers</button>
     <button class="sub-btn" onclick="switchSched('boh',this)">Back of House</button>
     <button class="sub-btn" onclick="showSchedPrintMenu(this)">🖨 Print</button>
     <button class="sub-btn" onclick="gatedShowOverrideLog(this)" style="margin-left:auto;">📋 Schedule Log</button>
@@ -1269,9 +1270,23 @@ document.addEventListener("DOMContentLoaded",function(){
         </div>
       </div>
 
+      <!-- Cashier Upload (separate from FOH) -->
+      <div class="card">
+        <div class="card-header">3 — Cashier Schedule</div>
+        <div style="padding:16px;">
+          <div id="csh-preview" style="display:none;margin-bottom:10px;"><img id="csh-img" style="width:100%;border-radius:6px;max-height:200px;object-fit:cover;"></div>
+          <label style="display:block;width:100%;padding:12px;background:var(--gray-50);border:2px dashed var(--gray-200);border-radius:8px;text-align:center;cursor:pointer;font-size:13px;color:var(--gray-600);">
+            <input type="file" id="csh-file" accept="image/*" style="display:none" onchange="previewImage('csh')">
+            📷 Tap to upload Cashier photo
+          </label>
+          <div id="csh-status" style="font-size:12px;color:var(--gray-400);margin-top:6px;"></div>
+          <button class="btn btn-primary" style="width:100%;margin-top:10px;" onclick="processSingle('csh')">⚡ Save Cashiers</button>
+        </div>
+      </div>
+
       <!-- Driver Upload -->
       <div class="card">
-        <div class="card-header">3 — Driver Schedule</div>
+        <div class="card-header">4 — Driver Schedule</div>
         <div style="padding:16px;">
           <div id="drv-preview" style="display:none;margin-bottom:10px;"><img id="drv-img" style="width:100%;border-radius:6px;max-height:200px;object-fit:cover;"></div>
           <label style="display:block;width:100%;padding:12px;background:var(--gray-50);border:2px dashed var(--gray-200);border-radius:8px;text-align:center;cursor:pointer;font-size:13px;color:var(--gray-600);">
@@ -1285,7 +1300,7 @@ document.addEventListener("DOMContentLoaded",function(){
     </div>
 
     <button class="btn btn-secondary" style="width:100%;" onclick="processSchedules()">
-      ⚡ Save All Three At Once
+      ⚡ Save All Four At Once
     </button>
     <div id="process-status" style="margin-top:16px;"></div>
 
@@ -1602,9 +1617,9 @@ const HOSTS = {
 
 // Canonical FOH roster per section, captured before any week's data replaces these.
 const KNOWN_FOH = {
-  SERVERS: Object.keys(SERVERS), BARTENDERS: Object.keys(BARTENDERS),
-  CASHIERS: Object.keys(CASHIERS), HOSTS: Object.keys(HOSTS)
+  SERVERS: Object.keys(SERVERS), BARTENDERS: Object.keys(BARTENDERS), HOSTS: Object.keys(HOSTS)
 };
+const KNOWN_CASHIERS = Object.keys(CASHIERS);
 
 function fmtFOH(t, di, isClose) {
   if(!t) return '';
@@ -2976,33 +2991,35 @@ async function saveSchedInlineEdits() {
     var secObj = {DRIVERS:DRIVERS,PIZZA:PIZZA,KITCHEN:KITCHEN,PREP:PREP,BUS:BUS,DISH:DISH,SERVERS:SERVERS,BARTENDERS:BARTENDERS,CASHIERS:CASHIERS,HOSTS:HOSTS}[section];
     if(secObj && secObj[name] !== undefined) secObj[name][di] = val;
   });
-  // Save to Supabase using same format as existing editor
+  // Save to Supabase — PATCH the existing row by week_start. Never delete/recreate
+  // the row: that would wipe out bouncer_data and anything else not listed below.
   var weekStart = allWeeks && allWeeks[currentWeekIdx] ? allWeeks[currentWeekIdx].week_start : null;
   if(!weekStart) { alert('No week loaded.'); return; }
   try {
-    await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?week_start=eq.' + weekStart, {
-      method: 'DELETE', headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
-    });
-    await fetch(SUPABASE_URL + '/rest/v1/darien_schedules', {
-      method: 'POST',
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?week_start=eq.' + weekStart, {
+      method: 'PATCH',
       headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
-      body: JSON.stringify([{
-        week_start: weekStart,
+      body: JSON.stringify({
         boh_data: JSON.stringify({MANAGERS:MANAGERS,PIZZA:PIZZA,KITCHEN:KITCHEN,PREP:PREP,BUS:BUS,DISH:DISH}),
-        foh_data: JSON.stringify({SERVERS:SERVERS,BARTENDERS:BARTENDERS,CASHIERS:CASHIERS,HOSTS:HOSTS}),
+        foh_data: JSON.stringify({SERVERS:SERVERS,BARTENDERS:BARTENDERS,HOSTS:HOSTS}),
+        cashier_data: JSON.stringify(CASHIERS),
         driver_data: JSON.stringify(DRIVERS),
         event_data: JSON.stringify(WEEK_EVENTS),
         last_edited_by: getCurrentUser(),
         last_edited_at: new Date().toISOString()
-      }])
+      })
     });
+    if(!resp.ok) {
+      var errText = await resp.text().catch(function(){ return ''; });
+      throw new Error('Database update failed (HTTP '+resp.status+'): '+errText);
+    }
     window._schedEditMode = false;
     document.getElementById('sched-edit-trigger').style.color = '';
     var saveBtn = document.getElementById('sched-inline-save');
     if(saveBtn) saveBtn.style.display = 'none';
     renderSchedule();
     alert('Schedule saved.');
-  } catch(e) { alert('Save failed: ' + e.message); }
+  } catch(e) { alert('Save failed: ' + e.message + '\n\nYour changes were NOT saved. Please try again.'); }
 }
 
 function renderSchedule() {
@@ -3048,7 +3065,7 @@ function renderSchedule() {
         html+='</tr>';
       });
   } else if(currentSchedView==='foh') {
-    [{l:'SERVERS',d:SERVERS},{l:'BARTENDERS',d:BARTENDERS},{l:'CASHIERS',d:CASHIERS},{l:'HOSTS',d:HOSTS}].forEach(({l,d})=>{
+    [{l:'SERVERS',d:SERVERS},{l:'BARTENDERS',d:BARTENDERS},{l:'HOSTS',d:HOSTS}].forEach(({l,d})=>{
       html+=`<tr class="sched-sec-hdr"><td colspan="8">${l}</td></tr>`;
       schedSort(Object.entries(d),'foh').forEach(([name,days])=>{
         html+=`<tr><td>${name}</td>`;
@@ -3065,6 +3082,23 @@ function renderSchedule() {
         });
         html+='</tr>';
       });
+    });
+  } else if(currentSchedView==='cashiers') {
+    html+=`<tr class="sched-sec-hdr"><td colspan="8">CASHIERS</td></tr>`;
+    schedSort(Object.entries(CASHIERS),'foh').forEach(([name,days])=>{
+      html+=`<tr><td>${name}</td>`;
+      days.forEach((e,di)=>{
+        if(window._schedEditMode){
+          var rawVal = e ? (Array.isArray(e) ? e.join('-') : e) : '';
+          html+=`<td><input class="sched-inline-input" data-section="CASHIERS" data-name="${name}" data-di="${di}" value="${rawVal}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;"></td>`;
+          return;
+        }
+        if(!e){html+='<td></td>';return;}
+        const am=fmtFOH(e[0],di,false);
+        const pm=e[1]==='C'?'C':(e[1]?fmtFOH(e[1],di,false):'');
+        html+=`<td>${pm?am+' – '+pm:am}</td>`;
+      });
+      html+='</tr>';
     });
   } else {
     [{l:'MANAGERS',d:MANAGERS},{l:'PIZZA',d:PIZZA},{l:'KITCHEN',d:KITCHEN},{l:'PREP',d:PREP},{l:'BUS',d:BUS},{l:'DISH',d:DISH}].forEach(({l,d})=>{
@@ -4273,7 +4307,7 @@ async function saveEdits() {
   try {
     var weekRecord = allWeeks[currentWeekIdx];
     if(weekRecord) {
-      await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?id=eq.' + weekRecord.id, {
+      var editPatchResp = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?id=eq.' + weekRecord.id, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
@@ -4283,16 +4317,25 @@ async function saveEdits() {
         },
         body: JSON.stringify({
           boh_data: JSON.stringify({MANAGERS:MANAGERS,PIZZA:PIZZA,KITCHEN:KITCHEN,PREP:PREP,BUS:BUS,DISH:DISH}),
-          foh_data: JSON.stringify({SERVERS:SERVERS,BARTENDERS:BARTENDERS,CASHIERS:CASHIERS,HOSTS:HOSTS}),
+          foh_data: JSON.stringify({SERVERS:SERVERS,BARTENDERS:BARTENDERS,HOSTS:HOSTS}),
+          cashier_data: JSON.stringify(CASHIERS),
           driver_data: JSON.stringify(DRIVERS),
           event_data: JSON.stringify(WEEK_EVENTS),
           last_edited_by: getCurrentUser(),
           last_edited_at: new Date().toISOString()
         })
       });
+      if(!editPatchResp.ok) {
+        var editErrText = await editPatchResp.text().catch(function(){ return ''; });
+        console.log('Edit save failed (HTTP '+editPatchResp.status+'):', editErrText);
+        alert('Could not save this edit — the change was NOT saved. Please try again.');
+        return;
+      }
     }
   } catch(e) {
     console.log('Could not sync edit to Supabase:', e.message);
+    alert('Could not save this edit — the change was NOT saved. Please try again.');
+    return;
   }
 
   // Log the edit
@@ -4443,7 +4486,7 @@ async function loadAllWeeks() {
   }, 8000);
 
   try {
-    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?order=week_start.desc&limit=10&select=id,week_start,boh_data,foh_data,driver_data,event_data,bouncer_data', {
+    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?order=week_start.desc&limit=10&select=id,week_start,boh_data,foh_data,cashier_data,driver_data,event_data,bouncer_data', {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
     });
     clearTimeout(timeoutId);
@@ -4522,7 +4565,7 @@ async function refreshData() {
   var savedTab = currentTab;
   var savedWeekIdx = currentWeekIdx;
   try {
-    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?order=week_start.desc&limit=10&select=id,week_start,boh_data,foh_data,driver_data,event_data,bouncer_data', {
+    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?order=week_start.desc&limit=10&select=id,week_start,boh_data,foh_data,cashier_data,driver_data,event_data,bouncer_data', {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
     });
     if(r.ok) {
@@ -4608,6 +4651,7 @@ function parseWeekData(week) {
   try {
     var boh = week.boh_data ? JSON.parse(week.boh_data) : {};
     var foh = week.foh_data ? JSON.parse(week.foh_data) : {};
+    var csh = week.cashier_data ? JSON.parse(week.cashier_data) : {};
     // Load events
     var evArr = week.event_data ? JSON.parse(week.event_data) : [null,null,null,null,null,null,null];
     for(var ei=0;ei<7;ei++) WEEK_EVENTS[ei] = (Array.isArray(evArr) && evArr[ei]) ? evArr[ei] : null;
@@ -4620,23 +4664,18 @@ function parseWeekData(week) {
     if(boh.DISH)     boh.DISH     = cleanNames(boh.DISH);
     if(foh.SERVERS)    foh.SERVERS    = cleanNames(foh.SERVERS);
     if(foh.BARTENDERS) foh.BARTENDERS = cleanNames(foh.BARTENDERS);
-    if(foh.CASHIERS)   foh.CASHIERS   = cleanNames(foh.CASHIERS);
     if(foh.HOSTS)      foh.HOSTS      = cleanNames(foh.HOSTS);
+    if(csh)            csh            = cleanNames(csh);
     if(drv) drv = cleanNames(drv);
     Object.keys(MANAGERS).forEach(k => delete MANAGERS[k]); if(boh.MANAGERS) Object.assign(MANAGERS, boh.MANAGERS);
     Object.keys(PIZZA).forEach(k => delete PIZZA[k]);       if(boh.PIZZA)    Object.assign(PIZZA, boh.PIZZA);
     Object.keys(KITCHEN).forEach(k => delete KITCHEN[k]);   if(boh.KITCHEN)  Object.assign(KITCHEN, boh.KITCHEN);
-    // Nick is allowed in Kitchen and Prep - no deletion
-    // Normalize Nithia → Nithia Maldonado after Supabase load
-    if(KITCHEN['Nithia'] && !KITCHEN['Nithia Maldonado']) { KITCHEN['Nithia Maldonado'] = KITCHEN['Nithia']; delete KITCHEN['Nithia']; }
     Object.keys(PREP).forEach(k => delete PREP[k]);         if(boh.PREP)     Object.assign(PREP, boh.PREP);
     Object.keys(BUS).forEach(k => delete BUS[k]);           if(boh.BUS)      Object.assign(BUS, boh.BUS);
     Object.keys(DISH).forEach(k => delete DISH[k]);         if(boh.DISH)     Object.assign(DISH, boh.DISH);
     Object.keys(SERVERS).forEach(k => delete SERVERS[k]);       if(foh.SERVERS)    Object.assign(SERVERS, foh.SERVERS);
     Object.keys(BARTENDERS).forEach(k => delete BARTENDERS[k]); if(foh.BARTENDERS) Object.assign(BARTENDERS, foh.BARTENDERS);
-    Object.keys(CASHIERS).forEach(k => delete CASHIERS[k]);     if(foh.CASHIERS)   Object.assign(CASHIERS, foh.CASHIERS);
-    // Move Allie from BARTENDERS to SERVERS after load
-    if(BARTENDERS['Allie']) { SERVERS['Allie'] = BARTENDERS['Allie']; delete BARTENDERS['Allie']; }
+    Object.keys(CASHIERS).forEach(k => delete CASHIERS[k]);     if(csh)            Object.assign(CASHIERS, csh);
     Object.keys(HOSTS).forEach(k => delete HOSTS[k]);           if(foh.HOSTS)      Object.assign(HOSTS, foh.HOSTS);
     Object.keys(DRIVERS).forEach(k => delete DRIVERS[k]);       if(drv)            Object.assign(DRIVERS, drv);
   } catch(e) {
@@ -4905,10 +4944,12 @@ function checkScheduleErrors() {
   var hasFOHData =
     Object.values(SERVERS).some(function(d){ return d && d.some(Boolean); }) ||
     Object.values(BARTENDERS).some(function(d){ return d && d.some(Boolean); }) ||
+    Object.values(HOSTS).some(function(d){ return d && d.some(Boolean); });
+  var hasCashierData =
     Object.values(CASHIERS).some(function(d){ return d && d.some(Boolean); });
   var hasDriverData =
     Object.values(DRIVERS).some(function(d){ return d && d.some(Boolean); });
-  if(!hasBOHData && !hasFOHData && !hasDriverData) return;
+  if(!hasBOHData && !hasFOHData && !hasCashierData && !hasDriverData) return;
   var weekLbl = (document.getElementById('sched-week-label')||{}).textContent || 'this week';
 
   var DAYS_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
@@ -5129,13 +5170,6 @@ function checkScheduleErrors() {
           errors.FOH.push({di:di, day:day, name:e[0], dept:sec.lbl, msg:'AM shift — missing end time'});
       });
     });
-    Object.entries(CASHIERS).forEach(function(e){
-      var p = parseFOHRaw(e[1][di]);
-      if(!p) return;
-      var stH = hitlistHour(p.st, di);
-      if(stH !== null && stH < 12 && !p.hasEnd && !p.hasClose)
-        errors.FOH.push({di:di, day:day, name:e[0], dept:'Cashiers', msg:'AM shift — missing end time'});
-    });
 
     // ---------- Bartenders: opener 9AM-5PM, closer 5PM-close (marked 5-C) ----------
     if(Object.values(BARTENDERS).some(function(d){ return fohHasShift(d[di]); })) {
@@ -5166,6 +5200,17 @@ function checkScheduleErrors() {
       if(hostCount < 1)
         errors.FOH.push({di:di, day:day, name:'—', dept:'Hosts', msg:'No host scheduled — required Fri & Sat, 4PM-8PM'});
     }
+    }
+
+    // ================= CASHIERS (separate schedule/upload from FOH) =================
+    if(hasCashierData) {
+    Object.entries(CASHIERS).forEach(function(e){
+      var p = parseFOHRaw(e[1][di]);
+      if(!p) return;
+      var stH = hitlistHour(p.st, di);
+      if(stH !== null && stH < 12 && !p.hasEnd && !p.hasClose)
+        errors.FOH.push({di:di, day:day, name:e[0], dept:'Cashiers', msg:'AM shift — missing end time'});
+    });
 
     // ---------- Cashiers: day-specific minimum headcount, opener rule, universal 8PM end ----------
     var cashierShifts = Object.entries(CASHIERS).map(function(e){ return {n:e[0], p:parseFOHRaw(e[1][di])}; }).filter(function(x){ return x.p; });
@@ -5445,7 +5490,7 @@ function printScheduleErrors() {
 
 
 
-var uploadedImages = {boh: null, foh: null, drv: null};
+var uploadedImages = {boh: null, foh: null, csh: null, drv: null};
 
 function previewImage(type) {
   var input = document.getElementById(type+'-file');
@@ -5474,7 +5519,7 @@ async function processSingle(type) {
   var end = new Date(d); end.setDate(d.getDate() + 6);
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var weekLabel = months[d.getMonth()]+' '+d.getDate()+' – '+months[end.getMonth()]+' '+end.getDate()+', '+end.getFullYear();
-  var typeLabel = type==='boh'?'Back of House':type==='foh'?'Front of House':'Drivers';
+  var typeLabel = type==='boh'?'Back of House':type==='foh'?'Front of House':type==='csh'?'Cashiers':'Drivers';
   var confirmed = confirm('Save '+typeLabel+' schedule for week of '+weekLabel+'?\n\nTap OK to confirm.');
   if(!confirmed) return;
 
@@ -5484,7 +5529,7 @@ async function processSingle(type) {
   btn.disabled = true;
 
   try {
-    var typeLabel = type==='boh'?'BOH':type==='foh'?'FOH':'DRIVERS';
+    var typeLabel = type==='boh'?'BOH':type==='foh'?'FOH':type==='csh'?'CSH':'DRIVERS';
     statusEl.textContent = 'Reading schedule...';
     statusEl.style.color = 'var(--gray-400)';
 
@@ -5507,6 +5552,7 @@ async function processSingle(type) {
       var patch = {};
       if(type==='boh') patch.boh_data = JSON.stringify(data);
       if(type==='foh') patch.foh_data = JSON.stringify(data);
+      if(type==='csh') patch.cashier_data = JSON.stringify(data);
       if(type==='drv') patch.driver_data = JSON.stringify(data);
       if(evPatch) patch.event_data = JSON.stringify(evPatch);
 
@@ -5527,13 +5573,15 @@ async function processSingle(type) {
     } else {
       // Create new record — fill missing sections with empty objects so app doesn't break
       var emptyBOH = JSON.stringify({MANAGERS:{},PIZZA:{},KITCHEN:{},PREP:{},BUS:{},DISH:{}});
-      var emptyFOH = JSON.stringify({SERVERS:{},BARTENDERS:{},CASHIERS:{},HOSTS:{}});
+      var emptyFOH = JSON.stringify({SERVERS:{},BARTENDERS:{},HOSTS:{}});
+      var emptyCSH = JSON.stringify({});
       var emptyDRV = JSON.stringify({});
 
       var newRecord = {
         week_start: weekStart,
         boh_data: type==='boh' ? JSON.stringify(data) : emptyBOH,
         foh_data: type==='foh' ? JSON.stringify(data) : emptyFOH,
+        cashier_data: type==='csh' ? JSON.stringify(data) : emptyCSH,
         driver_data: type==='drv' ? JSON.stringify(data) : emptyDRV,
         created_at: new Date().toISOString()
       };
@@ -5561,7 +5609,7 @@ async function processSingle(type) {
     btn.disabled = false;
     // Log upload to schedule log
     try {
-      var sectionLabel = type==='boh'?'Back of House':type==='foh'?'Front of House':'Drivers';
+      var sectionLabel = type==='boh'?'Back of House':type==='foh'?'Front of House':type==='csh'?'Cashiers':'Drivers';
       fetch(SUPABASE_URL + '/rest/v1/darien_override_log', {
         method: 'POST',
         headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
@@ -5577,7 +5625,7 @@ async function processSingle(type) {
         }])
       }).catch(function(){});
     } catch(e2) {}
-    window._justUploaded = type==='boh'?'Back of House':type==='foh'?'Front of House':'Drivers';
+    window._justUploaded = type==='boh'?'Back of House':type==='foh'?'Front of House':type==='csh'?'Cashiers':'Drivers';
     localStorage.setItem('zp_last_uploader', getCurrentUser());
     await loadAllWeeks();
     // Jump to the newly saved week
@@ -5643,7 +5691,7 @@ async function clearWeekRecord() {
 
 async function getWeekRecord(weekStart) {
   try {
-    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?week_start=eq.' + weekStart + '&select=id,boh_data,foh_data,driver_data,event_data', {
+    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?week_start=eq.' + weekStart + '&select=id,boh_data,foh_data,cashier_data,driver_data,event_data', {
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
     });
     var rows = await r.json();
@@ -5654,8 +5702,8 @@ async function getWeekRecord(weekStart) {
 async function processSchedules() {
   var weekStart = snapToMonday(document.getElementById('week-start').value);
   if(!weekStart) { alert('Please select a week start date.'); return; }
-  if(!uploadedImages.boh || !uploadedImages.foh || !uploadedImages.drv) {
-    alert('Please upload all 3 schedule photos first.'); return;
+  if(!uploadedImages.boh || !uploadedImages.foh || !uploadedImages.csh || !uploadedImages.drv) {
+    alert('Please upload all 4 schedule photos first.'); return;
   }
 
   // Confirm the week before processing
@@ -5680,12 +5728,15 @@ async function processSchedules() {
     statusEl.innerHTML = '<div style="padding:16px;background:var(--gray-50);border-radius:8px;font-size:13px;color:var(--gray-600);">⏳ Reading FOH schedule...</div>';
     var fohData = await readScheduleImage(uploadedImages.foh, 'FOH');
 
+    statusEl.innerHTML = '<div style="padding:16px;background:var(--gray-50);border-radius:8px;font-size:13px;color:var(--gray-600);">⏳ Reading Cashier schedule...</div>';
+    var cshData = await readScheduleImage(uploadedImages.csh, 'CSH');
+
     statusEl.innerHTML = '<div style="padding:16px;background:var(--gray-50);border-radius:8px;font-size:13px;color:var(--gray-600);">⏳ Reading Driver schedule...</div>';
     var drvData = await readScheduleImage(uploadedImages.drv, 'DRIVERS');
 
     // Save to Supabase
     statusEl.innerHTML = '<div style="padding:16px;background:var(--gray-50);border-radius:8px;font-size:13px;color:var(--gray-600);">⏳ Saving to database...</div>';
-    await saveToSupabase(weekStart, bohData, fohData, drvData, eventData);
+    await saveToSupabase(weekStart, bohData, fohData, cshData, drvData, eventData);
 
     statusEl.innerHTML = '<div style="padding:16px;background:#f0fdf4;border-radius:8px;font-size:13px;color:var(--green);font-weight:600;">✓ Done! Schedule updated for all managers.</div>';
     await loadAllWeeks();
@@ -5813,7 +5864,9 @@ async function readScheduleImage(dataUrl, type) {
   if(type === 'BOH') {
     prompt = 'You are extracting a Back of House restaurant schedule from a photo or screenshot.\n\nThe schedule is a grid where rows are employee names and columns are days of the week (Monday through Sunday). Each cell contains either a shift time or is blank/off.\n\nExtract EVERY employee and EVERY day. Do not skip anyone. Do not skip any days.\n\nMany cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells. A cell is null ONLY if it is truly blank. Before you finish, re-check every row against the image and confirm you did not leave any filled cell as null.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{\n  "MANAGERS": {"EmployeeName": ["MonShift","TueShift","WedShift","ThuShift","FriShift","SatShift","SunShift"]},\n  "PIZZA": {},\n  "KITCHEN": {},\n  "DISH": {}\n}\n\nRules:\n- Use null for days off or blank cells\n- Preserve shift times exactly as written (e.g. "4pm", "9am-8pm", "4pm-c", "4pm-cl", "1pm-close", "9am")\n- "c" or "cl" or "close" at the end means closing shift — keep it as written\n- Include ALL employees listed under each section header\n- If a section has no employees visible, use an empty object {}\n- The 7 array values correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- Employee names must be first name only or first+initial — strip any phone numbers or digits in parentheses (e.g. "Jose (630-123-4567)" becomes "Jose")\n- CRITICAL: Only include employees whose name you can physically see in that section of the photo. Do NOT infer, guess, or add anyone not visibly present in a section.\n- CRITICAL: A person can appear in MULTIPLE sections (e.g. Arturo, Laura Z, Gustavo, and Jesus regularly work both Pizza and Kitchen). If you see the same name under both sections, include them in BOTH with their respective shifts. Do not deduplicate.\n- If a section appears empty or a person is not visible in it, use null for that day. Do not fill in names from memory or context.';
   } else if(type === 'FOH') {
-    prompt = 'You are extracting a Front of House restaurant schedule from a photo or screenshot.\n\nThe schedule is a grid where rows are employee names and columns are days of the week (Monday through Sunday). Each cell contains either a start time, a start-end time range, or is blank/off.\n\nExtract EVERY employee and EVERY day. Do not skip anyone. Do not skip any days.\n\nMany cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells. A cell is null ONLY if it is truly blank. Before you finish, re-check every row against the image and confirm you did not leave any filled cell as null.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{\n  "SERVERS": {"EmployeeName": [["startTime","endTimeOrC"],null,...]},\n  "BARTENDERS": {},\n  "CASHIERS": {},\n  "HOSTS": {}\n}\n\nRules:\n- Use null for days off or blank cells\n- Each working day is an array: ["startTime", "endTime"] or ["startTime", "C"] for close or ["startTime", null] if no end shown\n- Preserve times exactly as written (e.g. "4pm", "10:30am", "4:30pm")\n- "C" means closing shift\n- Include ALL employees under each section\n- The 7 array positions correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- If a section has no employees, use {}\n- Employee names must be first name only or first+last — strip any phone numbers or digits in parentheses (e.g. "Abby (630-880-4270)" becomes "Abby")';
+    prompt = 'You are extracting a Front of House restaurant schedule from a photo or screenshot.\n\nThe schedule is a grid where rows are employee names and columns are days of the week (Monday through Sunday). Each cell contains either a start time, a start-end time range, or is blank/off.\n\nExtract EVERY employee and EVERY day. Do not skip anyone. Do not skip any days.\n\nMany cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells. A cell is null ONLY if it is truly blank. Before you finish, re-check every row against the image and confirm you did not leave any filled cell as null.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{\n  "SERVERS": {"EmployeeName": [["startTime","endTimeOrC"],null,...]},\n  "BARTENDERS": {},\n  "HOSTS": {}\n}\n\nRules:\n- Use null for days off or blank cells\n- Each working day is an array: ["startTime", "endTime"] or ["startTime", "C"] for close or ["startTime", null] if no end shown\n- Preserve times exactly as written (e.g. "4pm", "10:30am", "4:30pm")\n- "C" means closing shift\n- Include ALL employees under each section\n- The 7 array positions correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- If a section has no employees, use {}\n- Employee names must be first name only or first+last — strip any phone numbers or digits in parentheses (e.g. "Abby (630-880-4270)" becomes "Abby")';
+  } else if(type === 'CSH') {
+    prompt = 'You are extracting a Cashier schedule from a photo or screenshot of a spreadsheet grid.\n\nCompleteness is the single most important thing. Many cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells.\n\nFollow this method exactly:\n1. Read down the left column and note EVERY cashier name, top to bottom.\n2. For each cashier, scan all 7 day columns left to right (Mon, Tue, Wed, Thu, Fri, Sat, Sun) and record the shift text in each cell.\n3. A cell is null ONLY if it is truly blank. If you can see any time or text in a cell, you MUST capture it.\n4. Before you finish, re-check every cashier row against the image and confirm you did not leave any filled cell as null.\n5. CRITICAL: Sunday is the 7th and last column. It is often cut off or hard to see. You MUST include it.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{"CashierName": ["MonShift","TueShift","WedShift","ThuShift","FriShift","SatShift","SunShift"]}\n\nRules:\n- Use null ONLY for genuinely empty cells\n- Use the cashier\'s name only (ignore phone numbers in parentheses)\n- Preserve shift text exactly as written, including ranges and closing notation (e.g. "4pm", "4pm-c", "9am-3pm")\n- "c", "cl", or "close" at the end means a closing shift — keep it as written\n- The 7 values correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- Include EVERY cashier listed, even ones with no shifts that week (use an all-null array)\n- Final check before answering: count the names in the left column of the image, then count the keys in your JSON. These two numbers MUST match.';
   } else {
     prompt = 'You are extracting a Driver schedule from a photo or screenshot of a spreadsheet grid.\n\nCompleteness is the single most important thing. Many cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells.\n\nFollow this method exactly:\n1. Read down the left column and note EVERY driver name, top to bottom.\n2. For each driver, scan all 7 day columns left to right (Mon, Tue, Wed, Thu, Fri, Sat, Sun) and record the shift text in each cell.\n3. A cell is null ONLY if it is truly blank. If you can see any time or text in a cell, you MUST capture it.\n4. Before you finish, re-check every driver row against the image and confirm you did not leave any filled cell as null.\n5. CRITICAL: Sunday is the 7th and last column. It is often cut off or hard to see. You MUST include it. If Sunday is blank for a driver use null, but if there is any text there you must capture it. Do not skip Sunday.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{"DriverName": ["MonShift","TueShift","WedShift","ThuShift","FriShift","SatShift","SunShift"]}\n\nRules:\n- Use null ONLY for genuinely empty cells\n- Use the driver\'s name only (ignore phone numbers in parentheses)\n- Preserve shift text exactly as written, including ranges and closing notation (e.g. "4pm", "2pm-cl", "2pm - cl", "5pm -cl", "10:30am", "10:30am/4pm", "9am-4pm", "2pm-c")\n- "c", "cl", or "close" at the end means a closing shift — keep it as written\n- The 7 values correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- Include EVERY driver listed, even drivers with no shifts that week (use an all-null array)\n- CRITICAL: Some drivers work only ONE shift the entire week, so their row has just a single filled cell and the other six are blank. These sparse single-shift rows are the easiest to accidentally skip — you MUST still include them as their own driver. Never merge or drop a row just because it is mostly empty.\n- Final check before answering: count the names in the left column of the image, then count the keys in your JSON. These two numbers MUST match. If they do not, you skipped a row — go back and find it.';
   }
@@ -5828,8 +5881,11 @@ async function readScheduleImage(dataUrl, type) {
       var bohNames = await callVision(base64, mediaType, 'Look at this photo of a Back of House schedule. Read ONLY the employee names in the left column, grouped under their section headers. CRITICAL: Place each name ONLY in the section where it physically appears in the image. Do not move names between sections. Do not add names that do not appear in the image. Do not place a name under a section unless that name is visually listed under that section header in the photo. Ignore phone numbers or digits in parentheses. Return ONLY a JSON object, no markdown and no explanation, with exactly this structure: {"MANAGERS":[],"PIZZA":[],"KITCHEN":[],"DISH":[]} — put each name as a string in its section array, and use an empty array for any section that has no names.');
       sched = reconcileSectioned(sched, bohNames, ['MANAGERS','PIZZA','KITCHEN','DISH']);
     } else if(type === 'FOH') {
-      var fohNames = await callVision(base64, mediaType, 'Look at this photo of a Front of House schedule. Read ONLY the employee names in the left column, grouped under their section headers. Do not read any day or shift columns. Include EVERY name in every section, even rows that look mostly blank. Ignore phone numbers or digits in parentheses. Return ONLY a JSON object, no markdown and no explanation, with exactly this structure: {"SERVERS":[],"BARTENDERS":[],"CASHIERS":[],"HOSTS":[]} — put each name as a string in its section array, and use an empty array for any section that has no names.');
-      sched = reconcileSectioned(sched, fohNames, ['SERVERS','BARTENDERS','CASHIERS','HOSTS']);
+      var fohNames = await callVision(base64, mediaType, 'Look at this photo of a Front of House schedule. Read ONLY the employee names in the left column, grouped under their section headers. Do not read any day or shift columns. Include EVERY name in every section, even rows that look mostly blank. Ignore phone numbers or digits in parentheses. Return ONLY a JSON object, no markdown and no explanation, with exactly this structure: {"SERVERS":[],"BARTENDERS":[],"HOSTS":[]} — put each name as a string in its section array, and use an empty array for any section that has no names.');
+      sched = reconcileSectioned(sched, fohNames, ['SERVERS','BARTENDERS','HOSTS']);
+    } else if(type === 'CSH') {
+      var cshNames = await callVision(base64, mediaType, 'Look at this photo of a cashier schedule. Read ONLY the left-most column (the list of cashier names), top to bottom. Do not read any day or shift columns. Include EVERY name, even rows where the rest of the row looks blank. Ignore any phone numbers or digits in parentheses. Return ONLY a JSON array of strings in top-to-bottom order, no markdown and no explanation, for example: ["Alyssa","Mayra","Jackson"]');
+      if(Array.isArray(cshNames)) sched = mergeOrdered(sched, cshNames);
     } else {
       var drvNames = await callVision(base64, mediaType, 'Look at this photo of a driver schedule. Read ONLY the left-most column (the list of driver names), top to bottom. Do not read any day or shift columns. Include EVERY name, even rows where the rest of the row looks blank — a driver with only one shift all week still gets a row. Ignore any phone numbers or digits in parentheses. Return ONLY a JSON array of strings in top-to-bottom order, no markdown and no explanation, for example: ["AJ","Alex D","Andrew"]');
       if(Array.isArray(drvNames)) sched = mergeOrdered(sched, drvNames);
@@ -5856,6 +5912,8 @@ async function readScheduleImage(dataUrl, type) {
         var fsec = fohSecs[fi];
         sched[fsec] = await repairRows(base64, mediaType, sched[fsec] || {}, KNOWN_FOH[fsec], 'pair', fsec + ' (Front of House)');
       }
+    } else if(type === 'CSH') {
+      sched = await repairRows(base64, mediaType, sched, KNOWN_CASHIERS, 'string', 'cashier');
     } else {
       sched = await repairRows(base64, mediaType, sched, KNOWN_DRIVER_NAMES, 'string', 'driver');
     }
@@ -5881,7 +5939,7 @@ async function readEventsFromBOH(dataUrl) {
   }
 }
 
-async function saveToSupabase(weekStart, bohData, fohData, drvData, eventData) {
+async function saveToSupabase(weekStart, bohData, fohData, cshData, drvData, eventData) {
   // Update the week's row if it already exists; otherwise create it.
   // Mirrors the per-section save path so the combined upload can never
   // duplicate a week or fail on a unique-constraint conflict.
@@ -5895,6 +5953,7 @@ async function saveToSupabase(weekStart, bohData, fohData, drvData, eventData) {
   var payload = {
     boh_data: JSON.stringify(bohData),
     foh_data: JSON.stringify(fohData),
+    cashier_data: JSON.stringify(cshData),
     driver_data: JSON.stringify(drvData),
     event_data: JSON.stringify(eventData || [null,null,null,null,null,null,null])
   };
@@ -6511,6 +6570,7 @@ function printDomsNoteFromAck(note, user) {
   <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#888;padding:8px 16px 4px;">SECTION</div>
   <button onclick="schedPrintSelect('drivers')" class="sched-print-opt" style="display:block;width:100%;padding:9px 16px;background:none;border:none;text-align:left;font-size:13px;font-weight:600;cursor:pointer;color:#222;">Drivers</button>
   <button onclick="schedPrintSelect('foh')" class="sched-print-opt" style="display:block;width:100%;padding:9px 16px;background:none;border:none;text-align:left;font-size:13px;font-weight:600;cursor:pointer;color:#222;">Front of House</button>
+  <button onclick="schedPrintSelect('cashiers')" class="sched-print-opt" style="display:block;width:100%;padding:9px 16px;background:none;border:none;text-align:left;font-size:13px;font-weight:600;cursor:pointer;color:#222;">Cashiers</button>
   <button onclick="schedPrintSelect('boh')" class="sched-print-opt" style="display:block;width:100%;padding:9px 16px;background:none;border:none;text-align:left;font-size:13px;font-weight:600;cursor:pointer;color:#222;">Back of House</button>
   <div id="sched-print-range" style="display:none;border-top:1px solid #eee;margin-top:4px;">
     <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#888;padding:8px 16px 4px;">RANGE</div>
@@ -6567,7 +6627,7 @@ function printSchedSection(range) {
 
   // Build rows to print
   var rows = '';
-  var title = view === 'drivers' ? 'Drivers' : view === 'foh' ? 'Front of House' : 'Back of House';
+  var title = view === 'drivers' ? 'Drivers' : view === 'foh' ? 'Front of House' : view === 'cashiers' ? 'Cashiers' : 'Back of House';
 
   var daysToShow = range === 'day' ? [currentDay] : [0,1,2,3,4,5,6];
 
@@ -6579,7 +6639,8 @@ function printSchedSection(range) {
   // Get data based on view
   var sections = [];
   if(view === 'drivers') sections = [['Drivers', DRIVERS]];
-  else if(view === 'foh') sections = [['Servers', SERVERS],['Bartenders', BARTENDERS],['Cashiers', CASHIERS],['Hosts', HOSTS]];
+  else if(view === 'foh') sections = [['Servers', SERVERS],['Bartenders', BARTENDERS],['Hosts', HOSTS]];
+  else if(view === 'cashiers') sections = [['Cashiers', CASHIERS]];
   else sections = [['Managers', MANAGERS],['Pizza', PIZZA],['Kitchen', KITCHEN],['Prep', PREP],['Bus', BUS],['Dish', DISH]];
 
   sections.forEach(function(sec){
