@@ -4416,7 +4416,6 @@ function changeWeek(dir) {
 
 // Strip phone numbers from employee names in any section object
 // e.g. "Abby (630-880-4270)" → "Abby"
-// sectionType: optional hint ('managers', etc.) so section-specific aliases apply correctly
 function cleanNames(obj, sectionType) {
   if(!obj) return obj;
   var cleaned = {};
@@ -4425,13 +4424,24 @@ function cleanNames(obj, sectionType) {
     // Resolve known driver aliases (e.g. "Jeff Z" → "Jeff Zeggebeen")
     var aliasKey = DRIVER_ALIASES[cleanKey.toLowerCase()];
     if(aliasKey) cleanKey = aliasKey;
-    // Resolve general name aliases only in the Managers section
-    // (so "Alex" → "Alexis A" the manager, never the "Alexis" server)
-    if(sectionType === 'managers') {
-      var nameAlias = NAME_ALIASES[cleanKey.toLowerCase()];
-      if(nameAlias) cleanKey = nameAlias;
+    // Resolve general name aliases (typos/short spellings actually seen on real
+    // Darien schedules) — applies to every section, every time a week loads.
+    var nameAlias = NAME_ALIASES[cleanKey.toLowerCase()];
+    if(nameAlias) cleanKey = nameAlias;
+    // If this canonical name already exists (two spelling variants collapsed into
+    // one), merge day-by-day instead of letting one silently overwrite the other's
+    // real shifts — take whichever day isn't null/empty.
+    if(cleaned[cleanKey] !== undefined) {
+      var existing = cleaned[cleanKey], incoming = obj[name];
+      var merged = [];
+      for(var i=0; i<7; i++) {
+        var ev = existing && existing[i], iv = incoming && incoming[i];
+        merged[i] = (ev !== null && ev !== undefined && ev !== '') ? ev : (iv !== undefined ? iv : null);
+      }
+      cleaned[cleanKey] = merged;
+    } else {
+      cleaned[cleanKey] = obj[name];
     }
-    cleaned[cleanKey] = obj[name];
   });
   return cleaned;
 }
@@ -4903,19 +4913,36 @@ function checkScheduleErrors() {
     if(kitchenPM < kitchenMin)
       errors.BOH.push({di:di, day:day, name:'—', dept:'Kitchen', msg:'Only '+kitchenPM+' kitchen cook(s) between 4-8PM — need at least '+kitchenMin});
 
-    // ---------- Baseline coverage: at least 1 Pizza + 1 Kitchen person, store-open to store-close, no gaps ----------
+    // ---------- Baseline coverage: at least 1 Pizza + 1 Kitchen person, store-open to Kitchen/Pizza close, no gaps ----------
     function hasCoverageAt(parsedList, hour){
       return parsedList.some(function(x){
         var en = x.p.en !== null ? x.p.en : (x.p.hasClose ? kpClose : 20);
         return x.p.st <= hour && en >= hour;
       });
     }
-    var gapFound = false;
-    for(var h=9; h<kpClose && !gapFound; h+=0.5) {
-      if(!hasCoverageAt(pizzaParsed, h) || !hasCoverageAt(kitchenParsed, h)) gapFound = true;
+    function fmtHourClock(hDec){
+      var hh = Math.floor(hDec), mm = Math.round((hDec-hh)*60);
+      if(mm===60){mm=0;hh++;}
+      var ap = hh>=12 ? 'PM' : 'AM';
+      var h12 = hh%12; if(h12===0) h12=12;
+      return h12 + (mm ? ':'+String(mm).padStart(2,'0') : '') + ap;
     }
-    if(gapFound)
-      errors.BOH.push({di:di, day:day, name:'—', dept:'Pizza/Kitchen', msg:'Gap in coverage — Pizza and Kitchen must each have at least 1 person on at all times the store is open'});
+    function findGaps(parsedList, startH, endH){
+      var gaps = [], gapStart = null;
+      for(var h=startH; h<endH; h+=0.5){
+        var covered = hasCoverageAt(parsedList, h);
+        if(!covered && gapStart===null) gapStart = h;
+        if(covered && gapStart!==null) { gaps.push([gapStart, h]); gapStart = null; }
+      }
+      if(gapStart!==null) gaps.push([gapStart, endH]);
+      return gaps;
+    }
+    findGaps(pizzaParsed, 9, kpClose).forEach(function(g){
+      errors.BOH.push({di:di, day:day, name:'—', dept:'Pizza', msg:'Gap in Pizza coverage — no cook on from '+fmtHourClock(g[0])+' to '+fmtHourClock(g[1])});
+    });
+    findGaps(kitchenParsed, 9, kpClose).forEach(function(g){
+      errors.BOH.push({di:di, day:day, name:'—', dept:'Kitchen', msg:'Gap in Kitchen coverage — no cook on from '+fmtHourClock(g[0])+' to '+fmtHourClock(g[1])});
+    });
 
     // ---------- Dish: 1 person, 4PM until close ----------
     var dishParsed = Object.entries(DISH).map(function(e){ return {n:e[0], p:parseBOHRaw(e[1][di], di, storeClose)}; }).filter(function(x){ return x.p; });
