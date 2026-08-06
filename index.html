@@ -1178,8 +1178,8 @@ document.addEventListener("DOMContentLoaded",function(){
     <div class="card">
       <div class="card-header">💵 Cashier Rules</div>
       <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
-        <b>Sun:</b> 3 cashiers · opener by 11:30AM (only day with an opener)<br>
-        <b>Fri:</b> 3 cashiers, all in by 4PM &nbsp;·&nbsp; <b>Sat:</b> 2 cashiers, all in by 4PM<br>
+        <b>Sun:</b> opener by 11:30AM (only day with an opener) · at least 2 cashiers working between 2–8PM<br>
+        <b>Fri &amp; Sat:</b> at least 2 cashiers working between 2–8PM<br>
         <b>Mon–Thu:</b> 1 cashier, in by 4PM<br>
         No cashier starts later than 4PM, any day · everyone ends at 8PM regardless of start time
       </div>
@@ -5156,9 +5156,21 @@ function checkScheduleErrors() {
     // ---------- Cashiers: day-specific minimum headcount, opener rule, universal 8PM end ----------
     var cashierShifts = Object.entries(CASHIERS).map(function(e){ return {n:e[0], p:parseFOHRaw(e[1][di])}; }).filter(function(x){ return x.p; });
     var cashierCount = cashierShifts.length;
-    var cashierMin = isSun ? 3 : (di===4 ? 3 : (di===5 ? 2 : 1)); // Sun 3, Fri 3, Sat 2, Mon-Thu 1
-    if(cashierCount < cashierMin)
-      errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'Only '+cashierCount+' cashier(s) — need at least '+cashierMin});
+    if(di===4 || di===5 || isSun) {
+      // Fri/Sat/Sun: only need 2 cashiers actually overlapping the 2PM-8PM window
+      var cashierPMOverlap = cashierShifts.filter(function(x){
+        var stH = hitlistHour(x.p.st, di); if(stH===null) return false;
+        var enH = x.p.hasClose ? storeClose : (x.p.hasEnd ? hitlistHour(x.p.en, di) : 20);
+        if(enH===null) enH = 20;
+        return stH < 20 && enH > 14;
+      }).length;
+      if(cashierPMOverlap < 2)
+        errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'Only '+cashierPMOverlap+' cashier(s) between 2-8PM — need at least 2'});
+    } else {
+      // Mon-Thu: at least 1 cashier scheduled, no specific window
+      if(cashierCount < 1)
+        errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'Only '+cashierCount+' cashier(s) — need at least 1'});
+    }
     if(isSun){
       if(!cashierShifts.some(function(x){ var stH=hitlistHour(x.p.st,di); return stH!==null && stH<=11.5; }))
         errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'No opening cashier at or before 11:30AM (Sunday only)'});
