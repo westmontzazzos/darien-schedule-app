@@ -6093,6 +6093,9 @@ function showOverrideLog(btn) {
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var REQUIRED_ACK_MANAGERS = ['Chelsea','Jeremy','Brett'];
 
+  function escHtml(s) {
+    return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
   function fmtDt(iso) {
     var dt = iso ? new Date(iso) : null;
     return dt ? months[dt.getMonth()]+' '+dt.getDate()+', '+dt.getFullYear()+' '+dt.getHours()+':'+String(dt.getMinutes()).padStart(2,'0') : '';
@@ -6191,7 +6194,14 @@ function showOverrideLog(btn) {
       if(isDoms) {
         var noteId = events[0].note_id;
         var note = noteId != null ? domsNotesById[noteId] : null;
-        var preview = note ? [note.drivers, note.foh, note.boh].filter(Boolean).join(' • ').slice(0,80) : '';
+        var preview = '';
+        if(note) {
+          var parts = [];
+          if(note.drivers) parts.push('<b>Drivers:</b> ' + escHtml(note.drivers));
+          if(note.foh) parts.push('<b>FOH:</b> ' + escHtml(note.foh));
+          if(note.boh) parts.push('<b>BOH:</b> ' + escHtml(note.boh));
+          preview = parts.join('<br>');
+        }
         headerTitle = "Mike's Note" + (note && note.created_by ? ' — by ' + note.created_by : '');
         headerSub = preview || '(note text unavailable)';
         var ackedBy = {};
@@ -6447,8 +6457,6 @@ function saveDomsNote() {
   }).then(function(r){ return r.json(); }).then(function(rows){
     var newNoteId = (rows && rows.length) ? rows[0].id : null;
     document.getElementById('doms-notes-panel').style.display = 'none';
-    localStorage.removeItem('zp_doms_dismiss_count');
-    localStorage.removeItem('zp_doms_note_seen_id');
     // Clear text boxes
     document.getElementById('doms-note-drivers').value = '';
     document.getElementById('doms-note-foh').value = '';
@@ -6485,19 +6493,51 @@ function printDomsNotes() {
   iframe.contentDocument.close();
   setTimeout(function(){ iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 400);
 }
+// Pulls EVERY recent note (active or archived — a republish must never wipe out
+// an older note's outstanding acknowledgment requirement) and queues up every
+// note this user hasn't fully acknowledged yet, oldest first. Each note keeps
+// its own thread/ack-cycle forever, independent of whether a newer note exists.
 function checkDomsNotes() {
-  fetch(SUPABASE_URL + '/rest/v1/darien_doms_notes?order=created_at.desc&limit=1&status=eq.active', {
-    headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
-  }).then(function(r){ return r.json(); }).then(function(rows){
-    if(!rows || !rows.length) return;
-    var note = rows[0];
-    var seenId = localStorage.getItem('zp_doms_note_seen_id');
-    if(seenId === String(note.id)) return;
-    showDomsAckModal(note);
+  var user = getCurrentUser();
+  if(user === 'Mike B') return;
+  Promise.all([
+    fetch(SUPABASE_URL + '/rest/v1/darien_doms_notes?order=created_at.asc&limit=30', {
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+    }).then(function(r){ return r.json(); }).catch(function(){ return []; }),
+    fetch(SUPABASE_URL + '/rest/v1/darien_doms_notes_ack?action=eq.acknowledged&acknowledged_by=eq.' + encodeURIComponent(user) + '&limit=500', {
+      headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}
+    }).then(function(r){ return r.json(); }).catch(function(){ return []; })
+  ]).then(function(results){
+    var notes = results[0] || [];
+    var myAcks = results[1] || [];
+    var ackedKeys = {};
+    myAcks.forEach(function(a){ ackedKeys[a.note_id + ':' + a.section] = true; });
+
+    var queue = [];
+    notes.forEach(function(note){
+      var sections = [
+        {key:'drivers', label:'DRIVERS', text:note.drivers},
+        {key:'foh', label:'FRONT OF HOUSE', text:note.foh},
+        {key:'boh', label:'BACK OF HOUSE', text:note.boh}
+      ].filter(function(s){ return s.text && !ackedKeys[note.id + ':' + s.key]; });
+      if(sections.length) queue.push({note: note, sections: sections});
+    });
+
+    window._domsAckQueue = queue;
+    showNextDomsAck();
   }).catch(function(){});
 }
 
-function showDomsAckModal(note) {
+function showNextDomsAck() {
+  var user = getCurrentUser();
+  if(user === 'Mike B') return;
+  var queue = window._domsAckQueue || [];
+  if(!queue.length) return;
+  var next = queue.shift();
+  showDomsAckModal(next.note, next.sections);
+}
+
+function showDomsAckModal(note, sections) {
   var user = getCurrentUser();
   if(user === 'Mike B') return;
   var modal = document.getElementById('doms-ack-modal');
@@ -6506,18 +6546,13 @@ function showDomsAckModal(note) {
   var d = new Date(note.created_at);
   document.getElementById('doms-ack-date').textContent = months[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() + ' - By: ' + (note.created_by || 'Mike');
 
-  var sections = [
-    {key:'drivers', label:'DRIVERS', text:note.drivers},
-    {key:'foh', label:'FRONT OF HOUSE', text:note.foh},
-    {key:'boh', label:'BACK OF HOUSE', text:note.boh}
-  ].filter(function(s){ return s.text; });
-
   var btnContainer = document.getElementById('doms-ack-buttons');
   btnContainer.innerHTML = '';
 
   // Each section gets its own checkbox — checking it immediately logs an
   // acknowledgment for THAT section only, with an auto-generated timestamp.
   // No PIN, no manual date entry — the checkbox action itself is the record.
+  // Only sections this user hasn't already acknowledged are shown here.
   var body = '';
   sections.forEach(function(s){
     body += '<div style="margin-bottom:14px;">';
@@ -6540,8 +6575,9 @@ function showDomsAckModal(note) {
 }
 
 // Acknowledges ONE section of a note. Fires the moment the checkbox is checked —
-// timestamp is generated automatically, never typed in. Once every section present
-// in this note has been checked, the modal closes and the note is marked seen.
+// timestamp is generated automatically, never typed in. Once every section shown
+// in THIS modal has been checked, the modal closes and — if another older/newer
+// note is still waiting in the queue — the next one opens automatically.
 function ackDomsNoteSection(noteId, section, checkboxEl) {
   if(!checkboxEl.checked) return; // this UI never lets you un-check; ignore stray events
   checkboxEl.disabled = true;
@@ -6563,9 +6599,10 @@ function ackDomsNoteSection(noteId, section, checkboxEl) {
   var allBoxes = document.querySelectorAll('#doms-ack-body input[type="checkbox"]');
   var allDone = Array.prototype.every.call(allBoxes, function(b){ return b.disabled; });
   if(allDone) {
-    localStorage.setItem('zp_doms_note_seen_id', String(noteId));
-    localStorage.removeItem('zp_doms_dismiss_count');
-    setTimeout(function(){ document.getElementById('doms-ack-modal').style.display = 'none'; }, 600);
+    setTimeout(function(){
+      document.getElementById('doms-ack-modal').style.display = 'none';
+      showNextDomsAck();
+    }, 600);
   }
 }
 
