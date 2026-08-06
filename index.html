@@ -6154,10 +6154,11 @@ function saveDomsNote() {
   }).then(function(){
     return fetch(SUPABASE_URL + '/rest/v1/darien_doms_notes', {
       method: 'POST',
-      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},
       body: JSON.stringify([entry])
     });
-  }).then(function(){
+  }).then(function(r){ return r.json(); }).then(function(rows){
+    var newNoteId = (rows && rows.length) ? rows[0].id : null;
     document.getElementById('doms-notes-panel').style.display = 'none';
     localStorage.removeItem('zp_doms_dismiss_count');
     localStorage.removeItem('zp_doms_note_seen_id');
@@ -6165,11 +6166,11 @@ function saveDomsNote() {
     document.getElementById('doms-note-drivers').value = '';
     document.getElementById('doms-note-foh').value = '';
     document.getElementById('doms-note-boh').value = '';
-    // Log the publish action
+    // Log the publish action (tied to the new note's real thread)
     fetch(SUPABASE_URL + '/rest/v1/darien_doms_notes_ack', {
       method: 'POST',
       headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
-      body: JSON.stringify([{note_id: null, acknowledged_by: getCurrentUser(), acknowledged_at: new Date().toISOString(), action: 'published'}])
+      body: JSON.stringify([{note_id: newNoteId, acknowledged_by: getCurrentUser(), acknowledged_at: new Date().toISOString(), action: 'published'}])
     }).catch(function(){});
     alert('Note published.');
   }).catch(function(e){ alert('Failed to save note: ' + e.message); });
