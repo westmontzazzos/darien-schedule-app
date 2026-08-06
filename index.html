@@ -1113,6 +1113,8 @@ document.addEventListener("DOMContentLoaded",function(){
     <div class="report-sub">Official rules enforced by the schedule checker</div>
   </div>
 
+  <button class="btn btn-secondary" style="width:100%;margin-bottom:16px;" onclick="printRulesPage()">🖨️ Print Rules</button>
+
   <div style="display:grid;gap:14px;margin-bottom:24px;">
 
     <div class="card">
@@ -6287,6 +6289,34 @@ function ackDomsNoteSection(noteId, section, checkboxEl) {
     localStorage.removeItem('zp_doms_dismiss_count');
     setTimeout(function(){ document.getElementById('doms-ack-modal').style.display = 'none'; }, 600);
   }
+}
+
+function printRulesPage() {
+  var cards = document.querySelectorAll('#tab-rules .card');
+  var body = '';
+  cards.forEach(function(card){
+    var header = card.querySelector('.card-header');
+    var content = card.querySelector('div[style*="line-height"]');
+    if(!header || !content) return;
+    body += '<div style="margin-bottom:18px;">';
+    body += '<h3 style="margin:0 0 6px;font-size:15px;">'+header.textContent+'</h3>';
+    body += '<div style="font-size:12px;line-height:1.6;">'+content.innerHTML+'</div>';
+    body += '</div>';
+  });
+  var html = '<!DOCTYPE html><html><head><title>Darien Scheduling Rules</title>'
+    + '<style>body{font-family:Arial,sans-serif;padding:28px;color:#111;}h1{font-size:20px;color:#c8102e;margin:0 0 4px;}h3{color:#c8102e;}</style>'
+    + '</head><body>'
+    + '<h1>Darien — Scheduling Rules</h1>'
+    + '<p style="color:#888;font-size:11px;margin:0 0 20px;">Printed ' + new Date().toLocaleDateString() + '</p>'
+    + body
+    + '</body></html>';
+  var iframe = document.createElement('iframe');
+  iframe.style.cssText = 'position:fixed;top:-9999px;left:-9999px;width:1px;height:1px;border:none;';
+  document.body.appendChild(iframe);
+  iframe.contentDocument.open();
+  iframe.contentDocument.write(html);
+  iframe.contentDocument.close();
+  setTimeout(function(){ iframe.contentWindow.focus(); iframe.contentWindow.print(); }, 400);
 }
 
 function printDomsNoteFromAck(note, user) {
