@@ -6218,7 +6218,7 @@ function showOverrideLog(btn) {
         headerTitle = "Mike's Note" + (note && note.created_by ? ' — by ' + note.created_by : '');
         headerSub = preview || '(note text unavailable)';
         var ackedBy = {};
-        events.forEach(function(e){ if(e.ack_type === 'acknowledged' || e.ack_type === 'printed') ackedBy[e.who] = true; });
+        events.forEach(function(e){ if(e.ack_type === 'acknowledged') ackedBy[e.who] = true; });
         var missing = REQUIRED_ACK_MANAGERS.filter(function(m){ return !ackedBy[m]; });
         if(missing.length === 0) { status = 'ACKNOWLEDGED'; statusColor = '#1a7a3c'; }
         else { status = 'PENDING: ' + missing.join(', '); statusColor = '#c8102e'; }
@@ -6566,7 +6566,7 @@ function showDomsAckModal(note, sections) {
   // acknowledgment for THAT section only, with an auto-generated timestamp.
   // No PIN, no manual date entry — the checkbox action itself is the record.
   // Only sections this user hasn't already acknowledged are shown here.
-  var body = '';
+  var body = '<div style="font-size:11px;color:#888;margin-bottom:10px;">Check each box below to acknowledge. Printing does <b>not</b> count as acknowledgment.</div>';
   sections.forEach(function(s){
     body += '<div style="margin-bottom:14px;">';
     body += '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#888;margin-bottom:4px;">'+s.label+'</div>';
@@ -6579,8 +6579,8 @@ function showDomsAckModal(note, sections) {
   document.getElementById('doms-ack-body').innerHTML = body;
 
   var pb = document.createElement('button');
-  pb.textContent = 'Print';
-  pb.style.cssText = 'flex:1;padding:12px;background:#222;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;';
+  pb.textContent = '🖨 Print a copy';
+  pb.style.cssText = 'flex:1;padding:12px;background:#eee;color:#444;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;';
   pb.onclick = function(){ printDomsNoteFromAck(note, user); };
   btnContainer.appendChild(pb);
 
