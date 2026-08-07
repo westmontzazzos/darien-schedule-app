@@ -6587,36 +6587,45 @@ function showDomsAckModal(note, sections) {
   modal.style.display = 'flex';
 }
 
-// Acknowledges ONE section of a note. Fires the moment the checkbox is checked —
-// timestamp is generated automatically, never typed in. Once every section shown
-// in THIS modal has been checked, the modal closes and — if another older/newer
-// note is still waiting in the queue — the next one opens automatically.
+// Acknowledges ONE section of a note. Fires the moment the checkbox is checked.
+// The checkbox does NOT show as acknowledged, and the modal does NOT advance,
+// until the server confirms the write actually succeeded — a save that fails
+// (RLS, network, etc.) must be visible to the user, not silently swallowed,
+// or the note will just re-queue itself forever with no explanation.
 function ackDomsNoteSection(noteId, section, checkboxEl) {
   if(!checkboxEl.checked) return; // this UI never lets you un-check; ignore stray events
   checkboxEl.disabled = true;
   var user = getCurrentUser();
   var now = new Date();
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var stamp = months[now.getMonth()]+' '+now.getDate()+', '+now.getFullYear()+' '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
-  var lbl = document.getElementById('doms-ack-label-'+section);
-  if(lbl) lbl.textContent = 'Acknowledged ' + stamp;
-  var row = document.getElementById('doms-ack-row-'+section);
-  if(row) row.style.color = '#1a7a3c';
 
   fetch(SUPABASE_URL + '/rest/v1/darien_doms_notes_ack', {
     method: 'POST',
     headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
     body: JSON.stringify([{note_id: noteId, acknowledged_by: user, acknowledged_at: now.toISOString(), action: 'acknowledged', section: section}])
-  }).catch(function(){});
+  }).then(function(r){
+    if(!r.ok) {
+      return r.text().then(function(t){ throw new Error('Server rejected the save (HTTP ' + r.status + '): ' + t); });
+    }
+    var stamp = months[now.getMonth()]+' '+now.getDate()+', '+now.getFullYear()+' '+now.getHours()+':'+String(now.getMinutes()).padStart(2,'0');
+    var lbl = document.getElementById('doms-ack-label-'+section);
+    if(lbl) lbl.textContent = 'Acknowledged ' + stamp;
+    var row = document.getElementById('doms-ack-row-'+section);
+    if(row) row.style.color = '#1a7a3c';
 
-  var allBoxes = document.querySelectorAll('#doms-ack-body input[type="checkbox"]');
-  var allDone = Array.prototype.every.call(allBoxes, function(b){ return b.disabled; });
-  if(allDone) {
-    setTimeout(function(){
-      document.getElementById('doms-ack-modal').style.display = 'none';
-      showNextDomsAck();
-    }, 600);
-  }
+    var allBoxes = document.querySelectorAll('#doms-ack-body input[type="checkbox"]');
+    var allDone = Array.prototype.every.call(allBoxes, function(b){ return b.disabled; });
+    if(allDone) {
+      setTimeout(function(){
+        document.getElementById('doms-ack-modal').style.display = 'none';
+        showNextDomsAck();
+      }, 600);
+    }
+  }).catch(function(err){
+    checkboxEl.disabled = false;
+    checkboxEl.checked = false;
+    alert('Your acknowledgment did NOT save — please try again and let Ely know if this repeats.\n\n' + err.message);
+  });
 }
 
 function printRulesPage() {
