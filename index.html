@@ -6373,9 +6373,12 @@ function handleLockIconTap() {
 <!-- Mike's Notes acknowledgment popup -->
 <div id="doms-ack-modal" style="display:none;position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;">
   <div style="background:#fff;border-radius:14px;width:92%;max-width:440px;overflow:hidden;">
-    <div style="background:var(--red);padding:14px 16px;">
-      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.08em;color:#fff;">Mike's Notes</div>
-      <div id="doms-ack-date" style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:2px;"></div>
+    <div style="background:var(--red);padding:14px 16px;display:flex;justify-content:space-between;align-items:flex-start;">
+      <div>
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.08em;color:#fff;">Mike's Notes</div>
+        <div id="doms-ack-date" style="font-size:11px;color:rgba(255,255,255,0.8);margin-top:2px;"></div>
+      </div>
+      <button onclick="document.getElementById('doms-ack-modal').style.display='none';" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:18px;width:30px;height:30px;border-radius:50%;cursor:pointer;line-height:1;flex-shrink:0;">✕</button>
     </div>
     <div id="doms-ack-body" style="padding:16px;max-height:60vh;overflow-y:auto;"></div>
     <div style="padding:0 16px 16px;display:flex;gap:10px;" id="doms-ack-buttons"></div>
@@ -6566,7 +6569,7 @@ function showDomsAckModal(note, sections) {
   // acknowledgment for THAT section only, with an auto-generated timestamp.
   // No PIN, no manual date entry — the checkbox action itself is the record.
   // Only sections this user hasn't already acknowledged are shown here.
-  var body = '<div style="font-size:11px;color:#888;margin-bottom:10px;">Check each box below to acknowledge. Printing does <b>not</b> count as acknowledgment.</div>';
+  var body = '<div style="font-size:11px;color:#888;margin-bottom:10px;">Check each box below to acknowledge. Printing does <b>not</b> count as acknowledgment. You can close this (✕) and come back — it\'ll keep showing until each box is checked.</div>';
   sections.forEach(function(s){
     body += '<div style="margin-bottom:14px;">';
     body += '<div style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#888;margin-bottom:4px;">'+s.label+'</div>';
