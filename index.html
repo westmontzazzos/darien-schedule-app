@@ -6993,6 +6993,8 @@ function printDomsNoteFromAck(note, user) {
   <button onclick="schedPrintSelect('foh')" class="sched-print-opt" style="display:block;width:100%;padding:9px 16px;background:none;border:none;text-align:left;font-size:13px;font-weight:600;cursor:pointer;color:#222;">Front of House</button>
   <button onclick="schedPrintSelect('cashiers')" class="sched-print-opt" style="display:block;width:100%;padding:9px 16px;background:none;border:none;text-align:left;font-size:13px;font-weight:600;cursor:pointer;color:#222;">Cashiers</button>
   <button onclick="schedPrintSelect('boh')" class="sched-print-opt" style="display:block;width:100%;padding:9px 16px;background:none;border:none;text-align:left;font-size:13px;font-weight:600;cursor:pointer;color:#222;">Back of House</button>
+  <div style="border-top:1px solid #eee;margin:4px 0;"></div>
+  <button onclick="schedPrintSelect('all')" class="sched-print-opt" style="display:block;width:100%;padding:9px 16px;background:none;border:none;text-align:left;font-size:13px;font-weight:700;cursor:pointer;color:#c8102e;">All Sections</button>
   <div id="sched-print-range" style="display:none;border-top:1px solid #eee;margin-top:4px;">
     <div style="font-size:11px;font-weight:700;letter-spacing:0.06em;color:#888;padding:8px 16px 4px;">RANGE</div>
     <button onclick="printSchedSection('week')" style="display:block;width:100%;padding:9px 16px;background:none;border:none;text-align:left;font-size:13px;font-weight:600;cursor:pointer;color:#222;">Full Week</button>
@@ -7045,11 +7047,6 @@ function printSchedSection(range) {
   var view = _schedPrintView || currentSchedView;
   var DAYS_FULL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-  // Build rows to print
-  var rows = '';
-  var title = view === 'drivers' ? 'Drivers' : view === 'foh' ? 'Front of House' : view === 'cashiers' ? 'Cashiers' : 'Back of House';
-
   var daysToShow = range === 'day' ? [currentDay] : [0,1,2,3,4,5,6];
 
   var header = '<tr><th>Name</th>' + daysToShow.map(function(di){
@@ -7057,36 +7054,63 @@ function printSchedSection(range) {
     return '<th>'+DAYS_FULL[di]+'<br><span style="font-weight:400;font-size:10px;">'+FULL_DATES[di]+'</span>'+ev+'</th>';
   }).join('') + '</tr>';
 
-  // Get data based on view
-  var sections = [];
-  if(view === 'drivers') sections = [['Drivers', DRIVERS]];
-  else if(view === 'foh') sections = [['Servers', SERVERS],['Bartenders', BARTENDERS],['Hosts', HOSTS]];
-  else if(view === 'cashiers') sections = [['Cashiers', CASHIERS]];
-  else sections = [['Managers', MANAGERS],['Pizza', PIZZA],['Kitchen', KITCHEN],['Prep', PREP],['Bus', BUS],['Dish', DISH]];
+  // Every printable group, keyed the same way the single-section menu already
+  // uses them — "All Sections" just walks every one of these in order.
+  var GROUPS = [
+    ['drivers',  'Drivers',           [['Drivers', DRIVERS]]],
+    ['foh',      'Front of House',    [['Servers', SERVERS],['Bartenders', BARTENDERS],['Hosts', HOSTS]]],
+    ['cashiers', 'Cashiers',          [['Cashiers', CASHIERS]]],
+    ['boh',      'Back of House',     [['Managers', MANAGERS],['Pizza', PIZZA],['Kitchen', KITCHEN],['Prep', PREP],['Bus', BUS],['Dish', DISH]]]
+  ];
 
-  sections.forEach(function(sec){
-    var secName = sec[0], secData = sec[1];
-    var secRows = '';
-    Object.entries(secData).forEach(function(e){
-      var name = e[0], days = e[1];
-      var hasShift = daysToShow.some(function(di){ return days[di] && days[di] !== 'x' && days[di] !== 'X'; });
-      if(!hasShift) return;
-      secRows += '<tr><td>'+name+'</td>' + daysToShow.map(function(di){
-        var val = days[di];
-        if(!val || val === 'x' || val === 'X') return '<td style="color:#ccc;">-</td>';
-        return '<td>'+fmtTimeForPrint(val)+'</td>';
-      }).join('') + '</tr>';
+  function buildSectionRows(sections) {
+    var rows = '';
+    sections.forEach(function(sec){
+      var secName = sec[0], secData = sec[1];
+      var secRows = '';
+      Object.entries(secData).forEach(function(e){
+        var name = e[0], days = e[1];
+        var hasShift = daysToShow.some(function(di){ return days[di] && days[di] !== 'x' && days[di] !== 'X'; });
+        if(!hasShift) return;
+        secRows += '<tr><td>'+name+'</td>' + daysToShow.map(function(di){
+          var val = days[di];
+          if(!val || val === 'x' || val === 'X') return '<td style="color:#ccc;">-</td>';
+          return '<td>'+fmtTimeForPrint(val)+'</td>';
+        }).join('') + '</tr>';
+      });
+      if(secRows) rows += '<tr><td colspan="'+(daysToShow.length+1)+'" style="background:#FFD700!important;background-color:#FFD700!important;color:#000!important;font-weight:700;padding:6px 10px;">'+secName+'</td></tr>' + secRows;
     });
-    if(secRows) rows += '<tr><td colspan="'+(daysToShow.length+1)+'" style="background:#FFD700!important;background-color:#FFD700!important;color:#000!important;font-weight:700;padding:6px 10px;">'+secName+'</td></tr>' + secRows;
-  });
+    return rows;
+  }
 
   var weekLabel = document.getElementById('sched-week-label') ? document.getElementById('sched-week-label').textContent : '';
+  var title, bodyHtml;
+
+  if(view === 'all') {
+    title = 'Full Schedule';
+    bodyHtml = GROUPS.map(function(g, idx){
+      var groupTitle = g[1], rows = buildSectionRows(g[2]);
+      if(!rows) return ''; // nothing scheduled in this group for the chosen range — skip it entirely
+      var pageBreak = idx > 0 ? 'page-break-before:always;' : '';
+      return '<div style="'+pageBreak+'">'
+        + '<h1>'+groupTitle+'</h1>'
+        + '<div style="color:#888;font-size:10px;margin-bottom:4px;">'+weekLabel+'</div>'
+        + '<table><thead>'+header+'</thead><tbody>'+rows+'</tbody></table>'
+        + '</div>';
+    }).join('');
+  } else {
+    title = view === 'drivers' ? 'Drivers' : view === 'foh' ? 'Front of House' : view === 'cashiers' ? 'Cashiers' : 'Back of House';
+    var group = GROUPS.filter(function(g){ return g[0] === view; })[0];
+    var rows = buildSectionRows(group[2]);
+    bodyHtml = '<h1>'+title+'</h1>'
+      + '<div style="color:#888;font-size:10px;margin-bottom:4px;">'+weekLabel+'</div>'
+      + '<table><thead>'+header+'</thead><tbody>'+rows+'</tbody></table>';
+  }
+
   var html = '<!DOCTYPE html><html><head><title>'+title+' Schedule</title>'
     + '<style>*{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}@media print{@page{size:landscape;margin:6mm;}button{display:none;}}body{font-family:Arial,sans-serif;font-size:9px;padding:8px;}h1{font-size:13px;color:#c8102e;margin:0 0 1px;}table{width:100%;border-collapse:collapse;margin-top:6px;}th,td{border:1px solid #ddd;padding:2px 4px;text-align:left;}th{background:#f5f5f5;}</style>'
     + '</head><body>'
-    + '<h1>'+title+'</h1>'
-    + '<div style="color:#888;font-size:10px;margin-bottom:4px;">'+weekLabel+'</div>'
-    + '<table><thead>'+header+'</thead><tbody>'+rows+'</tbody></table>'
+    + bodyHtml
     + '<\/body><\/html>';
 
   var iframe = document.createElement('iframe');
