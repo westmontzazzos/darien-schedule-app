@@ -1010,7 +1010,7 @@ document.addEventListener("DOMContentLoaded",function(){
     </div>
     <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
       <button class="btn btn-primary no-print" onclick="printRunSheet()">🖨 Print / PDF</button>
-      <button class="btn btn-secondary no-print" onclick="printAllRunSheets()">🖨 Print All (Week)</button>
+      <button class="btn btn-secondary no-print" onclick="openPrintPickerModal()">🖨 Print Run Sheets</button>
     </div>
   </div>
   <div class="day-tabs" id="day-tabs"></div>
@@ -1758,17 +1758,50 @@ function selectDay(idx) {
 // DOM'S NOTES
 function printRunSheet() {
   var di = currentDay;
-  var entry = buildDayEntry(di);
+  var entry = buildDayEntryFromWeek(allWeeks[currentWeekIdx], di);
   var blob = buildRunSheetPDF(entry.dayName, entry.dateLabel, entry.eventLabel, entry.leftCol, entry.rightCol, entry.MAX);
   var safeName = String(entry.dayName).replace(/[^A-Za-z0-9]/g, '');
   deliverPDF(blob, 'Zazzos-RunSheet-' + safeName + '.pdf');
 }
 
-// Gathers everything printRunSheet() needs for a single day, without printing.
-// Shared by the single-day Print button and "Print All" (whole week).
-function buildDayEntry(di) {
-  var dayName   = DAYS[di];
-  var dateLabel = FULL_DATES[di];
+// Returns the day-name/date-label/actual-Date for day index di WITHIN a given
+// week record — without touching the DOM. (updateWeekLabels() does something
+// similar but also writes to the screen, which we don't want while quietly
+// building entries for a week that may not even be the one on screen.)
+function getWeekDateInfo(week, di) {
+  var d = new Date(week.week_start + 'T00:00:00');
+  var dd = new Date(d); dd.setDate(d.getDate() + di);
+  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  var fullDays = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
+  return { dayName: fullDays[di], dateLabel: months[dd.getMonth()] + ' ' + dd.getDate() + ', ' + dd.getFullYear(), dateObj: dd };
+}
+
+// Finds which stored week record (if any) covers a given calendar date, and
+// which day-index (0=Mon..6=Sun) within that week it is. Returns null if no
+// week has been uploaded yet that covers that date.
+function findWeekForDate(dateObj) {
+  if(!allWeeks) return null;
+  for(var i = 0; i < allWeeks.length; i++) {
+    var w = allWeeks[i];
+    if(!w || !w.week_start) continue;
+    var start = new Date(w.week_start + 'T00:00:00');
+    var end = new Date(start); end.setDate(start.getDate() + 6);
+    if(dateObj >= start && dateObj <= end) {
+      var di = Math.round((dateObj - start) / 86400000);
+      return { week: w, di: di };
+    }
+  }
+  return null;
+}
+
+// Gathers everything a run sheet needs for day index di WITHIN a specific
+// week record (not necessarily the one currently on screen). Temporarily
+// re-parses that week's data into the shared section globals (MANAGERS,
+// PIZZA, etc.) the same way applyWeek() does — caller is responsible for
+// restoring the originally-displayed week afterward via restoreCurrentWeekView().
+function buildDayEntryFromWeek(week, di) {
+  parseWeekData(week);
+  var dayInfo = getWeekDateInfo(week, di);
   var eventLabel = WEEK_EVENTS[di] ? WEEK_EVENTS[di] : null;
 
   var managers = getBOHSection(MANAGERS, di);
@@ -1782,12 +1815,11 @@ function buildDayEntry(di) {
   var cashiers = getFOHSection(CASHIERS, di);
   var drivers  = getDriversForDay(di).map(function(d){ return {n:d.name, a:d.am, p:d.pm}; });
 
-  // Bouncer(s) covering a Pizza/Kitchen coverage gap this day, if any —
-  // same source as the on-screen run sheet (window.allWeeks[...].bouncer_data).
+  // Bouncer(s) covering a Pizza/Kitchen coverage gap this day, if any — read
+  // from THIS week record specifically, not whatever week happens to be on screen.
   var bouncers = (function(){
-    var wr = window.allWeeks && window.allWeeks[window.currentWeekIdx];
-    if(!wr || !wr.bouncer_data) return [];
-    var bd; try { bd = JSON.parse(wr.bouncer_data); } catch(ex) { return []; }
+    if(!week.bouncer_data) return [];
+    var bd; try { bd = JSON.parse(week.bouncer_data); } catch(ex) { return []; }
     var list = bd[di] || bd[String(di)] || [];
     return list.map(function(b){ return {n:b.name, a:b.from||'', p:b.to||'As needed'}; });
   })();
@@ -1819,19 +1851,87 @@ function buildDayEntry(di) {
     ['Drivers',    drivers]
   ];
 
-  return {dayName: dayName, dateLabel: dateLabel, eventLabel: eventLabel, leftCol: leftCol, rightCol: rightCol, MAX: MAX};
+  return {dayName: dayInfo.dayName, dateLabel: dayInfo.dateLabel, eventLabel: eventLabel, leftCol: leftCol, rightCol: rightCol, MAX: MAX};
 }
 
-// Builds one PDF covering all 7 days of the currently viewed week — each day
-// starts on its own fresh page — instead of having to open/print each day
-// one at a time.
-function printAllRunSheets() {
+// buildDayEntryFromWeek() mutates the shared section globals to read a
+// specific week's data. Once done building entries (possibly across several
+// different weeks), put the on-screen week's data back exactly as it was.
+function restoreCurrentWeekView() {
+  if(allWeeks && allWeeks[currentWeekIdx]) {
+    parseWeekData(allWeeks[currentWeekIdx]);
+    updateWeekLabels(currentWeekIdx);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// "Print Run Sheets" day picker — lets Ely check off any combination of
+// upcoming days (never past days) and print them as one PDF, each day on its
+// own page. Includes a one-tap "Next 7 Days" shortcut.
+// ---------------------------------------------------------------------------
+function openPrintPickerModal() {
+  var modal = document.getElementById('print-picker-modal');
+  var list = document.getElementById('print-picker-list');
+  var today = new Date(); today.setHours(0,0,0,0);
+  var rows = '';
+  for(var i = 0; i < 14; i++) {
+    var d = new Date(today); d.setDate(today.getDate() + i);
+    var iso = d.toISOString().slice(0,10);
+    var found = findWeekForDate(d);
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    var label = dayNames[d.getDay()] + ', ' + months[d.getMonth()] + ' ' + d.getDate() + (i===0 ? ' (Today)' : '');
+    var noData = !found;
+    rows += '<label style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid #eee;font-size:14px;'+(noData?'opacity:0.45;':'')+'">'
+      + '<input type="checkbox" class="print-picker-cb" data-date="'+iso+'" style="width:18px;height:18px;flex-shrink:0;">'
+      + '<span>'+label+(noData?' <span style="font-size:11px;color:#c8102e;">(no schedule uploaded)</span>':'')+'</span>'
+      + '</label>';
+  }
+  list.innerHTML = rows;
+  modal.style.display = 'flex';
+}
+
+function pickerSelectNext7() {
+  var boxes = document.querySelectorAll('.print-picker-cb');
+  boxes.forEach(function(b, i){ b.checked = (i < 7); });
+}
+function pickerClearAll() {
+  document.querySelectorAll('.print-picker-cb').forEach(function(b){ b.checked = false; });
+}
+
+function printSelectedDays() {
+  var checked = Array.prototype.filter.call(document.querySelectorAll('.print-picker-cb'), function(b){ return b.checked; });
+  if(!checked.length) { alert('Pick at least one day first.'); return; }
+
   var entries = [];
-  for (var di = 0; di < DAYS.length; di++) entries.push(buildDayEntry(di));
+  var skipped = [];
+  checked.forEach(function(b){
+    var d = new Date(b.getAttribute('data-date') + 'T00:00:00');
+    var found = findWeekForDate(d);
+    if(!found) {
+      var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      skipped.push(months[d.getMonth()] + ' ' + d.getDate());
+      return;
+    }
+    entries.push(buildDayEntryFromWeek(found.week, found.di));
+  });
+
+  restoreCurrentWeekView(); // put the on-screen week's data back before touching the UI further
+
+  if(!entries.length) {
+    alert('None of the selected days have a schedule uploaded yet, so there\'s nothing to print.');
+    return;
+  }
+
   var blob = buildMultiDayRunSheetPDF(entries);
-  var wkLabel = document.getElementById('week-label') ? document.getElementById('week-label').textContent : 'Week';
-  var safeName = String(wkLabel).replace(/[^A-Za-z0-9]/g, '');
-  deliverPDF(blob, 'Zazzos-RunSheets-' + safeName + '.pdf');
+  document.getElementById('print-picker-modal').style.display = 'none';
+  deliverPDF(blob, 'Zazzos-RunSheets-' + entries.length + 'Days.pdf');
+
+  if(skipped.length) {
+    setTimeout(function(){
+      alert('Skipped (no schedule uploaded yet): ' + skipped.join(', '));
+    }, 300);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -6560,6 +6660,27 @@ function handleLockIconTap() {
     </div>
     <div id="doms-ack-body" style="padding:16px;max-height:60vh;overflow-y:auto;"></div>
     <div style="padding:0 16px 16px;display:flex;gap:10px;" id="doms-ack-buttons"></div>
+  </div>
+</div>
+
+<!-- Print Run Sheets — day picker (Run Sheets tab only; Schedule already prints the full week) -->
+<div id="print-picker-modal" style="display:none;position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:92%;max-width:440px;overflow:hidden;display:flex;flex-direction:column;max-height:85vh;">
+    <div style="background:var(--red);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.08em;color:#fff;">Print Run Sheets</div>
+      <button onclick="document.getElementById('print-picker-modal').style.display='none';" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:18px;width:30px;height:30px;border-radius:50%;cursor:pointer;line-height:1;flex-shrink:0;">✕</button>
+    </div>
+    <div style="padding:14px 16px 0;flex-shrink:0;">
+      <div style="font-size:11px;color:#888;margin-bottom:10px;">Only today and future days are shown — pick any combination, or use the shortcut below. Each day prints on its own page.</div>
+      <div style="display:flex;gap:8px;margin-bottom:6px;">
+        <button class="btn btn-secondary" style="flex:1;font-size:12px;padding:8px;" onclick="pickerSelectNext7()">Next 7 Days</button>
+        <button class="btn btn-secondary" style="flex:1;font-size:12px;padding:8px;" onclick="pickerClearAll()">Clear</button>
+      </div>
+    </div>
+    <div id="print-picker-list" style="padding:4px 16px;overflow-y:auto;flex:1;"></div>
+    <div style="padding:12px 16px 16px;flex-shrink:0;">
+      <button class="btn btn-primary" style="width:100%;" onclick="printSelectedDays()">🖨 Print Selected</button>
+    </div>
   </div>
 </div>
 
