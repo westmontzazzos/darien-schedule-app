@@ -1002,13 +1002,16 @@ document.addEventListener("DOMContentLoaded",function(){
     <div class="report-title">RUN SHEETS</div>
     <div class="report-sub">Daily staff run sheets</div>
   </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;flex-wrap:wrap;gap:8px;">
     <div style="display:flex;align-items:center;gap:8px;">
       <button class="btn btn-secondary" style="padding:6px 10px;font-size:18px;line-height:1;" onclick="changeWeek(1)">‹</button>
       <div id="week-label" style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.08em;color:var(--black);white-space:nowrap;">Loading...</div>
       <button class="btn btn-secondary" style="padding:6px 10px;font-size:18px;line-height:1;" onclick="changeWeek(-1)">›</button>
     </div>
-    <button class="btn btn-primary no-print" onclick="printRunSheet()">🖨 Print / PDF</button>
+    <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-primary no-print" onclick="printRunSheet()">🖨 Print / PDF</button>
+      <button class="btn btn-secondary no-print" onclick="printAllRunSheets()">🖨 Print All (Week)</button>
+    </div>
   </div>
   <div class="day-tabs" id="day-tabs"></div>
   <div id="run-sheet-display"></div>
@@ -1755,6 +1758,15 @@ function selectDay(idx) {
 // DOM'S NOTES
 function printRunSheet() {
   var di = currentDay;
+  var entry = buildDayEntry(di);
+  var blob = buildRunSheetPDF(entry.dayName, entry.dateLabel, entry.eventLabel, entry.leftCol, entry.rightCol, entry.MAX);
+  var safeName = String(entry.dayName).replace(/[^A-Za-z0-9]/g, '');
+  deliverPDF(blob, 'Zazzos-RunSheet-' + safeName + '.pdf');
+}
+
+// Gathers everything printRunSheet() needs for a single day, without printing.
+// Shared by the single-day Print button and "Print All" (whole week).
+function buildDayEntry(di) {
   var dayName   = DAYS[di];
   var dateLabel = FULL_DATES[di];
   var eventLabel = WEEK_EVENTS[di] ? WEEK_EVENTS[di] : null;
@@ -1789,9 +1801,6 @@ function printRunSheet() {
     'Host':3, 'Servers':11, 'Bartenders':3, 'Cashiers':5, 'Drivers':10
   };
 
-  // Build the run sheet as a self-contained PDF and hand it to iOS to open /
-  // print / share. No window.print() is involved, so the iOS pop-up blocker
-  // never comes into play.
   var leftCol = [
     ['Managers',       managers],
     ['Pizza',          pizza]
@@ -1810,9 +1819,19 @@ function printRunSheet() {
     ['Drivers',    drivers]
   ];
 
-  var blob = buildRunSheetPDF(dayName, dateLabel, eventLabel, leftCol, rightCol, MAX);
-  var safeName = String(dayName).replace(/[^A-Za-z0-9]/g, '');
-  deliverPDF(blob, 'Zazzos-RunSheet-' + safeName + '.pdf');
+  return {dayName: dayName, dateLabel: dateLabel, eventLabel: eventLabel, leftCol: leftCol, rightCol: rightCol, MAX: MAX};
+}
+
+// Builds one PDF covering all 7 days of the currently viewed week — each day
+// starts on its own fresh page — instead of having to open/print each day
+// one at a time.
+function printAllRunSheets() {
+  var entries = [];
+  for (var di = 0; di < DAYS.length; di++) entries.push(buildDayEntry(di));
+  var blob = buildMultiDayRunSheetPDF(entries);
+  var wkLabel = document.getElementById('week-label') ? document.getElementById('week-label').textContent : 'Week';
+  var safeName = String(wkLabel).replace(/[^A-Za-z0-9]/g, '');
+  deliverPDF(blob, 'Zazzos-RunSheets-' + safeName + '.pdf');
 }
 
 // ---------------------------------------------------------------------------
@@ -1925,6 +1944,165 @@ function buildRunSheetPDF(dayName, dateLabel, eventLabel, leftCol, rightCol, MAX
   renderColumn(colX[1], colW, 'Front of House', rightCol);
 
   // ---- assemble objects into a PDF file ----
+  var N = pages.length;
+  var pageObjNum = function (j) { return 5 + 2 * j; };
+  var contentObjNum = function (j) { return 6 + 2 * j; };
+  var kids = [];
+  for (var j = 0; j < N; j++) kids.push(pageObjNum(j) + ' 0 R');
+
+  var parts = [];
+  parts[1] = '<< /Type /Catalog /Pages 2 0 R >>';
+  parts[2] = '<< /Type /Pages /Kids [' + kids.join(' ') + '] /Count ' + N + ' >>';
+  parts[3] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>';
+  parts[4] = '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>';
+  for (var j = 0; j < N; j++) {
+    parts[pageObjNum(j)] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + PW + ' ' + PH + '] '
+      + '/Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ' + contentObjNum(j) + ' 0 R >>';
+    var stream = pages[j];
+    parts[contentObjNum(j)] = '<< /Length ' + stream.length + ' >>\nstream\n' + stream + 'endstream';
+  }
+
+  var maxObj = 4 + 2 * N;
+  var out = '%PDF-1.4\n';
+  var offsets = [];
+  for (var k = 1; k <= maxObj; k++) {
+    offsets[k] = out.length;
+    out += k + ' 0 obj\n' + parts[k] + '\nendobj\n';
+  }
+  var xrefPos = out.length;
+  out += 'xref\n0 ' + (maxObj + 1) + '\n0000000000 65535 f \n';
+  for (var k = 1; k <= maxObj; k++) {
+    var s = '0000000000' + offsets[k];
+    out += s.slice(s.length - 10) + ' 00000 n \n';
+  }
+  out += 'trailer\n<< /Size ' + (maxObj + 1) + ' /Root 1 0 R >>\nstartxref\n' + xrefPos + '\n%%EOF';
+
+  return new Blob([out], { type: 'application/pdf' });
+}
+
+// Same rendering logic as buildRunSheetPDF, generalized to lay out every day
+// in one PDF — but each day ALWAYS starts on a brand new page. Two days never
+// share a page, and a day's own left/right columns never get out of sync with
+// each other (if one column overflows to a 2nd page, the next day still starts
+// fresh after both columns are done, not mid-page).
+function buildMultiDayRunSheetPDF(dayEntries) {
+  var PW = 612, PH = 792, M = 28, GAP = 20;
+  var colW = (PW - 2 * M - GAP) / 2;
+  var colX = [M, M + colW + GAP];
+  var headerH = 34;
+  var contentTop = M + headerH;
+  var bottom = PH - M;
+
+  var pages = [''];
+  var headed = {};
+  var curDay = null;
+
+  function n(x) { return Math.round(x * 100) / 100; }
+  function Y(y) { return PH - y; }
+  function esc(s) {
+    s = (s == null ? '' : String(s));
+    var out = '';
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charCodeAt(i);
+      if (c === 0x5C) out += '\\\\';
+      else if (c === 0x28) out += '\\(';
+      else if (c === 0x29) out += '\\)';
+      else if (c >= 32 && c < 127) out += s.charAt(i);
+      else out += '?';
+    }
+    return out;
+  }
+  function rect(p, x, y, w, h, col) {
+    pages[p] += n(col[0]) + ' ' + n(col[1]) + ' ' + n(col[2]) + ' rg '
+      + n(x) + ' ' + n(Y(y + h)) + ' ' + n(w) + ' ' + n(h) + ' re f\n';
+  }
+  function line(p, x1, y1, x2, y2, col, w) {
+    pages[p] += n(w || 0.5) + ' w ' + n(col[0]) + ' ' + n(col[1]) + ' ' + n(col[2]) + ' RG '
+      + n(x1) + ' ' + n(Y(y1)) + ' m ' + n(x2) + ' ' + n(Y(y2)) + ' l S\n';
+  }
+  function text(p, x, y, str, size, bold, col) {
+    col = col || [0, 0, 0];
+    pages[p] += 'BT ' + n(col[0]) + ' ' + n(col[1]) + ' ' + n(col[2]) + ' rg /'
+      + (bold ? 'F2' : 'F1') + ' ' + n(size) + ' Tf '
+      + n(x) + ' ' + n(Y(y)) + ' Td (' + esc(str) + ') Tj ET\n';
+  }
+  function tw(str, size) { return String(str || '').length * size * 0.5; }
+
+  function ensurePage(p) {
+    while (pages.length <= p) pages.push('');
+    if (!headed[p]) {
+      headed[p] = true;
+      text(p, M, M + 15, "Zazzo's Run Sheet", 15, true, [0.7, 0, 0]);
+      var eventStr = curDay.eventLabel ? '   |   ' + curDay.eventLabel : '';
+      var right = curDay.dayName + '   |   ' + curDay.dateLabel + eventStr;
+      text(p, PW - M - tw(right, 10), M + 14, right, 10, false, [0.2, 0.2, 0.2]);
+      line(p, M, M + 22, PW - M, M + 22, [0.7, 0, 0], 1);
+    }
+  }
+
+  // Renders one column starting at page startP; returns the last page index
+  // it actually used (so the caller can figure out where the NEXT thing —
+  // the other column, or the next day — needs to start).
+  function renderColumn(startP, x, w, groupTitle, sections, MAX) {
+    var p = startP;
+    ensurePage(p);
+    var y = contentTop;
+    text(p, x, y + 9, groupTitle, 10, true, [0.45, 0.45, 0.45]);
+    y += 16;
+
+    for (var s = 0; s < sections.length; s++) {
+      var title = sections[s][0];
+      var data = sections[s][1] || [];
+      var max = MAX[title] || data.length;
+      var count = Math.max(max, data.length);
+
+      var hdrH = 15, subH = 13, rowH = 13, gap = 8;
+      var secH = hdrH + subH + count * rowH + gap;
+
+      if (y + secH > bottom && y > contentTop + 16) {
+        p += 1; ensurePage(p); y = contentTop;
+      }
+
+      rect(p, x, y, w, hdrH, [0, 0, 0]);
+      text(p, x + 6, y + 11, title, 9.5, true, [1, 1, 1]);
+      y += hdrH;
+
+      var inX = x + w * 0.60;
+      var outX = x + w * 0.80;
+      text(p, x + 6, y + 9.5, 'Name', 7.5, true, [0.5, 0.5, 0.5]);
+      text(p, inX, y + 9.5, 'In', 7.5, true, [0.5, 0.5, 0.5]);
+      text(p, outX, y + 9.5, 'Out', 7.5, true, [0.5, 0.5, 0.5]);
+      line(p, x, y + subH, x + w, y + subH, [0.8, 0.8, 0.8], 0.5);
+      y += subH;
+
+      for (var i = 0; i < count; i++) {
+        var row = data[i];
+        var isCloser = !!(row && row.p === 'C');
+        if (row) {
+          text(p, x + 6, y + 9, row.n || '', 9, isCloser, [0, 0, 0]);
+          text(p, inX, y + 9, row.a || '', 9, isCloser, [0, 0, 0]);
+          text(p, outX, y + 9, row.p || '', 9, isCloser, isCloser ? [0.7, 0, 0] : [0, 0, 0]);
+        }
+        line(p, x, y + rowH, x + w, y + rowH, [0.9, 0.9, 0.9], 0.4);
+        y += rowH;
+      }
+      y += gap;
+    }
+    return p;
+  }
+
+  // The core requirement: every day starts on its own fresh page. No two days
+  // ever share a page, regardless of how short either day's content is.
+  var pageOffset = 0;
+  dayEntries.forEach(function (day) {
+    curDay = day;
+    var startP = pageOffset;
+    var leftEnd  = renderColumn(startP, colX[0], colW, 'Back of House',  day.leftCol,  day.MAX);
+    var rightEnd = renderColumn(startP, colX[1], colW, 'Front of House', day.rightCol, day.MAX);
+    pageOffset = Math.max(leftEnd, rightEnd) + 1;
+  });
+
+  // ---- assemble objects into a PDF file (same structure as the single-day builder) ----
   var N = pages.length;
   var pageObjNum = function (j) { return 5 + 2 * j; };
   var contentObjNum = function (j) { return 6 + 2 * j; };
