@@ -1029,10 +1029,10 @@ document.addEventListener("DOMContentLoaded",function(){
       <div id="sched-week-label" style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.08em;color:var(--black);white-space:nowrap;">Loading...</div>
       <button class="btn btn-secondary" style="padding:6px 10px;font-size:18px;line-height:1;" onclick="changeWeek(-1)">›</button>
     </div>
+    <button id="sched-edit-btn" class="btn btn-secondary" onclick="toggleSchedEditMode()">✏️ Edit</button>
   </div>
   <div class="sub-nav">
     <button class="sub-btn active" onclick="switchSched('drivers',this)">Drivers</button>
-    <button id="sched-inline-save" onclick="saveSchedInlineEdits()" style="display:none;margin-left:auto;padding:6px 14px;background:var(--red);color:#fff;border:none;border-radius:8px;font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.06em;cursor:pointer;">💾 Save Schedule</button>
     <button class="sub-btn" onclick="switchSched('foh',this)">Front of House</button>
     <button class="sub-btn" onclick="switchSched('cashiers',this)">Cashiers</button>
     <button class="sub-btn" onclick="switchSched('boh',this)">Back of House</button>
@@ -3266,10 +3266,8 @@ async function toggleSchedEditMode() {
       window._editorUnlocked = true;
     }
     window._schedEditMode = true;
-    document.getElementById('sched-edit-trigger').style.color = 'var(--red)';
-    // Show save button
-    var saveBtn = document.getElementById('sched-inline-save');
-    if(saveBtn) saveBtn.style.display = 'inline-block';
+    var editBtn = document.getElementById('sched-edit-btn');
+    if(editBtn) { editBtn.textContent = '💾 Save Schedule'; editBtn.style.background = 'var(--red)'; editBtn.style.color = '#fff'; editBtn.style.borderColor = 'var(--red)'; }
   } else {
     await saveSchedInlineEdits();
   }
@@ -3310,9 +3308,8 @@ async function saveSchedInlineEdits() {
       throw new Error('Database update failed (HTTP '+resp.status+'): '+errText);
     }
     window._schedEditMode = false;
-    document.getElementById('sched-edit-trigger').style.color = '';
-    var saveBtn = document.getElementById('sched-inline-save');
-    if(saveBtn) saveBtn.style.display = 'none';
+    var editBtn = document.getElementById('sched-edit-btn');
+    if(editBtn) { editBtn.textContent = '✏️ Edit'; editBtn.style.background = ''; editBtn.style.color = ''; editBtn.style.borderColor = ''; }
     renderSchedule();
     alert('Schedule saved.');
   } catch(e) { alert('Save failed: ' + e.message + '\n\nYour changes were NOT saved. Please try again.'); }
@@ -4626,13 +4623,17 @@ async function saveEdits() {
       if(!editPatchResp.ok) {
         var editErrText = await editPatchResp.text().catch(function(){ return ''; });
         console.log('Edit save failed (HTTP '+editPatchResp.status+'):', editErrText);
-        alert('Could not save this edit — the change was NOT saved. Please try again.');
+        alert('Your changes were NOT saved.\n\nServer rejected the save (HTTP ' + editPatchResp.status + '):\n' + editErrText);
+        btn.textContent = '💾 Save Changes';
+        btn.disabled = false;
         return;
       }
     }
   } catch(e) {
     console.log('Could not sync edit to Supabase:', e.message);
-    alert('Could not save this edit — the change was NOT saved. Please try again.');
+    alert('Your changes were NOT saved.\n\n' + e.message);
+    btn.textContent = '💾 Save Changes';
+    btn.disabled = false;
     return;
   }
 
