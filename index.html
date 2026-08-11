@@ -1544,16 +1544,19 @@ const KNOWN_BOH = {
 
 function parseBOH(raw, di) {
   if(!raw) return null;
-  // Collapse internal whitespace so spaced close/range variants parse,
-  // e.g. "2pm - cl" -> "2pm-cl" (matches the driver parser's behavior)
-  const s = raw.trim().toLowerCase().replace(/\s+/g, '');
-  if(['x','','darien','kitchen','pizza','dish','bus','prep','serve','bar','host'].includes(s)) return null;
-  const closeM = s.match(/^(.+)-c[l]?$/);
-  if(closeM) { const a=fmtBOH(closeM[1].trim()); return a ? {a:a, p:'C'} : null; }
-  const rangeM = s.match(/^([\d:]+(?:am|pm)?)\s*[-–]\s*([\d:]+(?:am|pm)?)$/i);
-  if(rangeM) { const a=fmtBOH(rangeM[1]); return a ? {a:a, p:fmtBOH(rangeM[2])} : null; }
-  const a=fmtBOH(s);
-  return a ? {a:a, p:''} : null;
+  const s = raw.trim();
+  const sl = s.toLowerCase().replace(/\s+/g, '');
+  if(sl === '' || sl === 'x') return null; // explicit day-off marker only — everything else must show
+  const closeM = sl.match(/^(.+)-c[l]?$/);
+  if(closeM) { const a=fmtBOH(closeM[1].trim()); if(a) return {a:a, p:'C'}; }
+  const rangeM = sl.match(/^([\d:.]+(?:am|pm)?)\s*[-–]\s*([\d:.]+(?:am|pm)?)$/i);
+  if(rangeM) { const a=fmtBOH(rangeM[1]); if(a) return {a:a, p:fmtBOH(rangeM[2])}; }
+  const a=fmtBOH(sl);
+  if(a) return {a:a, p:''};
+  // Doesn't match any recognized time pattern — never silently drop it.
+  // Show exactly what was typed/uploaded (e.g. "Kitchen", "Westmont") so a
+  // saved value can never appear to have vanished.
+  return {a: s, p: '', freeText: true};
 }
 
 function fmtBOH(t) {
@@ -1650,9 +1653,12 @@ function getFOHSection(sectionData, di) {
   Object.entries(sectionData).forEach(([name,days])=>{
     const e=days[di]; if(!e) return;
     const [start,end]=e;
-    const am=fmtFOH(start,di,false);
-    const pm=end==='C'?'C':(end?fmtFOH(end,di,false):'');
-    if(am) result.push({n:name,a:am,p:pm});
+    if(!start) return;
+    // If it doesn't parse as a time, show exactly what was entered instead
+    // of silently dropping the row.
+    const am=fmtFOH(start,di,false) || String(start).trim();
+    const pm=end==='C'?'C':(end?(fmtFOH(end,di,false) || String(end).trim()):'');
+    result.push({n:name,a:am,p:pm});
   });
   result.sort((a,b)=>{
     const toM=s=>{const m=s.match(/(\d+)(?::(\d+))?(AM|PM)/i);if(!m)return 9999;let h=parseInt(m[1]),mn=parseInt(m[2]||0);if(m[3].toUpperCase()==='PM'&&h!==12)h+=12;return h*60+mn;};
@@ -1687,12 +1693,17 @@ function getDriversForDay(di) {
     const raw = shifts[di];
     if(!raw) return;
     const t = parseHour(String(raw));
-    if(!t) return;
-    let am = t.display, pm = '';
-    if(t.close) pm = 'C';
-    else if(t.hasExplicitEnd) pm = t.end;
-    else if(t.isSlash) { am = t.display; pm = ''; }
-    res.push({name, am, pm, startH: drvMin(raw)});
+    if(t) {
+      let am = t.display, pm = '';
+      if(t.close) pm = 'C';
+      else if(t.hasExplicitEnd) pm = t.end;
+      else if(t.isSlash) { am = t.display; pm = ''; }
+      res.push({name, am, pm, startH: drvMin(raw)});
+    } else {
+      // Doesn't parse as a time — never silently drop it. Show exactly what
+      // was typed/uploaded instead of hiding the row entirely.
+      res.push({name, am: String(raw).trim(), pm: '', startH: 9999});
+    }
   });
   res.sort((a,b) => a.startH - b.startH);
   return res;
@@ -3351,7 +3362,7 @@ function renderSchedule() {
           }
           if(!raw){html+='<td></td>';return;}
           const t=parseHour(String(raw));
-          if(!t){html+='<td></td>';return;}
+          if(!t){html+=`<td>${raw}</td>`;return;} // doesn't parse as a time — show exactly what was entered
           const d=t.isSlash?t.display:t.close?`${t.display}-C`:t.hasExplicitEnd?`${t.display}–${t.end}`:t.display;
           html+=`<td>${d}</td>`;
         });
@@ -3369,8 +3380,8 @@ function renderSchedule() {
             return;
           }
           if(!e){html+='<td></td>';return;}
-          const am=fmtFOH(e[0],di,false);
-          const pm=e[1]==='C'?'C':(e[1]?fmtFOH(e[1],di,false):'');
+          const am=fmtFOH(e[0],di,false) || String(e[0]).trim();
+          const pm=e[1]==='C'?'C':(e[1]?(fmtFOH(e[1],di,false)||String(e[1]).trim()):'');
           html+=`<td>${pm?am+' – '+pm:am}</td>`;
         });
         html+='</tr>';
@@ -3387,8 +3398,8 @@ function renderSchedule() {
           return;
         }
         if(!e){html+='<td></td>';return;}
-        const am=fmtFOH(e[0],di,false);
-        const pm=e[1]==='C'?'C':(e[1]?fmtFOH(e[1],di,false):'');
+        const am=fmtFOH(e[0],di,false) || String(e[0]).trim();
+        const pm=e[1]==='C'?'C':(e[1]?(fmtFOH(e[1],di,false)||String(e[1]).trim()):'');
         html+=`<td>${pm?am+' – '+pm:am}</td>`;
       });
       html+='</tr>';
