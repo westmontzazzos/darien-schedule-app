@@ -1498,6 +1498,11 @@ const NAME_ALIASES = {
   'gustave': 'Gustavo',
   'jose o.': 'Jose O',
   'dillon': 'Dillon',
+  'gus': 'Gustavo',
+  'laura': 'Laura Z',
+  'carrie': 'Carry T',
+  'dave': 'Dave P',
+  'erika': 'Erika H',
 };
 
 // DOM'S NOTES
@@ -3565,10 +3570,14 @@ function renderPrivate() {
     {n:'Chelsea',r:20,role:'Manager',src:function(){return [MANAGERS['Chelsea']]},type:'b'},
     {n:'Broccoli',r:18,role:'Kitchen Cook',src:function(){return [KITCHEN['Broccoli']]},type:'b'},
     {n:'Javier',r:19,role:'Kitchen Line Cook',src:function(){return [KITCHEN['Javier']]},type:'b'},
-    {n:'Jesus',r:21,role:'Pizza/Kitchen',src:function(){return [PIZZA['Jesus'],KITCHEN['Jesus']]},type:'b'},
-    {n:'Arturo',r:21,role:'Kitchen/Pizza',src:function(){return [PIZZA['Arturo'],KITCHEN['Arturo']]},type:'b'},
-    {n:'Laura Z',r:20,role:'Pizza/Kitchen/Cashier',src:function(){return [PIZZA['Laura Z'],KITCHEN['Laura Z'],CASHIERS['Laura Z']]},type:'b'},
-    {n:'Gustavo',r:20,role:'Pizza/Kitchen/Cashier',src:function(){return [PIZZA['Gustavo'],KITCHEN['Gustavo'],CASHIERS['Gustavo']]},type:'b'},
+    {n:'Jesus',r:21,role:'Pizza/Kitchen',src:function(){return [PIZZA['Jesus'],KITCHEN['Jesus']]},type:'b',
+      roleBreakdown:function(){return [{label:'Pizza',arr:PIZZA['Jesus']},{label:'Kitchen',arr:KITCHEN['Jesus']}];}},
+    {n:'Arturo',r:21,role:'Kitchen/Pizza',src:function(){return [PIZZA['Arturo'],KITCHEN['Arturo']]},type:'b',
+      roleBreakdown:function(){return [{label:'Kitchen',arr:KITCHEN['Arturo']},{label:'Pizza',arr:PIZZA['Arturo']}];}},
+    {n:'Laura Z',r:20,role:'Pizza/Kitchen/Cashier',src:function(){return [PIZZA['Laura Z'],KITCHEN['Laura Z'],CASHIERS['Laura Z']]},type:'b',
+      roleBreakdown:function(){return [{label:'Pizza',arr:PIZZA['Laura Z']},{label:'Kitchen',arr:KITCHEN['Laura Z']},{label:'Cashier',arr:CASHIERS['Laura Z']}];}},
+    {n:'Gustavo',r:20,role:'Pizza/Kitchen/Cashier',src:function(){return [PIZZA['Gustavo'],KITCHEN['Gustavo'],CASHIERS['Gustavo']]},type:'b',
+      roleBreakdown:function(){return [{label:'Pizza',arr:PIZZA['Gustavo']},{label:'Kitchen',arr:KITCHEN['Gustavo']},{label:'Cashier',arr:CASHIERS['Gustavo']}];}},
     {n:'Francisco',r:21,role:'Pizza Cook',src:function(){return [PIZZA['Francisco']]},type:'b'},
     {n:'Luis B',r:20,role:'Pizza Cook',src:function(){return [PIZZA['Luis B']]},type:'b'},
     {n:'Juan',r:19.50,role:'Pizza Cook',src:function(){return [PIZZA['Juan']]},type:'b'},
@@ -3576,7 +3585,8 @@ function renderPrivate() {
     {n:'Junior',r:17.50,role:'Pizza Cook',src:function(){return [PIZZA['Junior']]},type:'b'},
     {n:'Valente',r:21,role:'Pizza Cook',src:function(){return [PIZZA['Valente']]},type:'b'},
     {n:'Luis',r:18,role:'Pizza Cook',src:function(){return [PIZZA['Luis']]},type:'b'},
-    {n:'Gabe',r:17.50,role:'Prep/Pizza/Dish',src:function(){return [DISH['Gabe'],PREP['Gabe'],PIZZA['Gabe']]},type:'b'},
+    {n:'Gabe',r:17.50,role:'Prep/Pizza/Dish',src:function(){return [DISH['Gabe'],PREP['Gabe'],PIZZA['Gabe']]},type:'b',
+      roleBreakdown:function(){return [{label:'Prep',arr:PREP['Gabe']},{label:'Pizza',arr:PIZZA['Gabe']},{label:'Dish',arr:DISH['Gabe']}];}},
     {n:'Lorenzo',r:16.50,role:'Dish',src:function(){return [DISH['Lorenzo']]},type:'b'},
 
     {n:'Alyssa',r:15,role:'Cashier',src:function(){return [CASHIERS['Alyssa']]},type:'f',role2:'cashiers'},
@@ -3587,7 +3597,8 @@ function renderPrivate() {
     {n:'Nathan',r:15,role:'Cashier',src:function(){return [CASHIERS['Nathan']]},type:'f',role2:'cashiers'},
     {n:'Jose O',r:16,role:'Cashier',src:function(){return [CASHIERS['Jose O']]},type:'f',role2:'cashiers'},
     {n:'Selena S',r:15,role:'Cashier',src:function(){return [CASHIERS['Selena S']]},type:'f',role2:'cashiers'},
-    {n:'Ally',r:15,role:'Cashier/Host',src:function(){return [CASHIERS['Ally'],HOSTS['Ally']]},type:'f',role2:'cashiers'},
+    {n:'Ally',r:15,role:'Cashier/Host',src:function(){return [CASHIERS['Ally'],HOSTS['Ally']]},type:'f',role2:'cashiers',
+      roleBreakdown:function(){return [{label:'Cashier',arr:CASHIERS['Ally'],role2:'cashiers'},{label:'Host',arr:HOSTS['Ally'],role2:'hosts'}];}},
     {n:'Maria C (Cashier)',r:16,role:'Cashier',src:function(){return [CASHIERS['Maria C']]},type:'f',role2:'cashiers'},
     {n:'Maria C (Server)',r:9,role:'Server',src:function(){return [SERVERS['Maria C']]},type:'f',role2:'servers'},
 
@@ -3597,9 +3608,12 @@ function renderPrivate() {
     {n:'Leon',r:9,role:'Server',src:function(){return [SERVERS['Leon']]},type:'f',role2:'servers'},
     {n:'Katelyn',r:9,role:'Server',src:function(){return [SERVERS['Katelyn']]},type:'f',role2:'servers'},
     {n:'Carly',r:9,role:'Server',src:function(){return [SERVERS['Carly']]},type:'f',role2:'servers'},
-    {n:'Carry T',r:9,role:'Server/Bartender',src:function(){return [SERVERS['Carry T'],BARTENDERS['Carry T']]},type:'f',role2:'servers'},
-    {n:'Steph',r:9.60,role:'Server/Bartender',src:function(){return [SERVERS['Steph'],BARTENDERS['Steph']]},type:'f',role2:'servers'},
-    {n:'Erika H',r:9,role:'Server/Bartender',src:function(){return [SERVERS['Erika H'],BARTENDERS['Erika H']]},type:'f',role2:'servers'},
+    {n:'Carry T',r:9,role:'Server/Bartender',src:function(){return [SERVERS['Carry T'],BARTENDERS['Carry T']]},type:'f',role2:'servers',
+      roleBreakdown:function(){return [{label:'Server',arr:SERVERS['Carry T'],role2:'servers'},{label:'Bartender',arr:BARTENDERS['Carry T'],role2:'bartenders'}];}},
+    {n:'Steph',r:9.60,role:'Server/Bartender',src:function(){return [SERVERS['Steph'],BARTENDERS['Steph']]},type:'f',role2:'servers',
+      roleBreakdown:function(){return [{label:'Server',arr:SERVERS['Steph'],role2:'servers'},{label:'Bartender',arr:BARTENDERS['Steph'],role2:'bartenders'}];}},
+    {n:'Erika H',r:9,role:'Server/Bartender',src:function(){return [SERVERS['Erika H'],BARTENDERS['Erika H']]},type:'f',role2:'servers',
+      roleBreakdown:function(){return [{label:'Server',arr:SERVERS['Erika H'],role2:'servers'},{label:'Bartender',arr:BARTENDERS['Erika H'],role2:'bartenders'}];}},
     {n:'Mary R',r:9,role:'Bartender',src:function(){return [BARTENDERS['Mary R']]},type:'f',role2:'bartenders'},
     {n:'Dave P',r:9,role:'Bartender',src:function(){return [BARTENDERS['Dave P']]},type:'f',role2:'bartenders'},
     {n:'Danielle',r:9,role:'Bartender',src:function(){return [BARTENDERS['Danielle']]},type:'f',role2:'bartenders'},
@@ -3759,7 +3773,15 @@ function renderPrivate() {
     var rP=rH*e.r, oP=oH*e.r*1.5, wg=rP+oP;
     var tx=wg*SS+wg*MED+FUTA+SUTA, tc=wg+tx;
     var otStyle=oH>0?'style="color:var(--red);font-weight:700"':'';
-    html+='<tr><td><strong>'+e.n+'</strong></td><td>'+e.role+'</td>';
+    var roleCell = e.role;
+    if(e.roleBreakdown) {
+      var parts = e.roleBreakdown().map(function(rb){
+        var h = e.type==='b' ? weekHrsB(rb.arr) : weekHrsF(rb.arr, rb.role2);
+        return rb.label+': '+h.toFixed(1)+'h';
+      });
+      roleCell = e.role + '<div style="font-size:10.5px;color:var(--gray-400);margin-top:2px;">'+parts.join(' · ')+'</div>';
+    }
+    html+='<tr><td><strong>'+e.n+'</strong></td><td>'+roleCell+'</td>';
     html+='<td>'+rH.toFixed(1)+'h</td>';
     html+='<td '+otStyle+'>'+(oH>0?oH.toFixed(1)+'h':'—')+'</td>';
     html+='<td>'+fmt$(wg)+'</td><td>'+fmt$(tx)+'</td><td><strong>'+fmt$(tc)+'</strong></td></tr>';
