@@ -241,7 +241,11 @@ body {
   background: var(--off-white);
   padding-top: 12px;
   padding-bottom: 4px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.sub-nav::-webkit-scrollbar { display: none; }
 .sub-btn {
   padding: 7px 16px;
   font-size: 12px;
@@ -253,7 +257,10 @@ body {
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.15s;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
+.sub-btn-view { flex: 1 1 0; text-align: center; min-width: 84px; }
 .sub-btn:hover { border-color: var(--red); color: var(--red); }
 .sub-btn.active { background: var(--red); color: var(--white); border-color: var(--red); }
 
@@ -1033,10 +1040,10 @@ document.addEventListener("DOMContentLoaded",function(){
     <button id="sched-edit-btn" class="btn btn-secondary" onclick="toggleSchedEditMode()">✏️ Edit</button>
   </div>
   <div class="sub-nav">
-    <button class="sub-btn active" onclick="switchSched('drivers',this)">Drivers</button>
-    <button class="sub-btn" onclick="switchSched('foh',this)">Front of House</button>
-    <button class="sub-btn" onclick="switchSched('cashiers',this)">Cashiers</button>
-    <button class="sub-btn" onclick="switchSched('boh',this)">Back of House</button>
+    <button class="sub-btn sub-btn-view active" onclick="switchSched('drivers',this)">Drivers</button>
+    <button class="sub-btn sub-btn-view" onclick="switchSched('foh',this)">Front of House</button>
+    <button class="sub-btn sub-btn-view" onclick="switchSched('cashiers',this)">Cashiers</button>
+    <button class="sub-btn sub-btn-view" onclick="switchSched('boh',this)">Back of House</button>
     <button class="sub-btn" onclick="showSchedPrintMenu(this)">🖨 Print</button>
     <button class="sub-btn" onclick="gatedShowOverrideLog(this)" style="margin-left:auto;">📋 Schedule Log</button>
     <button class="sub-btn" onclick="gatedShowDomsNotes()" style="margin-left:6px;">📝 Mike's Notes</button>
@@ -1096,13 +1103,13 @@ document.addEventListener("DOMContentLoaded",function(){
 
     <div style="display:flex;gap:10px;margin-top:16px;">
       <button class="btn btn-primary" style="flex:1;" onclick="saveDrawerCount()">💾 Save Count</button>
-      <button class="btn btn-secondary" onclick="cancelDrawerCount()">Cancel</button>
+      <button class="btn btn-secondary" style="flex:1" onclick="cancelDrawerCount()">Cancel</button>
     </div>
   </div>
 
   <div style="display:flex;align-items:center;justify-content:space-between;margin-top:26px;margin-bottom:8px;">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.06em;">Recent Counts</div>
-    <button class="btn btn-secondary" style="padding:6px 12px;font-size:12px;" onclick="printDrawerCounts()">🖨 Print Tonight's Counts</button>
+    <button class="btn btn-secondary" onclick="printDrawerCounts()">🖨 Print Tonight's Counts</button>
   </div>
 
   <div style="border:1px solid #eee;border-radius:10px;padding:10px;margin-bottom:10px;">
@@ -1125,8 +1132,8 @@ document.addEventListener("DOMContentLoaded",function(){
       </label>
     </div>
     <div style="display:flex;gap:8px;margin-top:8px;">
-      <button class="btn btn-primary" style="flex:1;padding:8px;font-size:13px;" onclick="searchDrawerCounts()">🔍 Search</button>
-      <button class="btn btn-secondary" style="padding:8px 14px;font-size:13px;" onclick="clearDrawerSearch()">Clear</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="searchDrawerCounts()">🔍 Search</button>
+      <button class="btn btn-secondary" onclick="clearDrawerSearch()">Clear</button>
     </div>
   </div>
 
@@ -4024,6 +4031,7 @@ function renderPrivate() {
     {n:'Leanne',r:9,role:'Server',src:function(){return [SERVERS['Leanne']]},type:'f',role2:'servers'},
     {n:'Leon',r:9,role:'Server',src:function(){return [SERVERS['Leon']]},type:'f',role2:'servers'},
     {n:'Katelyn',r:9,role:'Server',src:function(){return [SERVERS['Katelyn']]},type:'f',role2:'servers'},
+    {n:'Dani',r:9,role:'Server',src:function(){return [SERVERS['Dani']]},type:'f',role2:'servers'},
     {n:'Carly',r:9,role:'Server',src:function(){return [SERVERS['Carly']]},type:'f',role2:'servers'},
     {n:'Carry T',r:9,role:'Server/Bartender',src:function(){return [SERVERS['Carry T'],BARTENDERS['Carry T']]},type:'f',role2:'servers',
       roleBreakdown:function(){return [{label:'Server',arr:SERVERS['Carry T'],role2:'servers'},{label:'Bartender',arr:BARTENDERS['Carry T'],role2:'bartenders'}];}},
