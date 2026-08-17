@@ -4820,6 +4820,17 @@ document.addEventListener("DOMContentLoaded",function(){
 
       <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.05em;margin-bottom:10px;">Removed Employees</div>
       <div id="roster-removed-list" style="font-size:13px;color:#aaa;">Loading...</div>
+
+      <div style="height:1px;background:var(--gray-100);margin:18px 0;"></div>
+
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.05em;margin-bottom:10px;">Name Aliases</div>
+      <div style="font-size:12px;color:#999;margin-bottom:8px;">If schedules get typed with a nickname or misspelling (e.g. "Gus" instead of "Gustavo"), add it here so their hours match the right person automatically going forward.</div>
+      <div style="display:flex;gap:8px;margin-bottom:10px;">
+        <input type="text" id="alias-add-alias" placeholder="Nickname/typo (e.g. Gus)" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;">
+        <input type="text" id="alias-add-canonical" placeholder="Correct name (e.g. Gustavo)" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;">
+      </div>
+      <button class="btn btn-primary" style="width:100%;margin-bottom:10px;" onclick="addNameAlias()">+ Add Alias</button>
+      <div id="roster-alias-list" style="font-size:13px;color:#aaa;">Loading...</div>
     </div>
   </div>
 </div>
@@ -7593,9 +7604,12 @@ function checkPin() {
 // CUSTOM ROSTER (Manage Roster panel) -- lets Ely add/remove standard
 // single-role staff from the app itself, no code push required.
 // -----------------------------------------------------------------
-var CUSTOM_ROSTER = [];          // [{id, name, role_label, rate, added_by, added_at}]
+var CUSTOM_ROSTER = [];          // [{id, name, roles_json, rate, added_by, added_at}]
 var CUSTOM_ROSTER_REMOVED = [];  // [{id, name, removed_by, removed_at}]
-var FULL_ROSTER_NAMES = [];      // [{n, role}] -- every hourly employee, regardless of hours this week
+var CUSTOM_ROSTER_RENAMES = [];  // [{id, original_name, display_name, renamed_by, renamed_at}]
+var CUSTOM_ROSTER_RATES = [];    // [{id, original_name, rate, updated_by, updated_at}]
+var CUSTOM_ALIASES_LIST = [];    // [{id, alias, canonical_name, added_by, added_at}] -- for display in the panel
+var FULL_ROSTER_NAMES = [];      // [{n, role, origName, rate}] -- every hourly employee, regardless of hours this week
 
 function loadCustomRosterThenRender() {
   Promise.all([
@@ -7604,10 +7618,22 @@ function loadCustomRosterThenRender() {
     }).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }),
     fetch(SUPABASE_URL + '/rest/v1/darien_roster_removed?order=removed_at.asc', {
       headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }),
+    fetch(SUPABASE_URL + '/rest/v1/darien_roster_renames?order=renamed_at.asc', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }),
+    fetch(SUPABASE_URL + '/rest/v1/darien_roster_rates?order=updated_at.asc', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }),
+    fetch(SUPABASE_URL + '/rest/v1/darien_name_aliases?order=added_at.asc', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; })
   ]).then(function(results){
     CUSTOM_ROSTER = results[0] || [];
     CUSTOM_ROSTER_REMOVED = results[1] || [];
+    CUSTOM_ROSTER_RENAMES = results[2] || [];
+    CUSTOM_ROSTER_RATES = results[3] || [];
+    CUSTOM_ALIASES_LIST = results[4] || [];
     if(document.getElementById('private-content').style.display !== 'none') renderPrivate();
     if(document.getElementById('manage-roster-modal').style.display !== 'none') renderManageRosterLists();
   });
@@ -7631,11 +7657,14 @@ function renderManageRosterLists() {
     curList.innerHTML = '<div style="color:#aaa;">Open the wage roster once to load current staff.</div>';
   } else {
     curList.innerHTML = current.map(function(e){
-      var isCustom = CUSTOM_ROSTER.some(function(c){ return c.name === e.n; });
+      var isCustom = CUSTOM_ROSTER.some(function(c){ return c.name === e.origName; });
+      var origEsc = e.origName.replace(/'/g,"\\'");
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f2f2f2;">'
-        + '<div><div style="font-weight:600;">'+e.n+'</div><div style="font-size:11px;color:#999;">'+e.role+(isCustom?' &middot; added via app':'')+'</div></div>'
-        + '<button onclick="removeRosterEmployee(\''+e.n.replace(/'/g,"\\'")+'\')" style="background:#fff0f0;border:1px solid #f3c2c9;color:#c8102e;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✕ Remove</button>'
-        + '</div>';
+        + '<div><div style="font-weight:600;">'+e.n+'</div><div style="font-size:11px;color:#999;">'+e.role+' &middot; $'+Number(e.rate).toFixed(2)+'/hr'+(isCustom?' &middot; added via app':'')+'</div></div>'
+        + '<div style="display:flex;gap:6px;">'
+        + '<button onclick="editRosterEmployee(\''+origEsc+'\')" style="background:#f0f4ff;border:1px solid #c2d1f3;color:#1e4fa3;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✎ Edit</button>'
+        + '<button onclick="removeRosterEmployee(\''+origEsc+'\')" style="background:#fff0f0;border:1px solid #f3c2c9;color:#c8102e;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✕ Remove</button>'
+        + '</div></div>';
     }).join('');
   }
 
@@ -7646,6 +7675,18 @@ function renderManageRosterLists() {
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f2f2f2;">'
         + '<div>'+r.name+'</div>'
         + '<button onclick="restoreRosterEmployee('+r.id+')" style="background:#f0fff4;border:1px solid #b7e4c7;color:#1a7a3c;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">↺ Restore</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  var aliasList = document.getElementById('roster-alias-list');
+  if(!CUSTOM_ALIASES_LIST.length) {
+    aliasList.innerHTML = '<div style="color:#aaa;">No custom aliases added yet.</div>';
+  } else {
+    aliasList.innerHTML = CUSTOM_ALIASES_LIST.map(function(a){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f2f2f2;">'
+        + '<div>"'+a.alias+'" &rarr; '+a.canonical_name+'</div>'
+        + '<button onclick="removeNameAlias('+a.id+',\''+a.alias.replace(/'/g,"\\'")+'\')" style="background:#fff0f0;border:1px solid #f3c2c9;color:#c8102e;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✕ Remove</button>'
         + '</div>';
     }).join('');
   }
@@ -7707,6 +7748,73 @@ function restoreRosterEmployee(id) {
     if(!r.ok) throw new Error('Failed');
     loadCustomRosterThenRender();
   }).catch(function(e){ alert('Failed to restore: ' + e.message); });
+}
+
+function editRosterEmployee(origName) {
+  var nameOverride = CUSTOM_ROSTER_RENAMES.find(function(r){ return r.original_name === origName; });
+  var rateOverride = CUSTOM_ROSTER_RATES.find(function(r){ return r.original_name === origName; });
+  var currentDisplayName = nameOverride ? nameOverride.display_name : origName;
+  var currentRate = rateOverride ? rateOverride.rate : (FULL_ROSTER_NAMES.find(function(p){return p.origName===origName;}) || {}).rate;
+
+  var newName = prompt('Name for this person:', currentDisplayName);
+  if(newName === null) return; // cancelled entirely
+  newName = newName.trim();
+  if(!newName) { alert('Name cannot be blank.'); return; }
+
+  var newRateStr = prompt('Hourly rate for ' + newName + ':', currentRate != null ? String(currentRate) : '');
+  if(newRateStr === null) return; // cancelled entirely
+  var newRate = parseFloat(newRateStr);
+  if(!newRate || newRate <= 0) { alert('Enter a valid hourly rate.'); return; }
+
+  var requests = [];
+  if(newName !== origName || nameOverride) {
+    requests.push(fetch(SUPABASE_URL + '/rest/v1/darien_roster_renames?on_conflict=original_name', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify([{original_name: origName, display_name: newName, renamed_by: getCurrentUser(), renamed_at: new Date().toISOString()}])
+    }));
+  }
+  if(newRate !== currentRate) {
+    requests.push(fetch(SUPABASE_URL + '/rest/v1/darien_roster_rates?on_conflict=original_name', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify([{original_name: origName, rate: newRate, updated_by: getCurrentUser(), updated_at: new Date().toISOString()}])
+    }));
+  }
+  if(!requests.length) return; // nothing actually changed
+  Promise.all(requests).then(function(responses){
+    if(responses.some(function(r){return !r.ok;})) throw new Error('One or more updates failed');
+    loadCustomRosterThenRender();
+  }).catch(function(e){ alert('Failed to save changes: ' + e.message); });
+}
+
+function addNameAlias() {
+  var alias = document.getElementById('alias-add-alias').value.trim();
+  var canonical = document.getElementById('alias-add-canonical').value.trim();
+  if(!alias || !canonical) { alert('Enter both the nickname/typo and the correct name.'); return; }
+  fetch(SUPABASE_URL + '/rest/v1/darien_name_aliases?on_conflict=alias', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'},
+    body: JSON.stringify([{alias: alias.toLowerCase(), canonical_name: canonical, added_by: getCurrentUser(), added_at: new Date().toISOString()}])
+  }).then(function(r){
+    if(!r.ok) throw new Error('Save failed');
+    NAME_ALIASES[alias.toLowerCase()] = canonical; // take effect immediately, no reload needed
+    document.getElementById('alias-add-alias').value = '';
+    document.getElementById('alias-add-canonical').value = '';
+    loadCustomRosterThenRender();
+  }).catch(function(e){ alert('Failed to add alias: ' + e.message); });
+}
+
+function removeNameAlias(id, alias) {
+  if(!confirm('Remove the alias "' + alias + '"? Future schedule uploads using that spelling will show as unmatched again.')) return;
+  fetch(SUPABASE_URL + '/rest/v1/darien_name_aliases?id=eq.' + id, {
+    method: 'DELETE',
+    headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).then(function(r){
+    if(!r.ok) throw new Error('Failed');
+    delete NAME_ALIASES[alias.toLowerCase()];
+    loadCustomRosterThenRender();
+  }).catch(function(e){ alert('Failed to remove: ' + e.message); });
 }
 
 var LAST_PAYROLL = null;
@@ -7879,7 +7987,26 @@ function renderPrivate() {
       HLY.push(entry);
     });
   }
-  FULL_ROSTER_NAMES = HLY.map(function(e){ return {n: e.n, role: e.role}; });
+  // Rename overlay: lets a name be corrected for display (wage roster, print,
+  // roster panel) without changing the underlying key used to pull hours from
+  // schedule data. _origName is preserved on every entry so Remove/Edit always
+  // target the stable identity, never a possibly-already-renamed display name --
+  // that keeps repeated renames from chaining/breaking and keeps removal working
+  // even after someone's been renamed.
+  HLY.forEach(function(e){ e._origName = e.n; });
+  if(typeof CUSTOM_ROSTER_RENAMES !== 'undefined' && CUSTOM_ROSTER_RENAMES.length) {
+    var renameMap = {};
+    CUSTOM_ROSTER_RENAMES.forEach(function(r){ renameMap[r.original_name] = r.display_name; });
+    HLY.forEach(function(e){ if(renameMap[e._origName]) e.n = renameMap[e._origName]; });
+  }
+  // Rate override: same overlay pattern, keyed by true identity, applied
+  // before wage math so custom rates actually take effect in payroll.
+  if(typeof CUSTOM_ROSTER_RATES !== 'undefined' && CUSTOM_ROSTER_RATES.length) {
+    var rateMap = {};
+    CUSTOM_ROSTER_RATES.forEach(function(r){ rateMap[r.original_name] = r.rate; });
+    HLY.forEach(function(e){ if(rateMap[e._origName] != null) e.r = rateMap[e._origName]; });
+  }
+  FULL_ROSTER_NAMES = HLY.map(function(e){ return {n: e.n, role: e.role, origName: e._origName, rate: e.r}; });
   // Compute wh (weekly hours) dynamically now that data is loaded.
   // Entries with roleBreakdown are computed by summing each role's OWN
   // type-correct calculation (weekHrsB for BOH-format data, weekHrsF for
@@ -9536,7 +9663,19 @@ document.addEventListener('DOMContentLoaded', function(){
     var snapped = snapToMonday(this.value);
     if(snapped && snapped !== this.value) this.value = snapped;
   });
+  // Load custom name aliases (added via Manage Roster) as early as possible --
+  // uploads can happen on the Schedule tab before the Private tab is ever
+  // opened, and aliases must be resolved at upload time to work at all.
+  loadCustomAliasesIntoMap();
 });
+
+function loadCustomAliasesIntoMap() {
+  fetch(SUPABASE_URL + '/rest/v1/darien_name_aliases', {
+    headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).then(function(r){ return r.ok ? r.json() : []; }).then(function(rows){
+    (rows||[]).forEach(function(row){ NAME_ALIASES[row.alias.toLowerCase()] = row.canonical_name; });
+  }).catch(function(){ /* non-fatal -- uploads still work with the built-in alias list */ });
+}
 
 function snapToMonday(dateStr) {
   if(!dateStr) return dateStr;
