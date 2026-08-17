@@ -4772,7 +4772,57 @@ document.addEventListener("DOMContentLoaded",function(){
     <div style="padding:0 16px 8px;">
       <button onclick="printWageRoster()" class="btn btn-secondary" style="width:100%;">Print Wage Roster -- By Job</button>
     </div>
+    <div style="padding:0 16px 8px;">
+      <button onclick="openManageRosterModal()" class="btn btn-secondary" style="width:100%;">👥 Manage Roster -- Add / Remove Staff</button>
+    </div>
     <div id="private-data"></div>
+  </div>
+</div>
+
+<!-- MANAGE ROSTER MODAL -->
+<div id="manage-roster-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;">
+  <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:var(--white);overflow-y:auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--gray-100);position:sticky;top:0;background:var(--white);z-index:2;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.06em;">Manage Roster</div>
+      <button onclick="document.getElementById('manage-roster-modal').style.display='none';" style="background:none;border:none;font-size:22px;cursor:pointer;color:#888;">✕</button>
+    </div>
+    <div style="padding:16px;">
+
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.05em;margin-bottom:10px;">Add New Employee</div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:10px;">
+        <input type="text" id="roster-add-name" placeholder="Full name (as it'll appear on schedules)" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;">
+        <div style="display:flex;gap:10px;">
+          <select id="roster-add-role" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;">
+            <option value="">Select role...</option>
+            <option value="Driver">Driver</option>
+            <option value="Manager">Manager</option>
+            <option value="Server">Server</option>
+            <option value="Bartender">Bartender</option>
+            <option value="Cashier">Cashier</option>
+            <option value="Host">Host</option>
+            <option value="Pizza">Pizza</option>
+            <option value="Kitchen">Kitchen</option>
+            <option value="Dish">Dish</option>
+            <option value="Prep">Prep</option>
+            <option value="Bus">Bus</option>
+          </select>
+          <input type="number" inputmode="decimal" step="0.01" id="roster-add-rate" placeholder="Rate/hr" style="width:100px;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;">
+        </div>
+        <div style="font-size:11.5px;color:#999;">Note: this adds a single-role employee. If someone works multiple sections (e.g. Pizza + Cashier), tell Claude directly so hours combine correctly for overtime.</div>
+        <button class="btn btn-primary" onclick="addRosterEmployee()">+ Add Employee</button>
+      </div>
+
+      <div style="height:1px;background:var(--gray-100);margin:18px 0;"></div>
+
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.05em;margin-bottom:10px;">Current Roster</div>
+      <div style="font-size:12px;color:#999;margin-bottom:8px;">Tap ✕ to remove someone from the wage roster and payroll reports. This doesn't delete their past pay history, just stops them from appearing going forward.</div>
+      <div id="roster-current-list" style="font-size:13px;color:#aaa;">Loading...</div>
+
+      <div style="height:1px;background:var(--gray-100);margin:18px 0;"></div>
+
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.05em;margin-bottom:10px;">Removed Employees</div>
+      <div id="roster-removed-list" style="font-size:13px;color:#aaa;">Loading...</div>
+    </div>
   </div>
 </div>
 
@@ -5321,6 +5371,27 @@ const CASHIERS = {
 };
 const HOSTS = {
   'Ally': [null,null,null,null,null,null,null],
+};
+
+// Lookup map so custom-roster entries (added via the Private tab UI) can
+// reference a section by its string name, since these are top-level `const`
+// declarations and are not reachable via window['SERVERS'] etc.
+const SECTION_ARRAYS = {
+  DRIVERS, MANAGERS, PIZZA, KITCHEN, DISH, PREP, BUS, SERVERS, BARTENDERS, CASHIERS, HOSTS
+};
+// role label -> {arrName, type}. type 'b' = BOH (uses weekHrsB), 'f' = FOH (uses weekHrsF + role2)
+const CUSTOM_ROLE_MAP = {
+  'Driver':    {arr:'DRIVERS',    type:'f', role2:'drivers'},
+  'Manager':   {arr:'MANAGERS',   type:'f', role2:'managers'},
+  'Server':    {arr:'SERVERS',    type:'f', role2:'servers'},
+  'Bartender': {arr:'BARTENDERS', type:'f', role2:'bartenders'},
+  'Cashier':   {arr:'CASHIERS',   type:'f', role2:'cashiers'},
+  'Host':      {arr:'HOSTS',      type:'f', role2:'hosts'},
+  'Pizza':     {arr:'PIZZA',      type:'b'},
+  'Kitchen':   {arr:'KITCHEN',    type:'b'},
+  'Dish':      {arr:'DISH',       type:'b'},
+  'Prep':      {arr:'PREP',       type:'b'},
+  'Bus':       {arr:'BUS',        type:'b'}
 };
 
 // Canonical FOH roster per section, captured before any week's data replaces these.
@@ -7514,10 +7585,130 @@ function checkPin() {
     document.getElementById('pin-screen').style.display='none';
     document.getElementById('private-content').style.display='block';
     renderPrivate();
+    loadCustomRosterThenRender();
   } else {
     document.getElementById('pin-error').style.display='block';
     document.getElementById('pin-input').value='';
   }
+}
+
+// CUSTOM ROSTER (Manage Roster panel) -- lets Ely add/remove standard
+// single-role staff from the app itself, no code push required.
+// -----------------------------------------------------------------
+var CUSTOM_ROSTER = [];          // [{id, name, role_label, rate, added_by, added_at}]
+var CUSTOM_ROSTER_REMOVED = [];  // [{id, name, removed_by, removed_at}]
+var FULL_ROSTER_NAMES = [];      // [{n, role}] -- every hourly employee, regardless of hours this week
+
+function loadCustomRosterThenRender() {
+  Promise.all([
+    fetch(SUPABASE_URL + '/rest/v1/darien_roster_additions?order=added_at.asc', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }),
+    fetch(SUPABASE_URL + '/rest/v1/darien_roster_removed?order=removed_at.asc', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; })
+  ]).then(function(results){
+    CUSTOM_ROSTER = results[0] || [];
+    CUSTOM_ROSTER_REMOVED = results[1] || [];
+    if(document.getElementById('private-content').style.display !== 'none') renderPrivate();
+    if(document.getElementById('manage-roster-modal').style.display !== 'none') renderManageRosterLists();
+  });
+}
+
+function openManageRosterModal() {
+  document.getElementById('manage-roster-modal').style.display = 'block';
+  renderManageRosterLists();
+}
+
+function renderManageRosterLists() {
+  var curList = document.getElementById('roster-current-list');
+  var remList = document.getElementById('roster-removed-list');
+  var removedNames = CUSTOM_ROSTER_REMOVED.map(function(r){ return r.name; });
+
+  // Current roster = everyone in the live HLY array (hardcoded + custom additions),
+  // regardless of hours worked this week -- so someone with 0 hours (just added,
+  // or between shifts) can still be seen and removed here.
+  var current = FULL_ROSTER_NAMES;
+  if(!current.length) {
+    curList.innerHTML = '<div style="color:#aaa;">Open the wage roster once to load current staff.</div>';
+  } else {
+    curList.innerHTML = current.map(function(e){
+      var isCustom = CUSTOM_ROSTER.some(function(c){ return c.name === e.n; });
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f2f2f2;">'
+        + '<div><div style="font-weight:600;">'+e.n+'</div><div style="font-size:11px;color:#999;">'+e.role+(isCustom?' &middot; added via app':'')+'</div></div>'
+        + '<button onclick="removeRosterEmployee(\''+e.n.replace(/'/g,"\\'")+'\')" style="background:#fff0f0;border:1px solid #f3c2c9;color:#c8102e;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✕ Remove</button>'
+        + '</div>';
+    }).join('');
+  }
+
+  if(!CUSTOM_ROSTER_REMOVED.length) {
+    remList.innerHTML = '<div style="color:#aaa;">No one currently removed.</div>';
+  } else {
+    remList.innerHTML = CUSTOM_ROSTER_REMOVED.map(function(r){
+      return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f2f2f2;">'
+        + '<div>'+r.name+'</div>'
+        + '<button onclick="restoreRosterEmployee('+r.id+')" style="background:#f0fff4;border:1px solid #b7e4c7;color:#1a7a3c;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">↺ Restore</button>'
+        + '</div>';
+    }).join('');
+  }
+}
+
+function addRosterEmployee() {
+  var name = document.getElementById('roster-add-name').value.trim();
+  var role = document.getElementById('roster-add-role').value;
+  var rate = parseFloat(document.getElementById('roster-add-rate').value);
+  if(!name) { alert('Enter a name.'); return; }
+  if(!role) { alert('Select a role.'); return; }
+  if(!rate || rate <= 0) { alert('Enter a valid hourly rate.'); return; }
+  var entry = {
+    name: name,
+    role_label: role,
+    rate: rate,
+    added_by: getCurrentUser(),
+    added_at: new Date().toISOString()
+  };
+  fetch(SUPABASE_URL + '/rest/v1/darien_roster_additions', {
+    method: 'POST',
+    headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+    body: JSON.stringify([entry])
+  }).then(function(r){
+    if(!r.ok) throw new Error('Save failed');
+    document.getElementById('roster-add-name').value = '';
+    document.getElementById('roster-add-role').value = '';
+    document.getElementById('roster-add-rate').value = '';
+    loadCustomRosterThenRender();
+  }).catch(function(e){ alert('Failed to add: ' + e.message); });
+}
+
+function removeRosterEmployee(name) {
+  if(!confirm('Remove ' + name + ' from the wage roster? Their past pay history is unaffected -- this just stops them showing going forward.')) return;
+  // If this person was added via the app, delete their addition row outright
+  // rather than double-tracking them in both tables.
+  var addition = CUSTOM_ROSTER.find(function(c){ return c.name === name; });
+  var doDelete = addition
+    ? fetch(SUPABASE_URL + '/rest/v1/darien_roster_additions?id=eq.' + addition.id, {
+        method: 'DELETE',
+        headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+      })
+    : fetch(SUPABASE_URL + '/rest/v1/darien_roster_removed', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+        body: JSON.stringify([{name: name, removed_by: getCurrentUser(), removed_at: new Date().toISOString()}])
+      });
+  doDelete.then(function(r){
+    if(!r.ok) throw new Error('Failed');
+    loadCustomRosterThenRender();
+  }).catch(function(e){ alert('Failed to remove: ' + e.message); });
+}
+
+function restoreRosterEmployee(id) {
+  fetch(SUPABASE_URL + '/rest/v1/darien_roster_removed?id=eq.' + id, {
+    method: 'DELETE',
+    headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+  }).then(function(r){
+    if(!r.ok) throw new Error('Failed');
+    loadCustomRosterThenRender();
+  }).catch(function(e){ alert('Failed to restore: ' + e.message); });
 }
 
 var LAST_PAYROLL = null;
@@ -7649,6 +7840,30 @@ function renderPrivate() {
     {n:'Dave P',r:9,role:'Bartender',src:function(){return [BARTENDERS['Dave P']]},type:'f',role2:'bartenders'},
     {n:'Danielle',r:9,role:'Bartender',src:function(){return [BARTENDERS['Danielle']]},type:'f',role2:'bartenders'},
   ];
+  // Merge in staff added via the Private tab "Manage Roster" panel, and drop
+  // anyone removed there. This lets Ely add/remove standard single-role staff
+  // without a code push. Multi-role people still need to be added in code.
+  if(typeof CUSTOM_ROSTER_REMOVED !== 'undefined' && CUSTOM_ROSTER_REMOVED.length) {
+    var removedNames = CUSTOM_ROSTER_REMOVED.map(function(r){return r.name;});
+    HLY = HLY.filter(function(e){ return removedNames.indexOf(e.n) === -1; });
+  }
+  if(typeof CUSTOM_ROSTER !== 'undefined' && CUSTOM_ROSTER.length) {
+    CUSTOM_ROSTER.forEach(function(person){
+      var map = CUSTOM_ROLE_MAP[person.role_label];
+      if(!map) return; // unknown role label, skip safely rather than crash
+      var arrName = map.arr;
+      var entry = {
+        n: person.name,
+        r: person.rate,
+        role: person.role_label,
+        type: map.type,
+        src: (function(arrN, nm){ return function(){ return [SECTION_ARRAYS[arrN][nm]]; }; })(arrName, person.name)
+      };
+      if(map.role2) entry.role2 = map.role2;
+      HLY.push(entry);
+    });
+  }
+  FULL_ROSTER_NAMES = HLY.map(function(e){ return {n: e.n, role: e.role}; });
   // Compute wh (weekly hours) dynamically now that data is loaded
   HLY.forEach(function(e){
     var arrs = e.src();
