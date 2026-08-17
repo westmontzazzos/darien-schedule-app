@@ -4791,24 +4791,22 @@ document.addEventListener("DOMContentLoaded",function(){
       <div style="font-family:'Bebas Neue',sans-serif;font-size:15px;letter-spacing:0.05em;margin-bottom:10px;">Add New Employee</div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:10px;">
         <input type="text" id="roster-add-name" placeholder="Full name (as it'll appear on schedules)" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;">
-        <div style="display:flex;gap:10px;">
-          <select id="roster-add-role" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;">
-            <option value="">Select role...</option>
-            <option value="Driver">Driver</option>
-            <option value="Manager">Manager</option>
-            <option value="Server">Server</option>
-            <option value="Bartender">Bartender</option>
-            <option value="Cashier">Cashier</option>
-            <option value="Host">Host</option>
-            <option value="Pizza">Pizza</option>
-            <option value="Kitchen">Kitchen</option>
-            <option value="Dish">Dish</option>
-            <option value="Prep">Prep</option>
-            <option value="Bus">Bus</option>
-          </select>
-          <input type="number" inputmode="decimal" step="0.01" id="roster-add-rate" placeholder="Rate/hr" style="width:100px;border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;">
+        <div style="font-size:12px;color:#666;font-weight:700;">Role(s) — check all that apply if they work multiple sections:</div>
+        <div id="roster-add-roles" style="display:flex;flex-wrap:wrap;gap:8px;">
+          <label style="display:flex;align-items:center;gap:5px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;"><input type="checkbox" value="Driver"> Driver</label>
+          <label style="display:flex;align-items:center;gap:5px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;"><input type="checkbox" value="Manager"> Manager</label>
+          <label style="display:flex;align-items:center;gap:5px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;"><input type="checkbox" value="Server"> Server</label>
+          <label style="display:flex;align-items:center;gap:5px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;"><input type="checkbox" value="Bartender"> Bartender</label>
+          <label style="display:flex;align-items:center;gap:5px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;"><input type="checkbox" value="Cashier"> Cashier</label>
+          <label style="display:flex;align-items:center;gap:5px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;"><input type="checkbox" value="Host"> Host</label>
+          <label style="display:flex;align-items:center;gap:5px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;"><input type="checkbox" value="Pizza"> Pizza</label>
+          <label style="display:flex;align-items:center;gap:5px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;"><input type="checkbox" value="Kitchen"> Kitchen</label>
+          <label style="display:flex;align-items:center;gap:5px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;"><input type="checkbox" value="Dish"> Dish</label>
+          <label style="display:flex;align-items:center;gap:5px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;"><input type="checkbox" value="Prep"> Prep</label>
+          <label style="display:flex;align-items:center;gap:5px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;"><input type="checkbox" value="Bus"> Bus</label>
         </div>
-        <div style="font-size:11.5px;color:#999;">Note: this adds a single-role employee. If someone works multiple sections (e.g. Pizza + Cashier), tell Claude directly so hours combine correctly for overtime.</div>
+        <input type="number" inputmode="decimal" step="0.01" id="roster-add-rate" placeholder="Rate/hr (same rate applies to all their roles)" style="border:1px solid #ddd;border-radius:8px;padding:10px;font-size:14px;">
+        <div style="font-size:11.5px;color:#999;">If they work multiple roles, overtime is still calculated correctly on their combined hours across all of them — not per role.</div>
         <button class="btn btn-primary" onclick="addRosterEmployee()">+ Add Employee</button>
       </div>
 
@@ -7655,14 +7653,14 @@ function renderManageRosterLists() {
 
 function addRosterEmployee() {
   var name = document.getElementById('roster-add-name').value.trim();
-  var role = document.getElementById('roster-add-role').value;
+  var checked = Array.from(document.querySelectorAll('#roster-add-roles input[type=checkbox]:checked')).map(function(c){return c.value;});
   var rate = parseFloat(document.getElementById('roster-add-rate').value);
   if(!name) { alert('Enter a name.'); return; }
-  if(!role) { alert('Select a role.'); return; }
+  if(!checked.length) { alert('Select at least one role.'); return; }
   if(!rate || rate <= 0) { alert('Enter a valid hourly rate.'); return; }
   var entry = {
     name: name,
-    role_label: role,
+    roles_json: JSON.stringify(checked),
     rate: rate,
     added_by: getCurrentUser(),
     added_at: new Date().toISOString()
@@ -7674,7 +7672,7 @@ function addRosterEmployee() {
   }).then(function(r){
     if(!r.ok) throw new Error('Save failed');
     document.getElementById('roster-add-name').value = '';
-    document.getElementById('roster-add-role').value = '';
+    document.querySelectorAll('#roster-add-roles input[type=checkbox]').forEach(function(c){c.checked=false;});
     document.getElementById('roster-add-rate').value = '';
     loadCustomRosterThenRender();
   }).catch(function(e){ alert('Failed to add: ' + e.message); });
@@ -7796,9 +7794,9 @@ function renderPrivate() {
     {n:'Arturo',r:21,role:'Kitchen/Pizza',src:function(){return [PIZZA['Arturo'],KITCHEN['Arturo']]},type:'b',
       roleBreakdown:function(){return [{label:'Kitchen',arr:KITCHEN['Arturo']},{label:'Pizza',arr:PIZZA['Arturo']}];}},
     {n:'Laura Z',r:20,role:'Pizza/Kitchen/Cashier',src:function(){return [PIZZA['Laura Z'],KITCHEN['Laura Z'],CASHIERS['Laura Z']]},type:'b',
-      roleBreakdown:function(){return [{label:'Pizza',arr:PIZZA['Laura Z']},{label:'Kitchen',arr:KITCHEN['Laura Z']},{label:'Cashier',arr:CASHIERS['Laura Z']}];}},
+      roleBreakdown:function(){return [{label:'Pizza',arr:PIZZA['Laura Z']},{label:'Kitchen',arr:KITCHEN['Laura Z']},{label:'Cashier',arr:CASHIERS['Laura Z'],type:'f',role2:'cashiers'}];}},
     {n:'Gustavo',r:20,role:'Pizza/Kitchen/Cashier',src:function(){return [PIZZA['Gustavo'],KITCHEN['Gustavo'],CASHIERS['Gustavo']]},type:'b',
-      roleBreakdown:function(){return [{label:'Pizza',arr:PIZZA['Gustavo']},{label:'Kitchen',arr:KITCHEN['Gustavo']},{label:'Cashier',arr:CASHIERS['Gustavo']}];}},
+      roleBreakdown:function(){return [{label:'Pizza',arr:PIZZA['Gustavo']},{label:'Kitchen',arr:KITCHEN['Gustavo']},{label:'Cashier',arr:CASHIERS['Gustavo'],type:'f',role2:'cashiers'}];}},
     {n:'Francisco',r:21,role:'Pizza Cook',src:function(){return [PIZZA['Francisco']]},type:'b'},
     {n:'Luis B',r:20,role:'Pizza Cook',src:function(){return [PIZZA['Luis B']]},type:'b'},
     {n:'Juan',r:19.50,role:'Pizza Cook',src:function(){return [PIZZA['Juan']]},type:'b'},
@@ -7849,28 +7847,65 @@ function renderPrivate() {
   }
   if(typeof CUSTOM_ROSTER !== 'undefined' && CUSTOM_ROSTER.length) {
     CUSTOM_ROSTER.forEach(function(person){
-      var map = CUSTOM_ROLE_MAP[person.role_label];
-      if(!map) return; // unknown role label, skip safely rather than crash
-      var arrName = map.arr;
+      var roles = [];
+      try { roles = JSON.parse(person.roles_json || '[]'); } catch(e) { roles = []; }
+      if(!roles.length && person.role_label) roles = [person.role_label]; // backward-compat for pre-migration rows
+      var maps = roles.map(function(r){ return {label:r, map:CUSTOM_ROLE_MAP[r]}; }).filter(function(x){ return !!x.map; });
+      if(!maps.length) return; // no recognized roles, skip safely rather than crash
+
+      // Overall entry type: 'b' only if every role is BOH; otherwise 'f' so
+      // src()/wh use whichever accumulates correctly. Mixed BOH+FOH people
+      // (like Laura Z) are tagged 'b' historically but each breakdown item
+      // carries its own real type below, which is what actually matters.
+      var allBOH = maps.every(function(x){ return x.map.type === 'b'; });
+      var primaryType = allBOH ? 'b' : 'f';
+      var primaryRole2 = !allBOH ? (maps.find(function(x){return x.map.type==='f';}).map.role2) : undefined;
+
       var entry = {
         n: person.name,
         r: person.rate,
-        role: person.role_label,
-        type: map.type,
-        src: (function(arrN, nm){ return function(){ return [SECTION_ARRAYS[arrN][nm]]; }; })(arrName, person.name)
+        role: maps.map(function(x){return x.label;}).join('/'),
+        type: primaryType,
+        src: function(){ return maps.map(function(x){ return SECTION_ARRAYS[x.map.arr][person.name]; }); }
       };
-      if(map.role2) entry.role2 = map.role2;
+      if(primaryRole2) entry.role2 = primaryRole2;
+      if(maps.length > 1) {
+        entry.roleBreakdown = function(){
+          return maps.map(function(x){
+            return {label:x.label, arr:SECTION_ARRAYS[x.map.arr][person.name], type:x.map.type, role2:x.map.role2};
+          });
+        };
+      }
       HLY.push(entry);
     });
   }
   FULL_ROSTER_NAMES = HLY.map(function(e){ return {n: e.n, role: e.role}; });
-  // Compute wh (weekly hours) dynamically now that data is loaded
+  // Compute wh (weekly hours) dynamically now that data is loaded.
+  // Entries with roleBreakdown are computed by summing each role's OWN
+  // type-correct calculation (weekHrsB for BOH-format data, weekHrsF for
+  // FOH-format data) -- this matters for people like Laura Z/Gustavo who mix
+  // BOH roles (Pizza/Kitchen) with an FOH role (Cashier): running Cashier's
+  // [start,end]-array data through the BOH string-parser silently produced
+  // wrong hours, which could throw off their overtime total.
   HLY.forEach(function(e){
-    var arrs = e.src();
-    if(e.type==='b') {
+    if(e.roleBreakdown) {
+      var items = e.roleBreakdown();
+      e.wh = items.reduce(function(t,it){
+        var typ = it.type || e.type;
+        return t + (typ==='b' ? weekHrsB(it.arr) : weekHrsF(it.arr, it.role2));
+      }, 0);
+      e.dh = function(di){
+        return e.roleBreakdown().reduce(function(t,it){
+          var typ = it.type || e.type;
+          return t + (typ==='b' ? dayHrsB(it.arr,di) : dayHrsF(it.arr,di,it.role2));
+        }, 0);
+      };
+    } else if(e.type==='b') {
+      var arrs = e.src();
       e.wh = arrs.reduce(function(t,a){return t+weekHrsB(a);},0);
       e.dh = function(di){ return e.src().reduce(function(t,a){return t+dayHrsB(a,di);},0); };
     } else {
+      var arrs = e.src();
       e.wh = arrs.reduce(function(t,a){return t+weekHrsF(a,e.role2);},0);
       e.dh = function(di){ return e.src().reduce(function(t,a){return t+dayHrsF(a,di,e.role2);},0); };
     }
@@ -8022,7 +8057,8 @@ function renderPrivate() {
     var roleCell = e.role;
     if(e.roleBreakdown) {
       var parts = e.roleBreakdown().map(function(rb){
-        var h = e.type==='b' ? weekHrsB(rb.arr) : weekHrsF(rb.arr, rb.role2);
+        var rbType = rb.type || e.type;
+        var h = rbType==='b' ? weekHrsB(rb.arr) : weekHrsF(rb.arr, rb.role2);
         return rb.label+': '+h.toFixed(1)+'h';
       });
       roleCell = e.role + '<div style="font-size:10.5px;color:var(--gray-400);margin-top:2px;">'+parts.join(' · ')+'</div>';
