@@ -5622,7 +5622,7 @@ function buildDayEntryFromWeek(week, di) {
   // If a section ever exceeds its max, the extras still print (a name is
   // never dropped) — that one section just grows a little that day.
   var MAX = {
-    'Managers':4, 'Pizza':9, 'Bouncer (Pizza/Kitchen Coverage)':3, 'Kitchen':5, 'Prep / Utility':3, 'Bus / Dish':4,
+    'Managers':4, 'Pizza':9, 'Bouncer (Pizza/Kitchen Coverage)':6, 'Kitchen':5, 'Prep / Utility':3, 'Bus / Dish':4,
     'Host':3, 'Servers':11, 'Bartenders':3, 'Cashiers':5, 'Drivers':10
   };
 
@@ -6516,6 +6516,19 @@ function setBouncerByIdx(idx) {
   var timeMatch = e.msg.match(/from\s+([\d:]+[AP]M)\s+to\s+([\d:]+[AP]M)/i);
   var fromTime = timeMatch ? timeMatch[1] : (e.msg.indexOf('cook(s) between 4-8PM') !== -1 ? '4PM' : '');
   var toTime = timeMatch ? timeMatch[2] : (e.msg.indexOf('cook(s) between 4-8PM') !== -1 ? '8PM' : '');
+  openBouncerModal(e.di, e.dept, e.msg, fromTime, toTime, false);
+}
+
+// Direct entry point: add a bouncer for any day without needing a detected
+// schedule error first. Supports adding as many as needed for one day --
+// each call appends another entry to that day's bouncer list rather than
+// replacing it, so Friday/Saturday can have multiple.
+function openDirectBouncerModal(di) {
+  openBouncerModal(di, 'Bouncer (Pizza/Kitchen Coverage)', 'Added directly from Run Sheet', '', '', true);
+}
+
+function openBouncerModal(di, dept, msg, fromTime, toTime, isDirect) {
+  var e = {di: di, dept: dept, msg: msg};
 
   var overlay = document.createElement('div');
   overlay.id = 'bouncer-modal';
@@ -6529,13 +6542,27 @@ function setBouncerByIdx(idx) {
 
   var title = document.createElement('div');
   title.style.cssText = 'font-family:"Bebas Neue",sans-serif;font-size:18px;letter-spacing:0.06em;color:#222;margin-bottom:4px;';
-  title.textContent = 'Set Bouncer';
+  title.textContent = 'Set Bouncer' + (isDirect ? ' — ' + (DAYS[di]||'') : '');
   inner.appendChild(title);
 
   var errlbl = document.createElement('div');
   errlbl.style.cssText = 'font-size:12px;font-weight:700;color:#8a5a00;background:#fff8ea;border:1px solid #f0d090;border-radius:8px;padding:8px 10px;margin-bottom:14px;';
-  errlbl.textContent = e.dept + ' — ' + e.msg;
+  errlbl.textContent = isDirect ? 'Adding coverage for ' + (DAYS[di]||'this day') : e.dept + ' — ' + e.msg;
   inner.appendChild(errlbl);
+
+  var fromInp, toInp;
+  if(isDirect) {
+    var timeRow = document.createElement('div');
+    timeRow.style.cssText = 'display:flex;gap:8px;margin-bottom:14px;';
+    fromInp = document.createElement('input');
+    fromInp.type = 'text'; fromInp.placeholder = 'From (e.g. 4PM)';
+    fromInp.style.cssText = 'flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;';
+    toInp = document.createElement('input');
+    toInp.type = 'text'; toInp.placeholder = 'To (e.g. 8PM)';
+    toInp.style.cssText = 'flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;font-size:14px;box-sizing:border-box;';
+    timeRow.appendChild(fromInp); timeRow.appendChild(toInp);
+    inner.appendChild(timeRow);
+  }
 
   var whoLbl = document.createElement('div');
   whoLbl.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:0.06em;color:#888;margin-bottom:6px;';
@@ -6581,7 +6608,11 @@ function setBouncerByIdx(idx) {
   var okBtn = document.createElement('button');
   okBtn.style.cssText = 'flex:1;padding:13px;background:#8a5a00;color:#fff;border:none;border-radius:10px;font-size:16px;font-weight:700;cursor:pointer;';
   okBtn.textContent = 'CONFIRM';
-  okBtn.onclick = function(){ confirmBouncer(e.di, e.dept, e.msg, fromTime, toTime, overlay); };
+  okBtn.onclick = function(){
+    var f = isDirect ? (fromInp.value.trim() || 'As needed') : fromTime;
+    var t = isDirect ? (toInp.value.trim() || 'As needed') : toTime;
+    confirmBouncer(di, dept, msg, f, t, overlay, isDirect);
+  };
   btnRow.appendChild(cancelBtn);
   btnRow.appendChild(okBtn);
   inner.appendChild(btnRow);
@@ -6592,7 +6623,7 @@ function setBouncerByIdx(idx) {
   window._bouncerName = null;
 }
 
-function confirmBouncer(di, dept, msg, fromTime, toTime, overlay) {
+function confirmBouncer(di, dept, msg, fromTime, toTime, overlay, isDirect) {
   var name = window._bouncerName || (document.getElementById('bouncer-other-input')||{}).value;
   name = name ? String(name).trim() : '';
   if(!name) { alert('Please pick or type who is covering as bouncer.'); return; }
@@ -6602,14 +6633,17 @@ function confirmBouncer(di, dept, msg, fromTime, toTime, overlay) {
   var weekKey = (function(){ var elx = (document.getElementById('sched-week-label')||{}).textContent||''; return elx.replace(/–/g,'-').replace(/—/g,'-'); })();
   var DAYS_FULL = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
 
-  // Suppress this exact gap error, same mechanism as a normal override
-  if(!window._bypassedErrors) window._bypassedErrors = {};
-  window._bypassedErrors[di+'|'+dept+'|'+msg] = true;
-  fetch(SUPABASE_URL + '/rest/v1/darien_schedule_bypasses', {
-    method: 'POST',
-    headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'},
-    body: JSON.stringify([{week_label:weekKey, day_index:di, dept:dept, msg:msg}])
-  }).catch(function(e){ console.log('Bypass save failed:',e.message); });
+  // Suppress this exact gap error, same mechanism as a normal override --
+  // only relevant when this came from a real detected error, not a direct add.
+  if(!isDirect) {
+    if(!window._bypassedErrors) window._bypassedErrors = {};
+    window._bypassedErrors[di+'|'+dept+'|'+msg] = true;
+    fetch(SUPABASE_URL + '/rest/v1/darien_schedule_bypasses', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify([{week_label:weekKey, day_index:di, dept:dept, msg:msg}])
+    }).catch(function(e){ console.log('Bypass save failed:',e.message); });
+  }
 
   // Log it distinctly so it's clear in the Schedule Log this was covered by a bouncer, not overridden
   fetch(SUPABASE_URL + '/rest/v1/darien_override_log', {
@@ -6987,6 +7021,26 @@ function renderRunSheet(di) {
     </div>`;
   }
 
+  // Bouncer section always shows (even with none scheduled yet) with a
+  // direct "+ Add" button, so any number of people can be added for a day --
+  // not just as a reaction to a detected Pizza/Kitchen coverage-gap error.
+  function bouncerSec(data, max, dayIdx) {
+    const rows = data.slice(0,max);
+    let tbody = rows.length === 0
+      ? '<tr><td colspan="3" style="color:#A8A49E;font-style:italic;padding:8px 10px;font-size:11px;">None scheduled</td></tr>'
+      : rows.map(d=>`<tr><td class="rs-name">${d.n||''}</td><td class="mono">${d.a||''}</td><td class="mono">${d.p||''}</td></tr>`).join('');
+    return `<div class="rs-section">
+      <div class="rs-section-hdr" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>Bouncer (Pizza/Kitchen Coverage)</span>
+        <button onclick="openDirectBouncerModal(${dayIdx})" style="background:#fff3e0;color:#8a5a00;border:none;border-radius:6px;padding:3px 9px;font-size:10px;font-weight:700;letter-spacing:0.03em;cursor:pointer;">+ ADD</button>
+      </div>
+      <table class="rs-table">
+        <thead><tr><th>Name</th><th>In</th><th>Out</th></tr></thead>
+        <tbody>${tbody}</tbody>
+      </table>
+    </div>`;
+  }
+
   el.innerHTML = `
     <div class="rs-header">
       <div>
@@ -6999,7 +7053,7 @@ function renderRunSheet(di) {
     <div class="rs-grid">
       ${sec('Managers',      managers, 4)}
       ${sec('Pizza',         pizza, 9)}
-      ${bouncers.length ? sec('Bouncer (Pizza/Kitchen Coverage)', bouncers, 3) : ''}
+      ${bouncerSec(bouncers, 6, di)}
       ${sec('Kitchen',       kitchen, 5)}
       ${sec('Prep / Utility',prep, 3)}
       ${sec('Bus / Dish',    busdish, 4)}
