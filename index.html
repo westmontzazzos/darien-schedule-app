@@ -4637,15 +4637,16 @@ document.addEventListener("DOMContentLoaded",function(){
     <div class="report-title" id="sched-edit-trigger" onclick="handleSchedTitleTap()" style="cursor:default;">SCHEDULE</div>
     <div class="report-sub">Weekly staff schedule</div>
   </div>
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+  <div id="sched-week-nav-row" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
     <div style="display:flex;align-items:center;gap:8px;">
       <button class="btn btn-secondary" style="padding:6px 10px;font-size:18px;line-height:1;" onclick="changeWeek(1)">‹</button>
       <div id="sched-week-label" style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.08em;color:var(--black);white-space:nowrap;">Loading...</div>
       <button class="btn btn-secondary" style="padding:6px 10px;font-size:18px;line-height:1;" onclick="changeWeek(-1)">›</button>
     </div>
+    <button class="btn btn-secondary" style="padding:6px 12px;font-size:13px;" onclick="backToScheduleCalendar()">🗓 Calendar</button>
     <button id="sched-edit-btn" class="btn btn-secondary" onclick="toggleSchedEditMode()">✏️ Edit</button>
   </div>
-  <div class="sub-nav">
+  <div class="sub-nav" id="sched-sub-nav">
     <button class="sub-btn sub-btn-view active" onclick="switchSched('drivers',this)">Drivers</button>
     <button class="sub-btn sub-btn-view" onclick="switchSched('foh',this)">Front of House</button>
     <button class="sub-btn sub-btn-view" onclick="switchSched('cashiers',this)">Cashiers</button>
@@ -5493,7 +5494,19 @@ function getDriversForDay(di) {
 }
 let currentTab = 'runsheets';
 let currentSchedView = 'drivers';
+var _schedShowingCalendar = true;
+var _calMonthOffset = 0;
 let currentDay = 0;
+
+// Shows/hides the week-navigation and sub-nav rows depending on whether
+// we're browsing the calendar or looking at a specific week's schedule.
+function setScheduleViewMode(showingCalendar) {
+  _schedShowingCalendar = showingCalendar;
+  var navRow = document.getElementById('sched-week-nav-row');
+  var subNav = document.getElementById('sched-sub-nav');
+  if(navRow) navRow.style.display = showingCalendar ? 'none' : 'flex';
+  if(subNav) subNav.style.display = showingCalendar ? 'none' : 'flex';
+}
 
 function showTab(tab, btn) {
   currentTab = tab;
@@ -5503,7 +5516,7 @@ function showTab(tab, btn) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   if(btn) btn.classList.add('active');
   window.scrollTo(0,0);
-  if(tab==='schedule') renderSchedule();
+  if(tab==='schedule') { if(_schedShowingCalendar) renderScheduleCalendar(); else renderSchedule(); }
   if(tab==='hitlist') renderHitList();
   if(tab==='drawer') renderDrawerTab();
   if(tab==='update') {
@@ -8765,6 +8778,154 @@ function computeWeekDailyLaborCost(bohObj, fohObj, cshObj, drvObj) {
   addFOHStyle(cshObj);
   addBOHStyle(drvObj);
   return daily;
+}
+
+function changeCalMonth(dir) {
+  _calMonthOffset += dir;
+  renderScheduleCalendar();
+}
+
+// Builds the Mon-Sun grid of weeks covering the target month, fetches raw
+// schedule data for every week shown, and color-codes each week row by how
+// many of BOH/FOH/Cashiers/Drivers actually have real content -- green if
+// all 4, yellow if some, red if none. Also shows a per-day projected labor
+// cost underneath each date, for internal reference only, never printed.
+async function renderScheduleCalendar() {
+  setScheduleViewMode(true);
+  var el = document.getElementById('schedule-content');
+  if(!el) return;
+  el.innerHTML = '<div style="text-align:center;padding:30px;color:#aaa;font-size:13px;">Loading calendar...</div>';
+
+  var today = new Date(); today.setHours(0,0,0,0);
+  var targetMonth = new Date(today.getFullYear(), today.getMonth() + _calMonthOffset, 1);
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  var firstOfMonth = new Date(targetMonth);
+  var firstDow = firstOfMonth.getDay();
+  var daysBackToMonday = firstDow === 0 ? 6 : firstDow - 1;
+  var gridStart = new Date(firstOfMonth); gridStart.setDate(firstOfMonth.getDate() - daysBackToMonday);
+
+  var lastOfMonth = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0);
+  var lastDow = lastOfMonth.getDay();
+  var daysForwardToSunday = lastDow === 0 ? 0 : 7 - lastDow;
+  var gridEnd = new Date(lastOfMonth); gridEnd.setDate(lastOfMonth.getDate() + daysForwardToSunday);
+
+  var weekStarts = [];
+  var cur = new Date(gridStart);
+  while(cur <= gridEnd) {
+    weekStarts.push(cur.getFullYear() + '-' + String(cur.getMonth()+1).padStart(2,'0') + '-' + String(cur.getDate()).padStart(2,'0'));
+    cur.setDate(cur.getDate() + 7);
+  }
+
+  var dataByWeek = {};
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?week_start=gte.' + weekStarts[0] + '&week_start=lte.' + weekStarts[weekStarts.length-1] + '&select=week_start,boh_data,foh_data,cashier_data,driver_data,event_data', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    });
+    if(resp.ok) {
+      var rows = await resp.json();
+      rows.forEach(function(r){ dataByWeek[r.week_start] = r; });
+    }
+  } catch(e) { /* leave dataByWeek empty — every week just shows red, no cost */ }
+
+  var dayNames = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+    + '<button class="btn btn-secondary" style="padding:6px 10px;font-size:18px;line-height:1;" onclick="changeCalMonth(-1)">‹</button>'
+    + '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:18px;letter-spacing:0.08em;">'+monthNames[targetMonth.getMonth()]+' '+targetMonth.getFullYear()+'</div>'
+    + '<button class="btn btn-secondary" style="padding:6px 10px;font-size:18px;line-height:1;" onclick="changeCalMonth(1)">›</button>'
+    + '</div>';
+  html += '<div style="display:flex;gap:10px;margin-bottom:12px;font-size:11px;color:#888;flex-wrap:wrap;">'
+    + '<span>🟢 Fully input</span><span>🟡 Partially input</span><span>🔴 Not started</span>'
+    + '<span style="margin-left:auto;color:#bbb;">$ = projected labor, internal only</span>'
+    + '</div>';
+  html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:6px;">';
+  dayNames.forEach(function(d){ html += '<div style="text-align:center;font-size:10px;font-weight:700;color:#888;letter-spacing:0.06em;">'+d+'</div>'; });
+  html += '</div>';
+
+  weekStarts.forEach(function(ws){
+    var rec = dataByWeek[ws];
+    var bohObj = {}, fohObj = {}, cshObj = {}, drvObj = {};
+    if(rec) {
+      try { bohObj = rec.boh_data ? JSON.parse(rec.boh_data) : {}; } catch(e) {}
+      try { fohObj = rec.foh_data ? JSON.parse(rec.foh_data) : {}; } catch(e) {}
+      try { cshObj = rec.cashier_data ? JSON.parse(rec.cashier_data) : {}; } catch(e) {}
+      try { drvObj = rec.driver_data ? JSON.parse(rec.driver_data) : {}; } catch(e) {}
+    }
+    var count = (sectionHasContent(bohObj)?1:0) + (sectionHasContent(fohObj)?1:0) + (sectionHasContent(cshObj)?1:0) + (sectionHasContent(drvObj)?1:0);
+    var color = count === 4 ? '#27AE60' : count === 0 ? '#E31010' : '#C98A00';
+    var bg = count === 4 ? '#eafaf1' : count === 0 ? '#fff0f2' : '#fff8e6';
+
+    var dailyCosts = [0,0,0,0,0,0,0];
+    var dailyEvents = [null,null,null,null,null,null,null];
+    if(rec) {
+      try {
+        dailyCosts = computeWeekDailyLaborCost(bohObj, fohObj, cshObj, drvObj);
+      } catch(e) { /* leave as zeros if the data is malformed */ }
+      try {
+        var evArr = rec.event_data ? JSON.parse(rec.event_data) : [null,null,null,null,null,null,null];
+        for(var evi=0; evi<7; evi++) dailyEvents[evi] = Array.isArray(evArr) ? evArr[evi] : null;
+      } catch(e) { /* leave as empty if malformed */ }
+    }
+
+    var weekStartDate = new Date(ws + 'T00:00:00');
+    html += '<div onclick="openCalendarWeek(\''+ws+'\')" style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;cursor:pointer;border-radius:8px;overflow:hidden;border-left:4px solid '+color+';background:'+bg+';">';
+    for(var i=0;i<7;i++){
+      var d = new Date(weekStartDate); d.setDate(weekStartDate.getDate()+i);
+      var inTargetMonth = d.getMonth() === targetMonth.getMonth();
+      var isToday = d.getTime() === today.getTime();
+      var costStr = dailyCosts[i] > 0 ? '$'+Math.round(dailyCosts[i]) : '';
+      var eventHtml = dailyEvents[i] ? '<div style="font-size:8px;font-weight:700;color:var(--red);line-height:1.3;">'+dailyEvents[i]+'</div>' : '';
+      html += '<div style="text-align:center;padding:8px 2px 6px;">'
+        + '<div style="font-size:13px;font-weight:'+(isToday?'800':'500')+';color:'+(inTargetMonth?'#222':'#bbb')+';'+(isToday?'text-decoration:underline;':'')+'">'+d.getDate()+'</div>'
+        + eventHtml
+        + '<div style="font-size:9px;color:'+(inTargetMonth?'#888':'#ccc')+';margin-top:1px;">'+costStr+'</div>'
+        + '</div>';
+    }
+    html += '</div>';
+  });
+
+  el.innerHTML = html;
+}
+
+// Loads the week that starts on the clicked Monday and switches to the
+// normal week view. If that week isn't already in allWeeks (not uploaded
+// yet), it's fetched fresh; if it doesn't exist in the database at all,
+// this opens a blank week ready to build from scratch.
+async function openCalendarWeek(weekStartStr) {
+  var idx = allWeeks.findIndex(function(w){ return w.week_start === weekStartStr; });
+  if(idx < 0) {
+    try {
+      var resp = await fetch(SUPABASE_URL + '/rest/v1/darien_schedules?week_start=eq.' + weekStartStr + '&select=*', {
+        headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+      });
+      if(resp.ok) {
+        var rows = await resp.json();
+        if(rows && rows.length) {
+          allWeeks.push(rows[0]);
+          allWeeks.sort(function(a,b){ return a.week_start < b.week_start ? -1 : 1; });
+          idx = allWeeks.findIndex(function(w){ return w.week_start === weekStartStr; });
+        }
+      }
+    } catch(e) { /* fall through to blank-week case below */ }
+  }
+  if(idx >= 0) {
+    currentWeekIdx = idx;
+    applyWeek(idx);
+  } else {
+    parseWeekData({week_start: weekStartStr});
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    var d = new Date(weekStartStr + 'T00:00:00');
+    var lbl = document.getElementById('sched-week-label');
+    if(lbl) lbl.textContent = 'Week of ' + months[d.getMonth()] + ' ' + d.getDate() + ' (no schedule yet)';
+  }
+  setScheduleViewMode(false);
+  renderSchedule();
+}
+
+function backToScheduleCalendar() {
+  _calMonthOffset = 0;
+  setScheduleViewMode(true);
+  renderScheduleCalendar();
 }
 
 function hitlistHour(t, di) {
