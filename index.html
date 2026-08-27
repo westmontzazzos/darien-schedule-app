@@ -4652,6 +4652,7 @@ document.addEventListener("DOMContentLoaded",function(){
     <button class="sub-btn sub-btn-view" onclick="switchSched('boh',this)">Back of House</button>
     <button class="sub-btn" onclick="showSchedPrintMenu(this)">🖨 Print</button>
     <button class="sub-btn" onclick="copyWeekToNext()">📋 Copy to Next Week</button>
+    <button class="sub-btn" onclick="openSendMessageModal()">✉️ Send Message</button>
     <button class="sub-btn" onclick="gatedShowOverrideLog(this)" style="margin-left:auto;">📋 Schedule Log</button>
     <button class="sub-btn" onclick="gatedShowDomsNotes()" style="margin-left:6px;">📝 Mike's Notes</button>
   </div>
@@ -7281,6 +7282,7 @@ function checkAppLock() {
       if(modal) modal.style.display='flex';
     } else {
       setTimeout(checkDomsNotes, 500);
+      setTimeout(checkManagerMessages, 700);
       applyUploadPermissions();
     }
   } else {
@@ -7303,11 +7305,270 @@ function setIdentity(name) {
   var modal = document.getElementById('identity-modal');
   if(modal) modal.style.display='none';
   setTimeout(checkDomsNotes, 500);
+  setTimeout(checkManagerMessages, 700);
   applyUploadPermissions();
 }
 
 function getCurrentUser() {
   return localStorage.getItem('zp_user_name') || 'Unknown';
+}
+
+// Manager Messages — ported from Westmont. A message thread stays open
+// until the ORIGINAL SENDER confirms it resolved, not when the recipient
+// marks it fixed. Every send, reply, mark-fixed, confirm, and reopen is
+// its own row sharing one thread_id, so the whole exchange logs together
+// in the Schedule Log. Recipients are Darien's real sign-in identities so
+// a message addressed to someone actually reaches them on next load.
+var MSG_MANAGERS = ['Mike B','Chelsea','Jeremy','Brett','Ely','Dom'];
+var MSG_MANAGER_LABELS = {'Mike B':'Mike'};
+var _selectedMsgRecipients = [];
+var _pendingMsgAction = null;
+
+function openSendMessageModal() {
+  var picker = document.getElementById('send-message-to-picker');
+  var currentUser = getCurrentUser();
+  _selectedMsgRecipients = [];
+  picker.innerHTML = MSG_MANAGERS.filter(function(m){ return m !== currentUser; }).map(function(m){
+    var label = MSG_MANAGER_LABELS[m] || m;
+    return '<button type="button" data-name="'+m+'" onclick="selectMsgRecipient(this)" style="padding:6px 12px;border-radius:20px;border:1px solid #ddd;background:#fff;color:#333;font-size:13px;cursor:pointer;">'+label+'</button>';
+  }).join('');
+  document.getElementById('send-message-subject').value = '';
+  document.getElementById('send-message-body').value = '';
+  document.getElementById('send-message-modal').style.display = 'flex';
+}
+
+// Multi-select: tapping a name toggles it on/off, doesn't replace the
+// selection. A message can go to more than one person at once.
+function selectMsgRecipient(btn) {
+  var name = btn.dataset.name;
+  var idx = _selectedMsgRecipients.indexOf(name);
+  if(idx === -1) { _selectedMsgRecipients.push(name); } else { _selectedMsgRecipients.splice(idx, 1); }
+  var selected = _selectedMsgRecipients.indexOf(name) !== -1;
+  btn.style.background = selected ? 'var(--red)' : '#fff';
+  btn.style.color = selected ? '#fff' : '#333';
+  btn.style.borderColor = selected ? 'var(--red)' : '#ddd';
+}
+
+// Sending to multiple people fans out into one independent thread per
+// recipient (same subject/body), not one shared thread -- so each
+// person's reply / mark fixed / your confirm-resolved works exactly like
+// a normal 1:1 conversation, with no shared state between recipients.
+async function sendManagerMessage() {
+  var subject = document.getElementById('send-message-subject').value.trim();
+  var body = document.getElementById('send-message-body').value.trim();
+  if(!_selectedMsgRecipients.length) { alert('Pick who this is going to.'); return; }
+  if(!subject) { alert('Give this message a subject.'); return; }
+  if(!body) { alert('Write a message.'); return; }
+
+  var fromUser = getCurrentUser();
+  var payloads = _selectedMsgRecipients.map(function(recipient){
+    return {
+      thread_id: null,
+      subject: subject,
+      from_user: fromUser,
+      to_user: recipient,
+      body: body,
+      action: 'sent',
+      status: 'open',
+      created_at: new Date().toISOString()
+    };
+  });
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/darien_manager_messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+      body: JSON.stringify(payloads)
+    });
+    if(!resp.ok) throw new Error('send failed (' + resp.status + ')');
+    var recipientLabels = _selectedMsgRecipients.map(function(m){ return MSG_MANAGER_LABELS[m] || m; }).join(', ');
+    // Fully reset the compose form and close -- nothing from this message
+    // should still be sitting here the next time this modal opens.
+    document.getElementById('send-message-subject').value = '';
+    document.getElementById('send-message-body').value = '';
+    document.getElementById('send-message-to-picker').innerHTML = '';
+    _selectedMsgRecipients = [];
+    document.getElementById('send-message-modal').style.display = 'none';
+    alert('Message sent to ' + recipientLabels + '.');
+  } catch(e) {
+    alert('Send failed — nothing was recorded. Check your connection and try again: ' + e.message);
+  }
+}
+
+// Checks whether there's a thread currently awaiting action from the
+// person logged in on this device — either as the recipient of an open
+// message, or as the original sender being asked to verify a fix. Shows
+// at most one at a time; each action re-checks for the next one.
+async function checkManagerMessages() {
+  var user = getCurrentUser();
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/darien_manager_messages?order=created_at.asc&select=*', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    });
+    if(!resp.ok) return;
+    var rows = await resp.json();
+    if(!rows || !rows.length) return;
+
+    var threads = {};
+    rows.forEach(function(r){
+      var key = r.thread_id != null ? r.thread_id : r.id;
+      if(!threads[key]) threads[key] = [];
+      threads[key].push(r);
+    });
+
+    var actionable = null;
+    Object.keys(threads).forEach(function(key){
+      if(actionable) return;
+      var thread = threads[key].sort(function(a,b){ return new Date(a.created_at) - new Date(b.created_at); });
+      var latest = thread[thread.length-1];
+      if(latest.status !== 'closed' && latest.to_user === user) {
+        actionable = {thread: thread, latest: latest};
+      }
+    });
+
+    if(!actionable) return;
+    _pendingMsgAction = actionable;
+    if(actionable.latest.status === 'pending_verification') {
+      showMsgVerifyModal(actionable);
+    } else {
+      showMsgRecipientModal(actionable);
+    }
+  } catch(e) { /* silent — non-critical background check */ }
+}
+
+function showMsgRecipientModal(actionable) {
+  var root = actionable.thread[0];
+  var latest = actionable.latest;
+  document.getElementById('msg-recipient-from').textContent = MSG_MANAGER_LABELS[latest.from_user] || latest.from_user;
+  document.getElementById('msg-recipient-subject').textContent = root.subject;
+  document.getElementById('msg-recipient-body').textContent = latest.body || '(no message)';
+  document.getElementById('msg-recipient-reply').style.display = 'none';
+  document.getElementById('msg-recipient-reply').value = '';
+  document.getElementById('msg-recipient-send-reply-row').style.display = 'none';
+  document.getElementById('msg-recipient-modal').style.display = 'flex';
+}
+
+function showMsgReplyBox() {
+  document.getElementById('msg-recipient-reply').style.display = 'block';
+  document.getElementById('msg-recipient-send-reply-row').style.display = 'block';
+}
+
+async function sendMsgReply() {
+  var text = document.getElementById('msg-recipient-reply').value.trim();
+  if(!text) { alert('Write a reply first.'); return; }
+  var root = _pendingMsgAction.thread[0];
+  var latest = _pendingMsgAction.latest;
+  var payload = {
+    thread_id: root.thread_id != null ? root.thread_id : root.id,
+    subject: null,
+    from_user: getCurrentUser(),
+    to_user: latest.from_user,
+    body: text,
+    action: 'reply',
+    status: 'open',
+    created_at: new Date().toISOString()
+  };
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/darien_manager_messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+      body: JSON.stringify([payload])
+    });
+    if(!resp.ok) throw new Error('reply failed (' + resp.status + ')');
+    document.getElementById('msg-recipient-modal').style.display = 'none';
+    _pendingMsgAction = null;
+  } catch(e) {
+    alert('Reply failed — nothing was recorded. Check your connection and try again: ' + e.message);
+  }
+}
+
+async function markMessageFixed() {
+  var root = _pendingMsgAction.thread[0];
+  var latest = _pendingMsgAction.latest;
+  var payload = {
+    thread_id: root.thread_id != null ? root.thread_id : root.id,
+    subject: null,
+    from_user: getCurrentUser(),
+    to_user: latest.from_user,
+    body: null,
+    action: 'marked_fixed',
+    status: 'pending_verification',
+    created_at: new Date().toISOString()
+  };
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/darien_manager_messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+      body: JSON.stringify([payload])
+    });
+    if(!resp.ok) throw new Error('mark fixed failed (' + resp.status + ')');
+    document.getElementById('msg-recipient-modal').style.display = 'none';
+    _pendingMsgAction = null;
+  } catch(e) {
+    alert('Mark fixed failed — nothing was recorded. Check your connection and try again: ' + e.message);
+  }
+}
+
+function showMsgVerifyModal(actionable) {
+  var root = actionable.thread[0];
+  var latest = actionable.latest;
+  document.getElementById('msg-verify-from').textContent = MSG_MANAGER_LABELS[latest.from_user] || latest.from_user;
+  document.getElementById('msg-verify-subject').textContent = root.subject;
+  document.getElementById('msg-verify-original').textContent = root.body;
+  document.getElementById('msg-verify-modal').style.display = 'flex';
+}
+
+async function confirmMessageResolved() {
+  var root = _pendingMsgAction.thread[0];
+  var latest = _pendingMsgAction.latest;
+  var payload = {
+    thread_id: root.thread_id != null ? root.thread_id : root.id,
+    subject: null,
+    from_user: getCurrentUser(),
+    to_user: latest.from_user,
+    body: null,
+    action: 'confirmed_closed',
+    status: 'closed',
+    created_at: new Date().toISOString()
+  };
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/darien_manager_messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+      body: JSON.stringify([payload])
+    });
+    if(!resp.ok) throw new Error('confirm failed (' + resp.status + ')');
+    document.getElementById('msg-verify-modal').style.display = 'none';
+    _pendingMsgAction = null;
+  } catch(e) {
+    alert('Confirm failed — nothing was recorded. Check your connection and try again: ' + e.message);
+  }
+}
+
+async function reopenMessage() {
+  var root = _pendingMsgAction.thread[0];
+  var latest = _pendingMsgAction.latest;
+  var payload = {
+    thread_id: root.thread_id != null ? root.thread_id : root.id,
+    subject: null,
+    from_user: getCurrentUser(),
+    to_user: latest.from_user,
+    body: null,
+    action: 'reopened',
+    status: 'open',
+    created_at: new Date().toISOString()
+  };
+  try {
+    var resp = await fetch(SUPABASE_URL + '/rest/v1/darien_manager_messages', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+      body: JSON.stringify([payload])
+    });
+    if(!resp.ok) throw new Error('reopen failed (' + resp.status + ')');
+    document.getElementById('msg-verify-modal').style.display = 'none';
+    _pendingMsgAction = null;
+  } catch(e) {
+    alert('Reopen failed — nothing was recorded. Check your connection and try again: ' + e.message);
+  }
 }
 
 // DRAWER COUNT — coins/rolls/bills entry, per-register, saved to Supabase
@@ -8438,6 +8699,74 @@ function renderPrivate() {
 
 // Convert a time token (e.g. "10", "11:30", "5pm", "C") to a decimal 24h hour.
 // di is the day index so close time can be day-aware (Fri/Sat later close).
+// Checks whether a section actually has real schedule content — any
+// person with any day filled in — regardless of when or how it was
+// entered (upload, manual edit, Copy to Next Week). This is what "is
+// this week actually done" should mean.
+function sectionHasContent(sectionData) {
+  if(!sectionData) return false;
+  var isWrapped = sectionData.MANAGERS !== undefined || sectionData.PIZZA !== undefined ||
+    sectionData.SERVERS !== undefined || sectionData.KITCHEN !== undefined;
+  var groups = isWrapped ? Object.values(sectionData) : [sectionData];
+  return groups.some(function(group){
+    if(!group) return false;
+    return Object.values(group).some(function(days){
+      if(!Array.isArray(days)) return false;
+      return days.some(function(d){
+        if(!d) return false;
+        if(Array.isArray(d)) return !!(d[0] || d[1]);
+        return true;
+      });
+    });
+  });
+}
+
+// Computes scheduled labor cost per day (7-element array) from a week's
+// raw stored data, without touching the live in-memory section objects.
+// Internal reference only — never appears on anything printed.
+function computeWeekDailyLaborCost(bohObj, fohObj, cshObj, drvObj) {
+  var daily = [0,0,0,0,0,0,0];
+  function addBOHStyle(sectionObj) {
+    if(!sectionObj) return;
+    Object.keys(sectionObj).forEach(function(name){
+      if(SALARIED_EMPLOYEES[name]) return;
+      var rate = RATES[name] || 9;
+      var days = sectionObj[name];
+      if(!Array.isArray(days)) return;
+      for(var di=0; di<7; di++) {
+        var parsed = parseBOHHours(days[di], di);
+        if(!parsed) continue;
+        var hrs = parsed.en - parsed.st;
+        if(hrs > 0) daily[di] += hrs * rate;
+      }
+    });
+  }
+  function addFOHStyle(sectionObj) {
+    if(!sectionObj) return;
+    Object.keys(sectionObj).forEach(function(name){
+      if(SALARIED_EMPLOYEES[name]) return;
+      var rate = RATES[name] || 9;
+      var days = sectionObj[name];
+      if(!Array.isArray(days)) return;
+      for(var di=0; di<7; di++) {
+        var e = days[di];
+        if(!e || !Array.isArray(e)) continue;
+        var st = hitlistHour(e[0], di);
+        if(st === null) continue;
+        var en = e[1] === 'C' ? ((di===4||di===5) ? 23.25 : 22.25) : (e[1] ? hitlistHour(e[1], di) : null);
+        if(en === null) continue;
+        var hrs = en - st;
+        if(hrs > 0) daily[di] += hrs * rate;
+      }
+    });
+  }
+  ['MANAGERS','PIZZA','KITCHEN','PREP','BUS','DISH'].forEach(function(sec){ addBOHStyle(bohObj && bohObj[sec]); });
+  ['SERVERS','BARTENDERS','HOSTS'].forEach(function(sec){ addFOHStyle(fohObj && fohObj[sec]); });
+  addFOHStyle(cshObj);
+  addBOHStyle(drvObj);
+  return daily;
+}
+
 function hitlistHour(t, di) {
   if(t === null || t === undefined) return null;
   var s = String(t).trim().toLowerCase();
@@ -8568,27 +8897,31 @@ function parseFOHHours(entry, di, role) {
   return {st: st, en: en, flag: flag, flagMsg: flagMsg, isClose: !!isClose};
 }
 
+// Hourly rates — global so the Schedule Calendar's cost preview can use
+// the same numbers as the Heat Map, with one source of truth instead of
+// two tables that can silently drift apart.
+const RATES = {
+  // Schedule short-names mapped to pay-schedule wages (work schedule uses short names)
+  'Carlos':19.25,'Eddie':19,'Eddy':19,'Eddie Cruz':19,'Jesus':21,'Luis':20,'Soto':19,'Monico':20,'Oscar':19,
+  'Victor':20.50,'Arturo':21,'Jose B':23,'Nick':20,'Armani':16,'Marco':16,
+  'Alexis A':22,'Nithia Maldonado':17.50,'Arturo Viveros':21,'Jesus Murillo':21,'Derek':19,
+  'Carlos Mora':19.25,'Nicholas Urbana':20,'Luis Perez':20,'Victor Cruz':20.50,
+  'Monico Esparza':20,'Oscar Velazquez':19,'Luis Soto':19,'Gonzo':17,
+  'Carlos Jr':17.50,'Leo':17.50,'Ever':17.50,'Sylvia':15,
+  'Jack Ruane':16,'Marco Sanchez':16,'Armani Finley':16,'Gonzalo':17,'Sio McAvoy':17,
+  'Eric':15,'Jaxon':15,
+  'Abby':9,'Alexis':9,'Bridget':9,'Claudia':9,'Dorris':9,'Hannah':9,
+  'Jaime':9,'Kelly':9,'Hannah M':9,
+  'Allie':9,'Courtney':9,'Kamini':9,'Charlie':15,'Justin':9,'Lindsay':9,'Brooke':9,'Cheeks':9,
+  'Danielle':9,'Mary':9,'Natalie':15,'Presley':15,'Tia':15,'Emilie':15,'Ellianna':15,'Keegan':15,'Julia':9,'Molly':15,'Lea':9
+};
+// Salaried staff — global for the same reason as RATES above.
+const SALARIED_EMPLOYEES = {'Brett':1,'Jeremy':1,'Mike B':1,'Lisa B':1};
+
 function renderHitList() {
   var el = document.getElementById('hitlist-content');
   var HOURS = [10,11,12,13,14,15,16,17,18,19,20,21,22];
   var HOUR_LABELS = ['10AM','11AM','12PM','1PM','2PM','3PM','4PM','5PM','6PM','7PM','8PM','9PM','10PM'];
-
-  // Hourly rates for cost calculation
-  var RATES = {
-    // Schedule short-names mapped to pay-schedule wages (work schedule uses short names)
-    'Carlos':19.25,'Eddie':19,'Eddy':19,'Eddie Cruz':19,'Jesus':21,'Luis':20,'Soto':19,'Monico':20,'Oscar':19,
-    'Victor':20.50,'Arturo':21,'Jose B':23,'Nick':20,'Armani':16,'Marco':16,
-    'Alexis A':22,'Nithia Maldonado':17.50,'Arturo Viveros':21,'Jesus Murillo':21,'Derek':19,
-    'Carlos Mora':19.25,'Nicholas Urbana':20,'Luis Perez':20,'Victor Cruz':20.50,
-    'Monico Esparza':20,'Oscar Velazquez':19,'Luis Soto':19,'Gonzo':17,
-    'Carlos Jr':17.50,'Leo':17.50,'Ever':17.50,'Sylvia':15,
-    'Jack Ruane':16,'Marco Sanchez':16,'Armani Finley':16,'Gonzalo':17,'Sio McAvoy':17,
-    'Eric':15,'Jaxon':15,
-    'Abby':9,'Alexis':9,'Bridget':9,'Claudia':9,'Dorris':9,'Hannah':9,
-    'Jaime':9,'Kelly':9,'Hannah M':9,
-    'Allie':9,'Courtney':9,'Kamini':9,'Charlie':15,'Justin':9,'Lindsay':9,'Brooke':9,'Cheeks':9,
-    'Danielle':9,'Mary':9,'Natalie':15,'Presley':15,'Tia':15,'Emilie':15,'Ellianna':15,'Keegan':15,'Julia':9,'Molly':15,'Lea':9
-  };
 
   function getShiftHours(start, end) {
     if(start===null||end===null) return [];
@@ -8610,7 +8943,7 @@ function renderHitList() {
   HOURS.forEach(function(h){ dayGrid[h] = {count:0, cost:0}; });
 
   // Salaried staff — excluded from the hourly heat map (like drivers). Alexis A is hourly, so not here.
-  var SALARIED = {'Brett':1,'Jeremy':1,'Mike B':1,'Lisa B':1};
+  var SALARIED = SALARIED_EMPLOYEES;
 
   var bohSections = [
     {d:MANAGERS,names:{}},{d:PIZZA,names:{}},{d:KITCHEN,names:{}},
@@ -11120,12 +11453,16 @@ function showOverrideLog(btn) {
     }).then(function(r){ return r.json(); }).catch(function(){ return []; }),
     fetch(SUPABASE_URL + '/rest/v1/darien_doms_notes?order=created_at.desc&limit=30', {
       headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){ return r.json(); }).catch(function(){ return []; }),
+    fetch(SUPABASE_URL + '/rest/v1/darien_manager_messages?order=created_at.desc&limit=150', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(function(r){ return r.json(); }).catch(function(){ return []; })
   ]).then(function(results){
     var overrideRows = results[0] || [];
     var domsAckRows = results[1] || [];
     var domsNotesById = {};
     (results[2] || []).forEach(function(n){ domsNotesById[n.id] = n; });
+    var msgRows = results[3] || [];
 
     var domsRows = domsAckRows.map(function(r){
       var sectionLbl = r.section === 'drivers' ? 'Drivers' : r.section === 'foh' ? 'FOH' : r.section === 'boh' ? 'BOH' : '';
@@ -11140,7 +11477,27 @@ function showOverrideLog(btn) {
       };
     });
 
-    var allRows = overrideRows.concat(domsRows);
+    var messageRows = msgRows.map(function(r){
+      var fromLabel = MSG_MANAGER_LABELS[r.from_user] || r.from_user;
+      var toLabel = MSG_MANAGER_LABELS[r.to_user] || r.to_user;
+      var actionLabel = r.action === 'sent' ? 'Message sent to ' + toLabel
+        : r.action === 'reply' ? 'Reply'
+        : r.action === 'marked_fixed' ? 'Marked fixed — awaiting confirmation from ' + toLabel
+        : r.action === 'confirmed_closed' ? 'Confirmed resolved'
+        : r.action === 'reopened' ? 'Reopened'
+        : r.action;
+      return {
+        logged_at: r.created_at,
+        who: fromLabel,
+        dept: 'Message',
+        msg: (r.subject ? r.subject + ' — ' : '') + actionLabel + (r.body ? ': ' + r.body : ''),
+        ack_type: 'message',
+        day_name: '', week_label: '', note: '',
+        msg_thread_id: r.thread_id != null ? r.thread_id : r.id
+      };
+    });
+
+    var allRows = overrideRows.concat(domsRows).concat(messageRows);
     if(!allRows.length) {
       body.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:20px;">No activity logged yet.</div>';
       return;
@@ -11153,6 +11510,8 @@ function showOverrideLog(btn) {
       var key = null;
       if(r.dept === "Mike's Notes") {
         key = 'doms:' + (r.note_id != null ? r.note_id : 'unknown-' + r.logged_at);
+      } else if(r.dept === 'Message') {
+        key = 'msg:' + r.msg_thread_id;
       } else if(ERROR_ACK_TYPES[r.ack_type] && r.dept && r.msg) {
         key = 'err:' + (r.week_label||'') + '|' + r.day_index + '|' + r.dept + '|' + r.msg;
       }
@@ -11304,6 +11663,7 @@ function handleLockIconTap() {
       <button onclick="setIdentity('Jeremy')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Jeremy</button>
       <button onclick="setIdentity('Brett')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Brett</button>
       <button onclick="setIdentity('Ely')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Ely</button>
+      <button onclick="setIdentity('Dom')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Dom</button>
       <button onclick="showIdentityInput()" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;color:#888;">Add / Not Listed</button>
       <div id="identity-input-wrap" style="display:none;">
         <input id="identity-custom-input" type="text" placeholder="Enter your name" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:10px;font-size:16px;box-sizing:border-box;margin-bottom:8px;">
@@ -11313,9 +11673,69 @@ function handleLockIconTap() {
   </div>
 </div>
 
+<div id="send-message-modal" style="display:none;position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:90%;max-width:420px;overflow:hidden;">
+    <div style="background:var(--red);padding:14px 16px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.08em;color:#fff;">Send Message</div>
+    </div>
+    <div style="padding:16px;">
+      <div style="font-size:11px;font-weight:700;color:#888;margin-bottom:6px;">TO</div>
+      <div id="send-message-to-picker" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;"></div>
+      <div style="font-size:11px;font-weight:700;color:#888;margin-bottom:6px;">SUBJECT</div>
+      <input id="send-message-subject" type="text" placeholder="e.g. Tuesday schedule issue" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;margin-bottom:14px;">
+      <div style="font-size:11px;font-weight:700;color:#888;margin-bottom:6px;">MESSAGE</div>
+      <textarea id="send-message-body" placeholder="What's up?" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:14px;box-sizing:border-box;min-height:80px;resize:vertical;"></textarea>
+    </div>
+    <div style="padding:0 16px 16px;display:flex;gap:8px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('send-message-modal').style.display='none';">Cancel</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="sendManagerMessage();">Send</button>
+    </div>
+  </div>
+</div>
+
+<!-- Required: recipient sees an open message addressed to them -->
+<div id="msg-recipient-modal" style="display:none;position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:92%;max-width:420px;overflow:hidden;">
+    <div style="background:var(--red);padding:14px 16px;">
+      <div style="font-size:11px;color:rgba(255,255,255,0.8);">Message from <span id="msg-recipient-from"></span></div>
+      <div id="msg-recipient-subject" style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;color:#fff;"></div>
+    </div>
+    <div style="padding:16px;">
+      <div id="msg-recipient-body" style="font-size:14px;color:#333;white-space:pre-wrap;margin-bottom:14px;"></div>
+      <textarea id="msg-recipient-reply" placeholder="Reply (optional if marking fixed)" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:13px;box-sizing:border-box;min-height:60px;resize:vertical;display:none;"></textarea>
+    </div>
+    <div style="padding:0 16px 16px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="showMsgReplyBox();">💬 Reply</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="markMessageFixed();">✅ Mark Fixed</button>
+    </div>
+    <div id="msg-recipient-send-reply-row" style="padding:0 16px 16px;display:none;">
+      <button class="btn btn-primary" style="width:100%;" onclick="sendMsgReply();">Send Reply</button>
+    </div>
+  </div>
+</div>
+
+<!-- Required: sender verifies a message the recipient marked fixed -->
+<div id="msg-verify-modal" style="display:none;position:fixed;inset:0;z-index:10002;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:92%;max-width:420px;overflow:hidden;">
+    <div style="background:var(--red);padding:14px 16px;">
+      <div style="font-size:11px;color:rgba(255,255,255,0.8);"><span id="msg-verify-from"></span> marked this fixed</div>
+      <div id="msg-verify-subject" style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;color:#fff;"></div>
+    </div>
+    <div style="padding:16px;">
+      <div style="font-size:11px;font-weight:700;color:#888;margin-bottom:4px;">ORIGINAL MESSAGE</div>
+      <div id="msg-verify-original" style="font-size:13px;color:#666;white-space:pre-wrap;margin-bottom:12px;"></div>
+    </div>
+    <div style="padding:0 16px 16px;display:flex;gap:8px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="reopenMessage();">↩️ Reopen</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="confirmMessageResolved();">✅ Confirm Resolved</button>
+    </div>
+  </div>
+</div>
+
 
 <!-- Mike's Notes compose popup -->
 <div id="doms-notes-panel" style="display:none;position:fixed;top:80px;left:50%;transform:translateX(-50%);z-index:10001;background:#fff;border-radius:14px;box-shadow:0 8px 40px rgba(0,0,0,0.22);width:92%;max-width:460px;overflow:hidden;">
+
   <div id="doms-notes-header" style="background:var(--red);padding:14px 16px;cursor:grab;display:flex;align-items:center;justify-content:space-between;user-select:none;">
     <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.08em;color:#fff;">Mike's Notes</div>
     <button onclick="document.getElementById('doms-notes-panel').style.display='none';" style="background:rgba(255,255,255,0.2);border:none;color:#fff;font-size:18px;width:30px;height:30px;border-radius:50%;cursor:pointer;line-height:1;">✕</button>
