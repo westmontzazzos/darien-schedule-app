@@ -4783,6 +4783,22 @@ document.addEventListener("DOMContentLoaded",function(){
 </div>
 
 <!-- MANAGE ROSTER MODAL -->
+<div id="add-role-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:90%;max-width:400px;overflow:hidden;">
+    <div style="background:var(--red);padding:14px 16px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.08em;color:#fff;">Roles for <span id="add-role-name"></span></div>
+    </div>
+    <div style="padding:16px;">
+      <div style="font-size:11px;color:#888;margin-bottom:10px;">Check every role this person actually works. Works the same whether they're a longtime staff member or brand new.</div>
+      <div id="add-role-checkboxes" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+    </div>
+    <div style="padding:0 16px 16px;display:flex;gap:8px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="document.getElementById('add-role-modal').style.display='none';">Cancel</button>
+      <button class="btn btn-primary" style="flex:1;" onclick="saveAddRole()">Save</button>
+    </div>
+  </div>
+</div>
+
 <div id="manage-roster-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:200;">
   <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:var(--white);overflow-y:auto;">
     <div style="display:flex;align-items:center;justify-content:space-between;padding:16px;border-bottom:1px solid var(--gray-100);position:sticky;top:0;background:var(--white);z-index:2;">
@@ -5263,6 +5279,53 @@ const NAME_ALIASES = {
   'erika': 'Erika H',
 };
 
+// DEFAULT_ROSTER is the fallback source of truth for anyone's roles and
+// rates who hasn't been explicitly overridden via ROLE_OVERRIDES /
+// ROLE_RATE_OVERRIDES (the Manage Roster +Role feature). This was
+// extracted programmatically from the original hardcoded HLY array to
+// guarantee an exact match -- nobody's pay changed as part of this move.
+const DEFAULT_ROSTER = {
+  'Chelsea': [{role:'Manager',rate:20,keys:['Chelsea']}],
+  'Broccoli': [{role:'Kitchen',rate:18,keys:['Broccoli']}],
+  'Javier': [{role:'Kitchen',rate:19,keys:['Javier']}],
+  'Jesus': [{role:'Pizza',rate:21,keys:['Jesus']},{role:'Kitchen',rate:21,keys:['Jesus']}],
+  'Arturo': [{role:'Kitchen',rate:21,keys:['Arturo']},{role:'Pizza',rate:21,keys:['Arturo']}],
+  'Laura Z': [{role:'Pizza',rate:20,keys:['Laura Z']},{role:'Kitchen',rate:20,keys:['Laura Z']},{role:'Cashier',rate:20,keys:['Laura Z']}],
+  'Gustavo': [{role:'Pizza',rate:20,keys:['Gustavo']},{role:'Kitchen',rate:20,keys:['Gustavo']},{role:'Cashier',rate:20,keys:['Gustavo']}],
+  'Francisco': [{role:'Pizza',rate:21,keys:['Francisco']}],
+  'Luis B': [{role:'Pizza',rate:20,keys:['Luis B']}],
+  'Juan': [{role:'Pizza',rate:19.5,keys:['Juan']}],
+  'Victor': [{role:'Pizza',rate:20.5,keys:['Victor']}],
+  'Junior': [{role:'Pizza',rate:17.5,keys:['Junior']}],
+  'Valente': [{role:'Pizza',rate:21,keys:['Valente']}],
+  'Luis': [{role:'Pizza',rate:18,keys:['Luis']}],
+  'Gabe': [{role:'Prep',rate:17.5,keys:['Gabe']},{role:'Pizza',rate:17.5,keys:['Gabe']},{role:'Dish',rate:17.5,keys:['Gabe']}],
+  'Lorenzo': [{role:'Dish',rate:16.5,keys:['Lorenzo']}],
+  'Alyssa': [{role:'Cashier',rate:15,keys:['Alyssa']}],
+  'Mayra': [{role:'Cashier',rate:15,keys:['Mayra']}],
+  'Jackson': [{role:'Cashier',rate:15,keys:['Jackson']}],
+  'Dillon': [{role:'Cashier',rate:15,keys:['Dillon']}],
+  'Lila': [{role:'Cashier',rate:15,keys:['Lila']}],
+  'Nathan': [{role:'Cashier',rate:15,keys:['Nathan']}],
+  'Jose O': [{role:'Cashier',rate:16,keys:['Jose O']}],
+  'Selena S': [{role:'Cashier',rate:15,keys:['Selena S']}],
+  'Ally': [{role:'Cashier',rate:15,keys:['Ally']},{role:'Host',rate:15,keys:['Ally']}],
+  'Maria C': [{role:'Cashier',rate:16,keys:['Maria C']},{role:'Server',rate:9,keys:['Maria C']}],
+  'Abi': [{role:'Server',rate:9,keys:['Abi']}],
+  'Liz': [{role:'Server',rate:9,keys:['Liz']}],
+  'Leanne': [{role:'Server',rate:9,keys:['Leanne']}],
+  'Leon': [{role:'Server',rate:9,keys:['Leon']}],
+  'Katelyn': [{role:'Server',rate:9,keys:['Katelyn']}],
+  'Dani': [{role:'Server',rate:9,keys:['Dani']}],
+  'Carly': [{role:'Server',rate:9,keys:['Carly']}],
+  'Carry T': [{role:'Server',rate:9,keys:['Carry T']},{role:'Bartender',rate:9,keys:['Carry T']}],
+  'Steph': [{role:'Server',rate:9.6,keys:['Steph']},{role:'Bartender',rate:9.6,keys:['Steph']}],
+  'Erika H': [{role:'Server',rate:9,keys:['Erika H']},{role:'Bartender',rate:9,keys:['Erika H']}],
+  'Mary R': [{role:'Bartender',rate:9,keys:['Mary R']}],
+  'Dave P': [{role:'Bartender',rate:9,keys:['Dave P']}],
+  'Danielle': [{role:'Bartender',rate:9,keys:['Danielle']}],
+};
+
 // DOM'S NOTES
 const MANAGERS = {
   'Brett': [null,null,null,null,null,null,null],
@@ -5398,7 +5461,7 @@ const SECTION_ARRAYS = {
 // role label -> {arrName, type}. type 'b' = BOH (uses weekHrsB), 'f' = FOH (uses weekHrsF + role2)
 const CUSTOM_ROLE_MAP = {
   'Driver':    {arr:'DRIVERS',    type:'f', role2:'drivers'},
-  'Manager':   {arr:'MANAGERS',   type:'f', role2:'managers'},
+  'Manager':   {arr:'MANAGERS',   type:'b'},
   'Server':    {arr:'SERVERS',    type:'f', role2:'servers'},
   'Bartender': {arr:'BARTENDERS', type:'f', role2:'bartenders'},
   'Cashier':   {arr:'CASHIERS',   type:'f', role2:'cashiers'},
@@ -7942,6 +8005,9 @@ var CUSTOM_ROSTER_REMOVED = [];  // [{id, name, removed_by, removed_at}]
 var CUSTOM_ROSTER_RENAMES = [];  // [{id, original_name, display_name, renamed_by, renamed_at}]
 var CUSTOM_ROSTER_RATES = [];    // [{id, original_name, rate, updated_by, updated_at}]
 var CUSTOM_ALIASES_LIST = [];    // [{id, alias, canonical_name, added_by, added_at}] -- for display in the panel
+var ROLE_OVERRIDES = {};         // {original_name: ['Server','Cashier',...]} -- lets ANYONE's roles be
+                                  // changed from the app (hardcoded or app-added), no code push required
+var ROLE_RATE_OVERRIDES = {};    // {original_name: {'Cashier': 15, 'Server': 9}} -- per-role rate corrections
 var FULL_ROSTER_NAMES = [];      // [{n, role, origName, rate}] -- every hourly employee, regardless of hours this week
 
 function loadCustomRosterThenRender() {
@@ -7960,6 +8026,9 @@ function loadCustomRosterThenRender() {
     }).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }),
     fetch(SUPABASE_URL + '/rest/v1/darien_name_aliases?order=added_at.asc', {
       headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    }).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; }),
+    fetch(SUPABASE_URL + '/rest/v1/darien_roster_role_overrides?order=updated_at.asc', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
     }).then(function(r){ return r.ok ? r.json() : []; }).catch(function(){ return []; })
   ]).then(function(results){
     CUSTOM_ROSTER = results[0] || [];
@@ -7967,6 +8036,16 @@ function loadCustomRosterThenRender() {
     CUSTOM_ROSTER_RENAMES = results[2] || [];
     CUSTOM_ROSTER_RATES = results[3] || [];
     CUSTOM_ALIASES_LIST = results[4] || [];
+    ROLE_OVERRIDES = {};
+    (results[5] || []).forEach(function(row){
+      try { ROLE_OVERRIDES[row.original_name] = JSON.parse(row.roles_json || '[]'); } catch(e) {}
+    });
+    ROLE_RATE_OVERRIDES = {};
+    CUSTOM_ROSTER_RATES.forEach(function(row){
+      if(row.role_rates_json) {
+        try { ROLE_RATE_OVERRIDES[row.original_name] = JSON.parse(row.role_rates_json); } catch(e) {}
+      }
+    });
     seedCustomRosterIntoSections();
     if(document.getElementById('private-content').style.display !== 'none') renderPrivate();
     if(document.getElementById('manage-roster-modal').style.display !== 'none') renderManageRosterLists();
@@ -7981,20 +8060,36 @@ function loadCustomRosterThenRender() {
 // never overwrites an existing row (e.g. one already loaded from a saved
 // week), only fills in a gap.
 function seedCustomRosterIntoSections() {
-  if(typeof CUSTOM_ROSTER === 'undefined' || !CUSTOM_ROSTER.length) return;
-  CUSTOM_ROSTER.forEach(function(person){
-    if(person.is_salaried) return; // salaried staff aren't tied to schedule sections
-    var roles = [];
-    try { roles = JSON.parse(person.roles_json || '[]'); } catch(e) { roles = []; }
-    roles.forEach(function(roleLabel){
-      var map = CUSTOM_ROLE_MAP[roleLabel];
-      if(!map) return;
-      var sectionObj = SECTION_ARRAYS[map.arr];
-      if(sectionObj && !sectionObj[person.name]) {
-        sectionObj[person.name] = [null,null,null,null,null,null,null];
-      }
+  if(typeof CUSTOM_ROSTER !== 'undefined' && CUSTOM_ROSTER.length) {
+    CUSTOM_ROSTER.forEach(function(person){
+      if(person.is_salaried) return; // salaried staff aren't tied to schedule sections
+      var roles = [];
+      try { roles = JSON.parse(person.roles_json || '[]'); } catch(e) { roles = []; }
+      roles.forEach(function(roleLabel){
+        var map = CUSTOM_ROLE_MAP[roleLabel];
+        if(!map) return;
+        var sectionObj = SECTION_ARRAYS[map.arr];
+        if(sectionObj && !sectionObj[person.name]) {
+          sectionObj[person.name] = [null,null,null,null,null,null,null];
+        }
+      });
     });
-  });
+  }
+  // Anyone with a live role override -- hardcoded or app-added -- needs the
+  // same treatment: a newly-added role means a brand new section, and a
+  // brand new section needs a blank row to actually type a shift into.
+  if(typeof ROLE_OVERRIDES !== 'undefined') {
+    Object.keys(ROLE_OVERRIDES).forEach(function(name){
+      ROLE_OVERRIDES[name].forEach(function(roleLabel){
+        var map = CUSTOM_ROLE_MAP[roleLabel];
+        if(!map) return;
+        var sectionObj = SECTION_ARRAYS[map.arr];
+        if(sectionObj && !sectionObj[name]) {
+          sectionObj[name] = [null,null,null,null,null,null,null];
+        }
+      });
+    });
+  }
 }
 
 // KNOWN_FOH/KNOWN_BOH/KNOWN_DRIVER_NAMES/KNOWN_CASHIERS are frozen snapshots
@@ -8040,6 +8135,101 @@ function openManageRosterModal() {
   renderManageRosterLists();
 }
 
+var _addRoleTarget = null;
+var VALID_ROLES_LIST = ['Driver','Manager','Server','Bartender','Cashier','Host','Pizza','Kitchen','Dish','Prep','Bus'];
+
+function openAddRoleModal(origName) {
+  var customEntry = CUSTOM_ROSTER.find(function(c){ return c.name === origName; });
+  var currentRoles;
+  if(ROLE_OVERRIDES[origName]) {
+    currentRoles = ROLE_OVERRIDES[origName];
+  } else if(customEntry) {
+    try { currentRoles = JSON.parse(customEntry.roles_json || '[]'); } catch(e) { currentRoles = []; }
+  } else if(DEFAULT_ROSTER[origName]) {
+    currentRoles = DEFAULT_ROSTER[origName].map(function(r){ return r.role; });
+  } else {
+    currentRoles = [];
+  }
+  // Figure out the current rate for each role that already has one, so
+  // nothing new ever falls back to a guessed number. Drivers are excluded
+  // from rate entirely -- they're never paid through this system.
+  var existingRateOverrides = ROLE_RATE_OVERRIDES[origName] || {};
+  var defaultRatesForRole = {};
+  if(DEFAULT_ROSTER[origName]) {
+    DEFAULT_ROSTER[origName].forEach(function(r){ defaultRatesForRole[r.role] = r.rate; });
+  }
+  _addRoleTarget = {origName: origName, customEntry: customEntry};
+  document.getElementById('add-role-name').textContent = origName;
+  document.getElementById('add-role-checkboxes').innerHTML = VALID_ROLES_LIST.map(function(r){
+    var checked = currentRoles.indexOf(r) !== -1;
+    var isDriver = (r === 'Driver');
+    var currentRate = existingRateOverrides[r] != null ? existingRateOverrides[r]
+      : defaultRatesForRole[r] != null ? defaultRatesForRole[r]
+      : (customEntry && currentRoles.length === 1 && currentRoles[0] === r) ? customEntry.rate
+      : null;
+    var rateInputHtml = isDriver ? '' :
+      '<input type="number" step="0.01" class="add-role-rate" data-role="'+r+'" value="'+(currentRate!=null?currentRate:'')+'" placeholder="$/hr" style="width:70px;margin-left:auto;padding:4px 6px;border:1px solid #ddd;border-radius:6px;font-size:12px;'+(checked?'':'display:none;')+'">';
+    return '<label style="display:flex;align-items:center;gap:5px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;">'
+      + '<input type="checkbox" class="add-role-cb" value="'+r+'" '+(checked?'checked':'')+' onchange="var rInput=this.parentElement.querySelector(\'.add-role-rate\'); if(rInput) rInput.style.display = this.checked ? \'inline-block\' : \'none\';"> '+r
+      + rateInputHtml
+      + '</label>';
+  }).join('');
+  document.getElementById('add-role-modal').style.display = 'flex';
+}
+
+function saveAddRole() {
+  if(!_addRoleTarget) return;
+  var checked = Array.from(document.querySelectorAll('.add-role-cb:checked')).map(function(c){ return c.value; });
+  if(!checked.length) { alert('Select at least one role.'); return; }
+
+  // Every checked role except Driver needs a real rate -- never guessed,
+  // never silently defaulted. This is what actually determines someone's
+  // pay; a missing rate here is a payroll error waiting to happen.
+  var roleRates = {};
+  var missingRate = null;
+  checked.forEach(function(role){
+    if(role === 'Driver') return; // never paid through this system
+    var input = document.querySelector('.add-role-rate[data-role="'+role+'"]');
+    var val = input ? parseFloat(input.value) : NaN;
+    if(!val || val <= 0) { missingRate = role; return; }
+    roleRates[role] = val;
+  });
+  if(missingRate) { alert('Enter a valid hourly rate for ' + missingRate + '.'); return; }
+
+  var requests = [];
+  if(_addRoleTarget.customEntry) {
+    // App-added person: their roles live directly on their roster_additions row.
+    requests.push(fetch(SUPABASE_URL + '/rest/v1/darien_roster_additions?id=eq.' + _addRoleTarget.customEntry.id, {
+      method: 'PATCH',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
+      body: JSON.stringify({roles_json: JSON.stringify(checked)})
+    }));
+  } else {
+    // Hardcoded person: write an override that takes priority over their
+    // code-defined default roles, without ever touching the code itself.
+    requests.push(fetch(SUPABASE_URL + '/rest/v1/darien_roster_role_overrides?on_conflict=original_name', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify([{original_name: _addRoleTarget.origName, roles_json: JSON.stringify(checked), updated_by: getCurrentUser(), updated_at: new Date().toISOString()}])
+    }));
+  }
+  // Rate overrides apply the same way regardless of hardcoded vs app-added
+  // -- one real rate per role, always explicit.
+  if(Object.keys(roleRates).length) {
+    requests.push(fetch(SUPABASE_URL + '/rest/v1/darien_roster_rates?on_conflict=original_name', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'resolution=merge-duplicates,return=minimal'},
+      body: JSON.stringify([{original_name: _addRoleTarget.origName, role_rates_json: JSON.stringify(roleRates), updated_by: getCurrentUser(), updated_at: new Date().toISOString()}])
+    }));
+  }
+  Promise.all(requests).then(function(responses){
+    if(responses.some(function(r){ return !r.ok; })) throw new Error('One or more updates failed');
+    document.getElementById('add-role-modal').style.display = 'none';
+    _addRoleTarget = null;
+    loadCustomRosterThenRender();
+  }).catch(function(e){ alert('Failed to save roles: ' + e.message); });
+}
+
 function renderManageRosterLists() {
   var curList = document.getElementById('roster-current-list');
   var remList = document.getElementById('roster-removed-list');
@@ -8060,6 +8250,7 @@ function renderManageRosterLists() {
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f2f2f2;">'
         + '<div><div style="font-weight:600;">'+e.n+'</div><div style="font-size:11px;color:#999;">'+e.role+' &middot; '+(e.salaried ? '$'+Number(e.rate).toLocaleString()+'/yr' : '$'+Number(e.rate).toFixed(2)+'/hr')+(isCustom?' &middot; added via app':'')+akaText+'</div></div>'
         + '<div style="display:flex;gap:6px;">'
+        + '<button onclick="openAddRoleModal(\''+origEsc+'\')" style="background:#f0fff4;border:1px solid #b7e4c7;color:#1a7a3c;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">+ Role</button>'
         + '<button onclick="editRosterEmployee(\''+origEsc+'\')" style="background:#f0f4ff;border:1px solid #c2d1f3;color:#1e4fa3;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✎ Edit</button>'
         + '<button onclick="removeRosterEmployee(\''+origEsc+'\')" style="background:#fff0f0;border:1px solid #f3c2c9;color:#c8102e;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✕ Remove</button>'
         + '</div></div>';
@@ -8347,106 +8538,76 @@ function renderPrivate() {
     {n:'Jeremy',s:70000,role:'Manager'},
     {n:'Brett',s:40000,role:'Manager'}
   ];
-  var HLY=[
-    {n:'Chelsea',r:20,role:'Manager',src:function(){return [MANAGERS['Chelsea']]},type:'b'},
-    {n:'Broccoli',r:18,role:'Kitchen Cook',src:function(){return [KITCHEN['Broccoli']]},type:'b'},
-    {n:'Javier',r:19,role:'Kitchen Line Cook',src:function(){return [KITCHEN['Javier']]},type:'b'},
-    {n:'Jesus',r:21,role:'Pizza/Kitchen',src:function(){return [PIZZA['Jesus'],KITCHEN['Jesus']]},type:'b',
-      roleBreakdown:function(){return [{label:'Pizza',arr:PIZZA['Jesus']},{label:'Kitchen',arr:KITCHEN['Jesus']}];}},
-    {n:'Arturo',r:21,role:'Kitchen/Pizza',src:function(){return [PIZZA['Arturo'],KITCHEN['Arturo']]},type:'b',
-      roleBreakdown:function(){return [{label:'Kitchen',arr:KITCHEN['Arturo']},{label:'Pizza',arr:PIZZA['Arturo']}];}},
-    {n:'Laura Z',r:20,role:'Pizza/Kitchen/Cashier',src:function(){return [PIZZA['Laura Z'],KITCHEN['Laura Z'],CASHIERS['Laura Z']]},type:'b',
-      roleBreakdown:function(){return [{label:'Pizza',arr:PIZZA['Laura Z']},{label:'Kitchen',arr:KITCHEN['Laura Z']},{label:'Cashier',arr:CASHIERS['Laura Z'],type:'f',role2:'cashiers'}];}},
-    {n:'Gustavo',r:20,role:'Pizza/Kitchen/Cashier',src:function(){return [PIZZA['Gustavo'],KITCHEN['Gustavo'],CASHIERS['Gustavo']]},type:'b',
-      roleBreakdown:function(){return [{label:'Pizza',arr:PIZZA['Gustavo']},{label:'Kitchen',arr:KITCHEN['Gustavo']},{label:'Cashier',arr:CASHIERS['Gustavo'],type:'f',role2:'cashiers'}];}},
-    {n:'Francisco',r:21,role:'Pizza Cook',src:function(){return [PIZZA['Francisco']]},type:'b'},
-    {n:'Luis B',r:20,role:'Pizza Cook',src:function(){return [PIZZA['Luis B']]},type:'b'},
-    {n:'Juan',r:19.50,role:'Pizza Cook',src:function(){return [PIZZA['Juan']]},type:'b'},
-    {n:'Victor',r:20.50,role:'Pizza Cook',src:function(){return [PIZZA['Victor']]},type:'b'},
-    {n:'Junior',r:17.50,role:'Pizza Cook',src:function(){return [PIZZA['Junior']]},type:'b'},
-    {n:'Valente',r:21,role:'Pizza Cook',src:function(){return [PIZZA['Valente']]},type:'b'},
-    {n:'Luis',r:18,role:'Pizza Cook',src:function(){return [PIZZA['Luis']]},type:'b'},
-    {n:'Gabe',r:17.50,role:'Prep/Pizza/Dish',src:function(){return [DISH['Gabe'],PREP['Gabe'],PIZZA['Gabe']]},type:'b',
-      roleBreakdown:function(){return [{label:'Prep',arr:PREP['Gabe']},{label:'Pizza',arr:PIZZA['Gabe']},{label:'Dish',arr:DISH['Gabe']}];}},
-    {n:'Lorenzo',r:16.50,role:'Dish',src:function(){return [DISH['Lorenzo']]},type:'b'},
-
-    {n:'Alyssa',r:15,role:'Cashier',src:function(){return [CASHIERS['Alyssa']]},type:'f',role2:'cashiers'},
-    {n:'Mayra',r:15,role:'Cashier',src:function(){return [CASHIERS['Mayra']]},type:'f',role2:'cashiers'},
-    {n:'Jackson',r:15,role:'Cashier',src:function(){return [CASHIERS['Jackson']]},type:'f',role2:'cashiers'},
-    {n:'Dillon',r:15,role:'Cashier',src:function(){return [CASHIERS['Dillon']]},type:'f',role2:'cashiers'},
-    {n:'Lila',r:15,role:'Cashier',src:function(){return [CASHIERS['Lila']]},type:'f',role2:'cashiers'},
-    {n:'Nathan',r:15,role:'Cashier',src:function(){return [CASHIERS['Nathan']]},type:'f',role2:'cashiers'},
-    {n:'Jose O',r:16,role:'Cashier',src:function(){return [CASHIERS['Jose O']]},type:'f',role2:'cashiers'},
-    {n:'Selena S',r:15,role:'Cashier',src:function(){return [CASHIERS['Selena S']]},type:'f',role2:'cashiers'},
-    {n:'Ally',r:15,role:'Cashier/Host',src:function(){return [CASHIERS['Ally'],HOSTS['Ally']]},type:'f',role2:'cashiers',
-      roleBreakdown:function(){return [{label:'Cashier',arr:CASHIERS['Ally'],role2:'cashiers'},{label:'Host',arr:HOSTS['Ally'],role2:'hosts'}];}},
-    {n:'Maria C (Cashier)',r:16,role:'Cashier',src:function(){return [CASHIERS['Maria C']]},type:'f',role2:'cashiers'},
-    {n:'Maria C (Server)',r:9,role:'Server',src:function(){return [SERVERS['Maria C']]},type:'f',role2:'servers'},
-
-    {n:'Abi',r:9,role:'Server',src:function(){return [SERVERS['Abi']]},type:'f',role2:'servers'},
-    {n:'Liz',r:9,role:'Server',src:function(){return [SERVERS['Liz']]},type:'f',role2:'servers'},
-    {n:'Leanne',r:9,role:'Server',src:function(){return [SERVERS['Leanne']]},type:'f',role2:'servers'},
-    {n:'Leon',r:9,role:'Server',src:function(){return [SERVERS['Leon']]},type:'f',role2:'servers'},
-    {n:'Katelyn',r:9,role:'Server',src:function(){return [SERVERS['Katelyn']]},type:'f',role2:'servers'},
-    {n:'Dani',r:9,role:'Server',src:function(){return [SERVERS['Dani']]},type:'f',role2:'servers'},
-    {n:'Carly',r:9,role:'Server',src:function(){return [SERVERS['Carly']]},type:'f',role2:'servers'},
-    {n:'Carry T',r:9,role:'Server/Bartender',src:function(){return [SERVERS['Carry T'],BARTENDERS['Carry T']]},type:'f',role2:'servers',
-      roleBreakdown:function(){return [{label:'Server',arr:SERVERS['Carry T'],role2:'servers'},{label:'Bartender',arr:BARTENDERS['Carry T'],role2:'bartenders'}];}},
-    {n:'Steph',r:9.60,role:'Server/Bartender',src:function(){return [SERVERS['Steph'],BARTENDERS['Steph']]},type:'f',role2:'servers',
-      roleBreakdown:function(){return [{label:'Server',arr:SERVERS['Steph'],role2:'servers'},{label:'Bartender',arr:BARTENDERS['Steph'],role2:'bartenders'}];}},
-    {n:'Erika H',r:9,role:'Server/Bartender',src:function(){return [SERVERS['Erika H'],BARTENDERS['Erika H']]},type:'f',role2:'servers',
-      roleBreakdown:function(){return [{label:'Server',arr:SERVERS['Erika H'],role2:'servers'},{label:'Bartender',arr:BARTENDERS['Erika H'],role2:'bartenders'}];}},
-    {n:'Mary R',r:9,role:'Bartender',src:function(){return [BARTENDERS['Mary R']]},type:'f',role2:'bartenders'},
-    {n:'Dave P',r:9,role:'Bartender',src:function(){return [BARTENDERS['Dave P']]},type:'f',role2:'bartenders'},
-    {n:'Danielle',r:9,role:'Bartender',src:function(){return [BARTENDERS['Danielle']]},type:'f',role2:'bartenders'},
-  ];
-  // Merge in staff added via the Private tab "Manage Roster" panel, and drop
-  // anyone removed there. This lets Ely add/remove/edit staff (hourly or
-  // salaried) without a code push.
-  if(typeof CUSTOM_ROSTER_REMOVED !== 'undefined' && CUSTOM_ROSTER_REMOVED.length) {
-    var removedNames = CUSTOM_ROSTER_REMOVED.map(function(r){return r.name;});
-    HLY = HLY.filter(function(e){ return removedNames.indexOf(e.n) === -1; });
-    SAL = SAL.filter(function(e){ return removedNames.indexOf(e.n) === -1; });
+  var HLY = [];
+  var allRosterNames = {};
+  Object.keys(DEFAULT_ROSTER).forEach(function(n){ allRosterNames[n] = true; });
+  if(typeof CUSTOM_ROSTER !== 'undefined') {
+    CUSTOM_ROSTER.forEach(function(p){ if(!p.is_salaried) allRosterNames[p.name] = true; });
   }
-  if(typeof CUSTOM_ROSTER !== 'undefined' && CUSTOM_ROSTER.length) {
-    CUSTOM_ROSTER.forEach(function(person){
-      if(person.is_salaried) {
-        SAL.push({ n: person.name, s: person.annual_salary, role: person.role_label });
-        return;
+  var removedNamesSet = {};
+  if(typeof CUSTOM_ROSTER_REMOVED !== 'undefined') {
+    CUSTOM_ROSTER_REMOVED.forEach(function(r){ removedNamesSet[r.name] = true; });
+  }
+  var roleOverridesMap = (typeof ROLE_OVERRIDES !== 'undefined') ? ROLE_OVERRIDES : {};
+  var roleRateOverridesMap = (typeof ROLE_RATE_OVERRIDES !== 'undefined') ? ROLE_RATE_OVERRIDES : {};
+
+  Object.keys(allRosterNames).forEach(function(name){
+    if(removedNamesSet[name]) return;
+    var defaultRoles = DEFAULT_ROSTER[name];
+    var customEntry = (typeof CUSTOM_ROSTER !== 'undefined') ? CUSTOM_ROSTER.find(function(c){ return c.name === name; }) : null;
+
+    var effectiveRoleLabels;
+    if(roleOverridesMap[name]) {
+      effectiveRoleLabels = roleOverridesMap[name];
+    } else if(defaultRoles) {
+      effectiveRoleLabels = defaultRoles.map(function(r){ return r.role; });
+    } else if(customEntry) {
+      try { effectiveRoleLabels = JSON.parse(customEntry.roles_json || '[]'); } catch(e) { effectiveRoleLabels = []; }
+    } else {
+      effectiveRoleLabels = [];
+    }
+    if(!effectiveRoleLabels.length) return;
+
+    var roleItems = effectiveRoleLabels.map(function(roleLabel){
+      var map = CUSTOM_ROLE_MAP[roleLabel];
+      if(!map) return null;
+      var defaultForRole = defaultRoles && defaultRoles.find(function(r){ return r.role === roleLabel; });
+      var keys = defaultForRole ? defaultForRole.keys : [name];
+      var overrideRate = roleRateOverridesMap[name] && roleRateOverridesMap[name][roleLabel];
+      var rate = (overrideRate != null) ? overrideRate : (defaultForRole ? defaultForRole.rate : (customEntry ? customEntry.rate : 9));
+      return {label: roleLabel, arr: map.arr, type: map.type, role2: map.role2, keys: keys, rate: rate};
+    }).filter(function(x){ return !!x; });
+    if(!roleItems.length) return;
+
+    var allBOH = roleItems.every(function(x){ return x.type === 'b'; });
+    var primaryType = allBOH ? 'b' : 'f';
+    var primaryRole2 = !allBOH ? (roleItems.find(function(x){return x.type==='f';}).role2) : undefined;
+
+    var entry = {
+      n: name,
+      r: roleItems[0].rate,
+      role: roleItems.map(function(x){return x.label;}).join('/'),
+      type: primaryType,
+      src: function(){
+        var out = [];
+        roleItems.forEach(function(item){ item.keys.forEach(function(k){ out.push(SECTION_ARRAYS[item.arr][k]); }); });
+        return out;
       }
-      var roles = [];
-      try { roles = JSON.parse(person.roles_json || '[]'); } catch(e) { roles = []; }
-      if(!roles.length && person.role_label) roles = [person.role_label]; // backward-compat for pre-migration rows
-      var maps = roles.map(function(r){ return {label:r, map:CUSTOM_ROLE_MAP[r]}; }).filter(function(x){ return !!x.map; });
-      if(!maps.length) return; // no recognized roles, skip safely rather than crash
-
-      // Overall entry type: 'b' only if every role is BOH; otherwise 'f' so
-      // src()/wh use whichever accumulates correctly. Mixed BOH+FOH people
-      // (like Laura Z) are tagged 'b' historically but each breakdown item
-      // carries its own real type below, which is what actually matters.
-      var allBOH = maps.every(function(x){ return x.map.type === 'b'; });
-      var primaryType = allBOH ? 'b' : 'f';
-      var primaryRole2 = !allBOH ? (maps.find(function(x){return x.map.type==='f';}).map.role2) : undefined;
-
-      var entry = {
-        n: person.name,
-        r: person.rate,
-        role: maps.map(function(x){return x.label;}).join('/'),
-        type: primaryType,
-        src: function(){ return maps.map(function(x){ return SECTION_ARRAYS[x.map.arr][person.name]; }); }
-      };
-      if(primaryRole2) entry.role2 = primaryRole2;
-      if(maps.length > 1) {
-        entry.roleBreakdown = function(){
-          return maps.map(function(x){
-            return {label:x.label, arr:SECTION_ARRAYS[x.map.arr][person.name], type:x.map.type, role2:x.map.role2};
+    };
+    if(primaryRole2) entry.role2 = primaryRole2;
+    if(roleItems.length > 1) {
+      entry.roleBreakdown = function(){
+        var out = [];
+        roleItems.forEach(function(item){
+          item.keys.forEach(function(k){
+            out.push({label:item.label, arr:SECTION_ARRAYS[item.arr][k], type:item.type, role2:item.role2, rate:item.rate});
           });
-        };
-      }
-      HLY.push(entry);
-    });
-  }
-  // Rename/rate overlay: lets a name, hourly rate, or annual salary be
+        });
+        return out;
+      };
+    }
+    HLY.push(entry);
+  });
   // corrected for display without changing the underlying key used to pull
   // hours from schedule data. _origName is preserved on every entry so
   // Remove/Edit always target the stable identity, never a possibly-already-
