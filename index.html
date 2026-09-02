@@ -7997,6 +7997,29 @@ function seedCustomRosterIntoSections() {
   });
 }
 
+// KNOWN_FOH/KNOWN_BOH/KNOWN_DRIVER_NAMES/KNOWN_CASHIERS are frozen snapshots
+// taken once at page load, before Manage Roster additions ever load -- so
+// they never include anyone added later. They're used as a safety-net list
+// during photo uploads (a second AI pass that double-checks anyone whose row
+// came back blank on the first read). This returns the current Manage-Roster
+// names that belong in a given section array, so upload call sites can merge
+// them in live instead of relying on the frozen list alone.
+function customNamesForSection(sectionArrName) {
+  if(typeof CUSTOM_ROSTER === 'undefined' || !CUSTOM_ROSTER.length) return [];
+  var names = [];
+  CUSTOM_ROSTER.forEach(function(p){
+    if(p.is_salaried) return;
+    var roles = [];
+    try { roles = JSON.parse(p.roles_json || '[]'); } catch(e) { roles = []; }
+    var belongs = roles.some(function(r){
+      var map = CUSTOM_ROLE_MAP[r];
+      return map && map.arr === sectionArrName;
+    });
+    if(belongs) names.push(p.name);
+  });
+  return names;
+}
+
 // Load custom roster additions as early as possible (page load), not just
 // when the Private tab's PIN is entered -- someone added via Manage Roster
 // needs to show up on the Schedule tab even if Private was never opened.
@@ -8086,7 +8109,7 @@ function addRosterEmployee() {
       headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
       body: JSON.stringify([salEntry])
     }).then(function(r){
-      if(!r.ok) throw new Error('Save failed');
+      if(!r.ok) return r.text().then(function(t){ throw new Error('HTTP '+r.status+': '+t); });
       document.getElementById('roster-add-name').value = '';
       document.getElementById('roster-add-salaried-role').value = '';
       document.getElementById('roster-add-salary').value = '';
@@ -8112,7 +8135,7 @@ function addRosterEmployee() {
     headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
     body: JSON.stringify([entry])
   }).then(function(r){
-    if(!r.ok) throw new Error('Save failed');
+    if(!r.ok) return r.text().then(function(t){ throw new Error('HTTP '+r.status+': '+t); });
     document.getElementById('roster-add-name').value = '';
     document.querySelectorAll('#roster-add-roles input[type=checkbox]').forEach(function(c){c.checked=false;});
     document.getElementById('roster-add-rate').value = '';
@@ -8454,82 +8477,104 @@ function renderPrivate() {
   }
   FULL_ROSTER_NAMES = HLY.map(function(e){ return {n: e.n, role: e.role, origName: e._origName, rate: e.r, salaried:false}; })
     .concat(SAL.map(function(e){ return {n: e.n, role: e.role, origName: e._origName, rate: e.s, salaried:true}; }));
-  // Compute wh (weekly hours) dynamically now that data is loaded.
-  // Entries with roleBreakdown are computed by summing each role's OWN
-  // type-correct calculation (weekHrsB for BOH-format data, weekHrsF for
-  // FOH-format data) -- this matters for people like Laura Z/Gustavo who mix
-  // BOH roles (Pizza/Kitchen) with an FOH role (Cashier): running Cashier's
-  // [start,end]-array data through the BOH string-parser silently produced
-  // wrong hours, which could throw off their overtime total.
-  HLY.forEach(function(e){
+  // Chronological OT allocation: walk each person's week in day order (and,
+  // within a day, by actual shift start time across roles), accumulating
+  // hours. Once the running total crosses 40, everything from that point on
+  // is OT -- paid at 1.5x whatever THAT specific shift's rate is, not a
+  // blended average. A shift that straddles the 40-hour mark gets split:
+  // the portion before 40 is regular pay, the portion after is OT. This
+  // matches how OT actually happens in real life (you don't know your
+  // "weighted average rate" mid-shift -- you know whether you've hit 40
+  // hours yet, and what you're doing right now).
+  function startHourB(arr,di){
+    if(!arr||!arr[di])return null;
+    var tf=extractTrainingFlag(arr[di]);
+    var s=String(tf.clean).trim().toLowerCase().replace(/\s+/g,'');
+    if(!s||s==='x'||s==='darien'||['kitchen','pizza','dish','bus','prep','serve','bar','host'].includes(s))return null;
+    var cm=s.match(/^(.+)-c(?:l(?:ose)?)?$/);
+    if(cm) return toH(cm[1].trim());
+    var rm=s.match(/^([\d:]+(?:am|pm)?)\s*-\s*([\d:]+(?:am|pm)?)$/i);
+    if(rm) return toH(rm[1]);
+    return toH(s);
+  }
+  function startHourF(arr,di){
+    if(!arr||!arr[di])return null;
+    var e=arr[di]; if(!e||!e[0])return null;
+    return toH(extractTrainingFlag(e[0]).clean);
+  }
+  function buildDaySegments(e, di) {
+    var segs = [];
     if(e.roleBreakdown) {
-      var items = e.roleBreakdown();
-      e.wh = items.reduce(function(t,it){
+      e.roleBreakdown().forEach(function(it){
         var typ = it.type || e.type;
-        return t + (typ==='b' ? weekHrsB(it.arr) : weekHrsF(it.arr, it.role2));
-      }, 0);
-      e.trainingHrs = items.reduce(function(t,it){
-        var typ = it.type || e.type;
-        var sum = 0;
-        for(var di=0; di<7; di++){
-          var isTrain = typ==='b' ? dayIsTrainingB(it.arr,di) : dayIsTrainingF(it.arr,di);
-          if(isTrain) sum += typ==='b' ? dayHrsB(it.arr,di) : dayHrsF(it.arr,di,it.role2);
-        }
-        return t + sum;
-      }, 0);
-      e.dh = function(di){
+        var h = typ==='b' ? dayHrsB(it.arr,di) : dayHrsF(it.arr,di,it.role2);
+        if(!h) return;
+        var isTrain = typ==='b' ? dayIsTrainingB(it.arr,di) : dayIsTrainingF(it.arr,di);
+        var itemRate = (it.rate != null) ? it.rate : e.r;
+        var startH = typ==='b' ? startHourB(it.arr,di) : startHourF(it.arr,di);
+        segs.push({hours:h, rate: isTrain ? TRAINING_RATE : itemRate, isTrain: isTrain, startH: startH==null?0:startH});
+      });
+    } else {
+      e.src().forEach(function(a){
+        var h = e.type==='b' ? dayHrsB(a,di) : dayHrsF(a,di,e.role2);
+        if(!h) return;
+        var isTrain = e.type==='b' ? dayIsTrainingB(a,di) : dayIsTrainingF(a,di);
+        var startH = e.type==='b' ? startHourB(a,di) : startHourF(a,di);
+        segs.push({hours:h, rate: isTrain ? TRAINING_RATE : e.r, isTrain: isTrain, startH: startH==null?0:startH});
+      });
+    }
+    segs.sort(function(a,b){ return a.startH - b.startH; });
+    return segs;
+  }
+  HLY.forEach(function(e){
+    var cum = 0, regPay = 0, otPay = 0, trainingHrs = 0;
+    for(var di=0; di<7; di++){
+      buildDaySegments(e, di).forEach(function(seg){
+        var before = cum, after = cum + seg.hours;
+        var regPortion, otPortion;
+        if(after <= 40) { regPortion = seg.hours; otPortion = 0; }
+        else if(before >= 40) { regPortion = 0; otPortion = seg.hours; }
+        else { regPortion = 40 - before; otPortion = seg.hours - regPortion; }
+        regPay += regPortion*seg.rate;
+        otPay += otPortion*seg.rate*1.5;
+        cum = after;
+        if(seg.isTrain) trainingHrs += seg.hours;
+      });
+    }
+    e.wh = cum;
+    e._regPay = regPay;
+    e._otPay = otPay;
+    e.trainingHrs = trainingHrs;
+    e.dh = function(di){
+      if(e.roleBreakdown) {
         return e.roleBreakdown().reduce(function(t,it){
           var typ = it.type || e.type;
           return t + (typ==='b' ? dayHrsB(it.arr,di) : dayHrsF(it.arr,di,it.role2));
         }, 0);
-      };
-      e.dTrain = function(di){
+      }
+      return e.src().reduce(function(t,a){return t+(e.type==='b'?dayHrsB(a,di):dayHrsF(a,di,e.role2));},0);
+    };
+    e.dTrain = function(di){
+      if(e.roleBreakdown) {
         return e.roleBreakdown().some(function(it){
           var typ = it.type || e.type;
           return typ==='b' ? dayIsTrainingB(it.arr,di) : dayIsTrainingF(it.arr,di);
         });
-      };
-    } else if(e.type==='b') {
-      var arrs = e.src();
-      e.wh = arrs.reduce(function(t,a){return t+weekHrsB(a);},0);
-      e.trainingHrs = arrs.reduce(function(t,a){
-        var sum = 0;
-        for(var di=0; di<7; di++){ if(dayIsTrainingB(a,di)) sum += dayHrsB(a,di); }
-        return t + sum;
-      }, 0);
-      e.dh = function(di){ return e.src().reduce(function(t,a){return t+dayHrsB(a,di);},0); };
-      e.dTrain = function(di){ return e.src().some(function(a){return dayIsTrainingB(a,di);}); };
-    } else {
-      var arrs = e.src();
-      e.wh = arrs.reduce(function(t,a){return t+weekHrsF(a,e.role2);},0);
-      e.trainingHrs = arrs.reduce(function(t,a){
-        var sum = 0;
-        for(var di=0; di<7; di++){ if(dayIsTrainingF(a,di)) sum += dayHrsF(a,di,e.role2); }
-        return t + sum;
-      }, 0);
-      e.dh = function(di){ return e.src().reduce(function(t,a){return t+dayHrsF(a,di,e.role2);},0); };
-      e.dTrain = function(di){ return e.src().some(function(a){return dayIsTrainingF(a,di);}); };
-    }
+      }
+      return e.src().some(function(a){return e.type==='b'?dayIsTrainingB(a,di):dayIsTrainingF(a,di);});
+    };
   });
 
-  // Blended-rate wage calculation: when part of someone's week was training
-  // (paid at $15/hr) and part was their normal rate, overtime uses the FLSA
-  // "weighted average" method rather than one flat rate -- straight-time pay
-  // for all hours at whichever rate applied that day, then a 0.5x premium on
-  // hours over 40 at the weighted-average rate. This reduces to the exact
-  // original flat-rate formula when trainingHrs is 0, so nobody else's pay
-  // changes even fractionally.
+  // Regular pay and OT pay were already computed chronologically above
+  // (each segment split and rated correctly at the moment it crossed 40
+  // hours), so this just packages the result -- no further rate math here.
   function wageFor(e) {
     var wh = e.wh || 0;
-    var trainHrs = Math.min(e.trainingHrs || 0, wh);
-    var normalHrs = wh - trainHrs;
-    var straightBase = normalHrs*e.r + trainHrs*TRAINING_RATE;
-    var avgRate = wh > 0 ? straightBase/wh : e.r;
     var rH = Math.min(wh,40), oH = Math.max(0,wh-40);
-    var oP = oH*avgRate*0.5;
-    var wg = straightBase + oP;
-    var rP = wg - oP;
-    return {rH:rH, oH:oH, wg:wg, rP:rP, oP:oP, avgRate:avgRate, trainHrs:trainHrs};
+    var rP = e._regPay || 0, oP = e._otPay || 0;
+    var wg = rP + oP;
+    var avgRate = wh > 0 ? wg/wh : e.r;
+    return {rH:rH, oH:oH, wg:wg, rP:rP, oP:oP, avgRate:avgRate, trainHrs:e.trainingHrs||0};
   }
 
   // Compute weekly wages
@@ -11436,18 +11481,20 @@ async function readScheduleImage(dataUrl, type) {
       var bohSecs = Object.keys(KNOWN_BOH);
       for(var bi=0; bi<bohSecs.length; bi++){
         var bsec = bohSecs[bi];
-        sched[bsec] = await repairRows(base64, mediaType, sched[bsec] || {}, KNOWN_BOH[bsec], 'string', bsec + ' (Back of House)');
+        var bohKnown = KNOWN_BOH[bsec].concat(customNamesForSection(bsec));
+        sched[bsec] = await repairRows(base64, mediaType, sched[bsec] || {}, bohKnown, 'string', bsec + ' (Back of House)');
       }
     } else if(type === 'FOH') {
       var fohSecs = Object.keys(KNOWN_FOH);
       for(var fi=0; fi<fohSecs.length; fi++){
         var fsec = fohSecs[fi];
-        sched[fsec] = await repairRows(base64, mediaType, sched[fsec] || {}, KNOWN_FOH[fsec], 'pair', fsec + ' (Front of House)');
+        var fohKnown = KNOWN_FOH[fsec].concat(customNamesForSection(fsec));
+        sched[fsec] = await repairRows(base64, mediaType, sched[fsec] || {}, fohKnown, 'pair', fsec + ' (Front of House)');
       }
     } else if(type === 'CSH') {
-      sched = await repairRows(base64, mediaType, sched, KNOWN_CASHIERS, 'string', 'cashier');
+      sched = await repairRows(base64, mediaType, sched, KNOWN_CASHIERS.concat(customNamesForSection('CASHIERS')), 'string', 'cashier');
     } else {
-      sched = await repairRows(base64, mediaType, sched, KNOWN_DRIVER_NAMES, 'string', 'driver');
+      sched = await repairRows(base64, mediaType, sched, KNOWN_DRIVER_NAMES.concat(customNamesForSection('DRIVERS')), 'string', 'driver');
     }
   } catch(e) {
     console.warn('Row repair pass failed; keeping reconciled result.', e);
