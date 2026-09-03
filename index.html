@@ -8311,9 +8311,9 @@ function renderManageRosterLists() {
       return '<div style="display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid #f2f2f2;">'
         + '<div><div style="font-weight:600;">'+e.n+'</div><div style="font-size:11px;color:#999;">'+e.role+' &middot; '+(e.salaried ? '$'+Number(e.rate).toLocaleString()+'/yr' : '$'+Number(e.rate).toFixed(2)+'/hr')+(isCustom?' &middot; added via app':'')+akaText+'</div></div>'
         + '<div style="display:flex;gap:6px;">'
-        + '<button onclick="openAddRoleModal(\''+origEsc+'\')" style="background:#f0fff4;border:1px solid #b7e4c7;color:#1a7a3c;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">+ Role</button>'
-        + '<button onclick="editRosterEmployee(\''+origEsc+'\')" style="background:#f0f4ff;border:1px solid #c2d1f3;color:#1e4fa3;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✎ Edit</button>'
-        + '<button onclick="removeRosterEmployee(\''+origEsc+'\')" style="background:#fff0f0;border:1px solid #f3c2c9;color:#c8102e;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;">✕ Remove</button>'
+        + '<button onclick="openAddRoleModal(\''+origEsc+'\')" style="background:#f0fff4;border:1px solid #b7e4c7;color:#1a7a3c;border-radius:6px;padding:5px 0;font-size:12px;cursor:pointer;flex:0 0 74px;width:74px;text-align:center;box-sizing:border-box;">+ Role</button>'
+        + '<button onclick="editRosterEmployee(\''+origEsc+'\')" style="background:#f0f4ff;border:1px solid #c2d1f3;color:#1e4fa3;border-radius:6px;padding:5px 0;font-size:12px;cursor:pointer;flex:0 0 74px;width:74px;text-align:center;box-sizing:border-box;">✎ Edit</button>'
+        + '<button onclick="removeRosterEmployee(\''+origEsc+'\')" style="background:#fff0f0;border:1px solid #f3c2c9;color:#c8102e;border-radius:6px;padding:5px 0;font-size:12px;cursor:pointer;flex:0 0 74px;width:74px;text-align:center;box-sizing:border-box;">✕ Remove</button>'
         + '</div></div>';
     }).join('');
   }
