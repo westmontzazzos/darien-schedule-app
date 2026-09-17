@@ -9141,7 +9141,13 @@ function renderPrivate() {
   // never returned by any src() is invisible to this wage report.
   var coveredArrs = new Set();
   HLY.forEach(function(e){ e.src().forEach(function(a){ if(a) coveredArrs.add(a); }); });
-  var SAL_NAMES = {'Brett':1,'Jeremy':1,'Mike B':1,'Lisa B':1};
+  // Was hardcoded to just the 4 original salaried people -- meaning anyone
+  // added as Salaried through Manage Roster (correctly present in SAL now)
+  // still showed up here as a false "not in wage roster" warning, since
+  // this check never knew about them. Built from the same SAL array that
+  // actually pays them, so it can never drift out of sync again.
+  var SAL_NAMES = {};
+  SAL.forEach(function(s){ SAL_NAMES[s.n] = 1; });
   var unmatched = [];
   [
     {d:MANAGERS,label:'Managers',type:'b'},{d:PIZZA,label:'Pizza',type:'b'},
