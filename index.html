@@ -8289,7 +8289,7 @@ function loadCustomRosterThenRender() {
     // the actual lookup map the merge below reads from. That's the real
     // reason an alias could look saved (showing "aka: x" in the panel) while
     // never actually taking effect on real schedule data.
-    CUSTOM_ALIASES_LIST.forEach(function(row){ NAME_ALIASES[row.alias.toLowerCase()] = row.canonical_name; });
+    CUSTOM_ALIASES_LIST.forEach(function(row){ NAME_ALIASES[row.alias.trim().toLowerCase()] = row.canonical_name.trim(); });
     ROLE_OVERRIDES = {};
     (results[5] || []).forEach(function(row){
       try { ROLE_OVERRIDES[row.original_name] = JSON.parse(row.roles_json || '[]'); } catch(e) {}
@@ -8324,7 +8324,10 @@ function loadCustomRosterThenRender() {
 function applyNameAliasesToSections() {
   [DRIVERS, MANAGERS, PIZZA, KITCHEN, PREP, BUS, DISH, SERVERS, BARTENDERS, CASHIERS, HOSTS].forEach(function(sectionObj){
     Object.keys(sectionObj).forEach(function(key){
-      var canonical = NAME_ALIASES[key.toLowerCase()];
+      // .trim() matters here: a name coming from an AI-parsed photo upload
+      // can easily pick up a stray leading/trailing space, which would make
+      // this lookup silently fail even though the name looks identical.
+      var canonical = NAME_ALIASES[key.trim().toLowerCase()];
       if(!canonical || canonical === key) return; // no alias, or already canonical
       if(!sectionObj[canonical]) {
         // No existing entry under the canonical name in this section yet --
@@ -8779,6 +8782,13 @@ function finishEditAliases() {
 
 var LAST_PAYROLL = null;
 function renderPrivate() {
+  // Always re-apply aliases and roster seeding right here, as the very
+  // first thing this function does -- regardless of which code path called
+  // renderPrivate() or what order things happened to run in. Depending on
+  // every caller to sequence this correctly beforehand kept leaving gaps
+  // (multiple different buttons/timings led here without it).
+  if(typeof applyNameAliasesToSections === 'function') applyNameAliasesToSections();
+  if(typeof seedCustomRosterIntoSections === 'function') seedCustomRosterIntoSections();
   var SS=0.062, MED=0.0145, FUTA=42/52, SUTA=431/52;
   var DAYS_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   var WEEK_DATES_SHORT = FULL_DATES.map(function(d) {
@@ -10949,7 +10959,7 @@ function loadCustomAliasesIntoMap() {
   fetch(SUPABASE_URL + '/rest/v1/darien_name_aliases', {
     headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
   }).then(function(r){ return r.ok ? r.json() : []; }).then(function(rows){
-    (rows||[]).forEach(function(row){ NAME_ALIASES[row.alias.toLowerCase()] = row.canonical_name; });
+    (rows||[]).forEach(function(row){ NAME_ALIASES[row.alias.trim().toLowerCase()] = row.canonical_name.trim(); });
     // This can finish AFTER schedule data has already loaded and rendered
     // once (there's no guaranteed order on page load), which would mean an
     // alias gets loaded into memory but never actually gets applied to
