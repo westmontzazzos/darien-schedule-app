@@ -8903,6 +8903,20 @@ function renderPrivate() {
     {n:'Jeremy',s:70000,role:'Manager'},
     {n:'Brett',s:40000,role:'Manager'}
   ];
+  // Salaried additions from Manage Roster were saved correctly to the
+  // database this whole time, but nothing ever read them back in here --
+  // the "+Add Employee -> Salaried" path saved data with nowhere for it to
+  // actually go. This is the missing other half: fold in any active,
+  // non-removed salaried CUSTOM_ROSTER entry the same way a hardcoded one
+  // is defined above.
+  if(typeof CUSTOM_ROSTER !== 'undefined') {
+    var removedSalNames = (typeof CUSTOM_ROSTER_REMOVED !== 'undefined') ? CUSTOM_ROSTER_REMOVED.map(function(r){ return r.name; }) : [];
+    CUSTOM_ROSTER.forEach(function(p){
+      if(!p.is_salaried) return;
+      if(removedSalNames.indexOf(p.name) !== -1) return;
+      SAL.push({n: p.name, s: p.annual_salary, role: p.role_label || 'Staff', _origName: p.name});
+    });
+  }
   var HLY = [];
   var allRosterNames = {};
   Object.keys(DEFAULT_ROSTER).forEach(function(n){ allRosterNames[n] = true; });
