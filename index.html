@@ -4720,6 +4720,10 @@ document.addEventListener("DOMContentLoaded",function(){
       <label style="font-size:12px;color:#666;font-weight:700;">What did the register open at?</label>
       <input type="number" inputmode="decimal" step="0.01" id="drawer-opening-amount" value="250" oninput="recalcDrawerTotal()" style="width:90px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;text-align:right;">
     </div>
+    <div id="drawer-pos-row" style="display:none;align-items:center;gap:10px;margin-bottom:14px;">
+      <label style="font-size:12px;color:#666;font-weight:700;">What does the POS say the drawer should be at?</label>
+      <input type="number" inputmode="decimal" step="0.01" id="drawer-pos-expected" oninput="recalcDrawerTotal()" style="width:90px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;text-align:right;">
+    </div>
 
     <div id="drawer-section-coins"></div>
     <div id="drawer-section-rolls" style="margin-top:16px;"></div>
@@ -4729,6 +4733,7 @@ document.addEventListener("DOMContentLoaded",function(){
       <div style="font-size:11px;color:#888;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;">Total in Drawer</div>
       <div id="drawer-total-amount" style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:#222;">$0.00</div>
       <div id="drawer-pull-line" style="font-size:15px;font-weight:700;margin-top:4px;">—</div>
+      <div id="drawer-pos-variance-line" style="display:none;font-size:15px;font-weight:700;margin-top:6px;padding-top:6px;border-top:1px solid #e0ded9;">—</div>
     </div>
 
     <div style="display:flex;gap:10px;margin-top:16px;">
@@ -7943,6 +7948,9 @@ function selectDrawerRegister(reg) {
   });
   document.getElementById('drawer-count-form').style.display = 'block';
   document.getElementById('drawer-opening-amount').value = DRAWER_STARTING_BALANCE;
+  document.getElementById('drawer-pos-expected').value = '';
+  document.getElementById('drawer-pos-row').style.display = 'none';
+  document.getElementById('drawer-pos-variance-line').style.display = 'none';
   document.getElementById('drawer-cashier-name').value = '';
   var dateInput = document.getElementById('drawer-count-date');
   if(!dateInput.value) {
@@ -7980,6 +7988,14 @@ function selectDrawerType(type) {
     b.classList.toggle('btn-primary', b.getAttribute('data-type') === type);
     b.classList.toggle('btn-secondary', b.getAttribute('data-type') !== type);
   });
+  // The POS-expected comparison only makes sense at a handoff point -- a
+  // Shift Change or Closer count, where the POS has an actual running total
+  // to check against. An Opener has nothing to compare yet, and a Spot
+  // Check is informational only, same reasoning as the existing pull line.
+  var showPos = (type === 'shift_change' || type === 'closer');
+  document.getElementById('drawer-pos-row').style.display = showPos ? 'flex' : 'none';
+  document.getElementById('drawer-pos-variance-line').style.display = showPos ? 'block' : 'none';
+  recalcDrawerTotal();
 }
 
 function recalcDrawerTotal() {
@@ -8011,6 +8027,33 @@ function recalcDrawerTotal() {
     pullLine.textContent = '⚠️ SHORT $' + Math.abs(diff).toFixed(2);
     pullLine.style.color = '#c8102e';
   }
+  // POS variance is a completely separate check from the pull line above --
+  // the pull line is "how much cash to physically remove," this is "did the
+  // actual drawer match what the POS's own transaction total says it
+  // should have." Only meaningful at a handoff (Shift Change/Closer), and
+  // only once a POS figure has actually been entered.
+  var posLine = document.getElementById('drawer-pos-variance-line');
+  if(posLine && (_drawerSelectedType === 'shift_change' || _drawerSelectedType === 'closer')) {
+    var posEl = document.getElementById('drawer-pos-expected');
+    var posVal = posEl ? posEl.value.trim() : '';
+    if(posVal === '') {
+      posLine.textContent = 'Enter the POS amount above to check against it';
+      posLine.style.color = '#888';
+    } else {
+      var posExpected = parseFloat(posVal) || 0;
+      var posDiff = total - posExpected;
+      if(Math.abs(posDiff) < 0.005) {
+        posLine.textContent = 'POS check: EVEN';
+        posLine.style.color = '#1a7a3c';
+      } else if(posDiff > 0) {
+        posLine.textContent = 'POS check: OVER $' + posDiff.toFixed(2);
+        posLine.style.color = '#8a6d00';
+      } else {
+        posLine.textContent = 'POS check: ⚠️ SHORT $' + Math.abs(posDiff).toFixed(2);
+        posLine.style.color = '#c8102e';
+      }
+    }
+  }
   return total;
 }
 
@@ -8034,6 +8077,18 @@ function saveDrawerCount() {
   // Spot checks are informational only — verifying what's in the drawer,
   // never a handoff — so there's no pull amount to compute or act on.
   var pull = (_drawerSelectedType === 'spot_check') ? null : (total - openingAmt);
+  // POS expected/variance only applies at a handoff point (Shift Change or
+  // Closer), and only when an amount was actually entered -- an Opener has
+  // nothing from the POS to check yet.
+  var posExpected = null, posVariance = null;
+  if(_drawerSelectedType === 'shift_change' || _drawerSelectedType === 'closer') {
+    var posEl = document.getElementById('drawer-pos-expected');
+    var posVal = posEl ? posEl.value.trim() : '';
+    if(posVal !== '') {
+      posExpected = parseFloat(posVal) || 0;
+      posVariance = total - posExpected;
+    }
+  }
   var entry = {
     register: _drawerSelectedRegister,
     count_type: _drawerSelectedType,
@@ -8044,7 +8099,9 @@ function saveDrawerCount() {
     counts_json: JSON.stringify(breakdown),
     total: Math.round(total * 100) / 100,
     starting_balance: Math.round(openingAmt * 100) / 100,
-    pull_amount: pull != null ? Math.round(pull * 100) / 100 : null
+    pull_amount: pull != null ? Math.round(pull * 100) / 100 : null,
+    pos_expected: posExpected != null ? Math.round(posExpected * 100) / 100 : null,
+    pos_variance: posVariance != null ? Math.round(posVariance * 100) / 100 : null
   };
   fetch(SUPABASE_URL + '/rest/v1/darien_drawer_counts', {
     method: 'POST',
@@ -8084,10 +8141,23 @@ function renderDrawerCountRows(rows, list) {
       var t = new Date(r.counted_at);
       var timeStr = ((t.getHours()%12)||12) + ':' + String(t.getMinutes()).padStart(2,'0') + (t.getHours()>=12?'PM':'AM');
       var openedNote = (!isSpotCheck && r.starting_balance != null && Math.abs(r.starting_balance - DRAWER_STARTING_BALANCE) > 0.005) ? ' &middot; Opened $'+Number(r.starting_balance).toFixed(2) : '';
-      html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid '+(isShort?'#f3c2c9':'#eee')+';background:'+(isShort?'#fff5f6':'#fff')+';border-radius:8px;margin-bottom:6px;">'
+      // POS variance is the separate "did this drawer match what the POS's
+      // own transaction total says it should" check -- distinct from the
+      // pull line above, and only present on Shift Change/Closer counts
+      // where a POS figure was actually entered.
+      var posHtml = '';
+      var isPosShort = false;
+      if(r.pos_expected != null && r.pos_variance != null) {
+        isPosShort = r.pos_variance < -0.005;
+        var posLabel = Math.abs(r.pos_variance) < 0.005 ? 'POS: Even'
+          : (isPosShort ? 'POS: SHORT $'+Math.abs(r.pos_variance).toFixed(2) : 'POS: OVER $'+r.pos_variance.toFixed(2));
+        posHtml = '<div style="font-size:12px;font-weight:700;color:'+(isPosShort?'#c8102e':(Math.abs(r.pos_variance)<0.005?'#1a7a3c':'#8a6d00'))+';margin-top:2px;">'+posLabel+' (expected $'+Number(r.pos_expected).toFixed(2)+')</div>';
+      }
+      var rowFlagged = isShort || isPosShort;
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 10px;border:1px solid '+(rowFlagged?'#f3c2c9':'#eee')+';background:'+(rowFlagged?'#fff5f6':'#fff')+';border-radius:8px;margin-bottom:6px;">'
         + '<div><div style="font-size:13px;font-weight:700;color:#222;">'+r.register+' — '+typeLabel+(r.cashier_name?' — '+r.cashier_name:'')+'</div>'
         + '<div style="font-size:11px;color:#888;">Counted by '+(r.counted_by||'—')+' &middot; '+timeStr+' &middot; Total $'+Number(r.total).toFixed(2)+openedNote+'</div></div>'
-        + '<div style="font-size:13px;font-weight:700;color:'+(isSpotCheck?'#666':(isShort?'#c8102e':'#1a7a3c'))+';">'+pullLabel+'</div>'
+        + '<div style="text-align:right;"><div style="font-size:13px;font-weight:700;color:'+(isSpotCheck?'#666':(isShort?'#c8102e':'#1a7a3c'))+';">'+pullLabel+'</div>'+posHtml+'</div>'
         + '</div>';
     });
   });
@@ -8120,7 +8190,7 @@ function searchDrawerCounts() {
   if(regVal) params.push('register=eq.' + encodeURIComponent(regVal));
   if(fromVal) params.push('count_date=gte.' + fromVal);
   if(toVal) params.push('count_date=lte.' + toVal);
-  if(shortsOnly) params.push('pull_amount=lt.-0.005');
+  if(shortsOnly) params.push('or=(pull_amount.lt.-0.005,pos_variance.lt.-0.005)');
   // Name can match either whoever counted it (manager) or whoever was on the drawer (cashier)
   if(nameVal) {
     var esc = nameVal.replace(/,/g, '');
@@ -8185,12 +8255,14 @@ function buildDrawerCountsPDF(dateStr, rows) {
     }
   }
   ensurePage(0);
-  var p=0, y=58, bot=PH-M, rH=22;
+  var p=0, y=58, bot=PH-M, rH=22, posExtraH=12;
   function pb(need){ if(y+need>bot){ p+=1; ensurePage(p); y=58; } }
-  var totalAll=0, totalPull=0, shortCount=0;
+  var totalAll=0, totalPull=0, shortCount=0, posShortCount=0;
   rows.forEach(function(r, idx){
-    pb(rH);
-    if(idx%2===1) rect(p,M,y,PW-2*M,rH,[0.975,0.975,0.97]);
+    var hasPos = r.pos_expected != null && r.pos_variance != null;
+    var rowH = rH + (hasPos ? posExtraH : 0);
+    pb(rowH);
+    if(idx%2===1) rect(p,M,y,PW-2*M,rowH,[0.975,0.975,0.97]);
     var isShort = r.pull_amount < -0.005;
     var t = new Date(r.counted_at);
     var timeStr = ((t.getHours()%12)||12)+':'+String(t.getMinutes()).padStart(2,'0')+(t.getHours()>=12?'PM':'AM');
@@ -8200,16 +8272,25 @@ function buildDrawerCountsPDF(dateStr, rows) {
     text(p,CT,y+14,'$'+Number(r.total).toFixed(2),9.5,false,[0,0,0]);
     var pullStr = Math.abs(r.pull_amount) < 0.005 ? 'Even' : (isShort ? 'SHORT $'+Math.abs(r.pull_amount).toFixed(2) : 'Pull $'+Number(r.pull_amount).toFixed(2));
     rtext(p,CR,y+14,pullStr, 9.5, true, isShort ? [0.79,0.06,0.06] : [0.1,0.47,0.24]);
-    line(p,M,y+rH-1,PW-M,y+rH-1,[0.92,0.92,0.92],0.3);
+    // POS check is a separate line below the main row, only present when a
+    // POS figure was actually entered for this count (Shift Change/Closer).
+    var isPosShort = false;
+    if(hasPos) {
+      isPosShort = r.pos_variance < -0.005;
+      var posStr = 'POS check: ' + (Math.abs(r.pos_variance) < 0.005 ? 'Even' : (isPosShort ? 'SHORT $'+Math.abs(r.pos_variance).toFixed(2) : 'OVER $'+Number(r.pos_variance).toFixed(2))) + ' (expected $'+Number(r.pos_expected).toFixed(2)+')';
+      text(p,CN,y+14+posExtraH,posStr,8,false,isPosShort?[0.79,0.06,0.06]:[0.4,0.35,0.05]);
+      if(isPosShort) posShortCount++;
+    }
+    line(p,M,y+rowH-1,PW-M,y+rowH-1,[0.92,0.92,0.92],0.3);
     totalAll += Number(r.total);
     totalPull += Number(r.pull_amount);
     if(isShort) shortCount++;
-    y += rH;
+    y += rowH;
   });
   pb(26);
   y += 4;
   rect(p,M,y,PW-2*M,20,[0.12,0.12,0.12]);
-  text(p,M+8,y+14,'TOTAL COUNTED: $'+totalAll.toFixed(2)+'   |   NET PULL: $'+totalPull.toFixed(2)+(shortCount?'   |   '+shortCount+' REGISTER(S) SHORT':''),9,true,[1,1,1]);
+  text(p,M+8,y+14,'TOTAL COUNTED: $'+totalAll.toFixed(2)+'   |   NET PULL: $'+totalPull.toFixed(2)+(shortCount?'   |   '+shortCount+' REGISTER(S) SHORT':'')+(posShortCount?'   |   '+posShortCount+' POS SHORTAGE(S)':''),9,true,[1,1,1]);
   y += 30;
   text(p,M,y+9,'Pull/short is calculated against each register\'s recorded opening amount for that night. Opening manager: verify each register above against the physical drawer.',7.5,false,[0.55,0.55,0.55]);
   var objs=[];function addObj(s){objs.push(s);return objs.length;}
