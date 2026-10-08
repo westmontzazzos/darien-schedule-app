@@ -7015,7 +7015,7 @@ function acceptError(di, dept, msg) {
   // Who buttons
   var whoRow = document.createElement('div');
   whoRow.style.cssText = 'display:flex;gap:8px;margin-bottom:14px;';
-  ['Mike','Chelsea','Jeremy','Brett'].forEach(function(name){
+  ['Mike','Jeremy','Brett'].forEach(function(name){
     var b = document.createElement('button');
     b.className = 'zp-who-btn';
     b.style.cssText = 'flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;';
@@ -7645,7 +7645,7 @@ function getCurrentUser() {
 // its own row sharing one thread_id, so the whole exchange logs together
 // in the Schedule Log. Recipients are Darien's real sign-in identities so
 // a message addressed to someone actually reaches them on next load.
-var MSG_MANAGERS = ['Mike B','Chelsea','Jeremy','Brett','Ely','Dom'];
+var MSG_MANAGERS = ['Mike B','Jeremy','Brett','Ely','Dom'];
 var MSG_MANAGER_LABELS = {'Mike B':'Mike'};
 var _selectedMsgRecipients = [];
 var _pendingMsgAction = null;
@@ -11668,11 +11668,11 @@ function printScheduleErrors() {
 var uploadedImages = {boh: null, foh: null, csh: null, drv: null};
 
 // Upload permissions: who can save which schedule sections. Anyone NOT listed
-// here (Mike, Ely, Brett, custom names) has unrestricted access by default —
-// only Jeremy and Chelsea are locked to a single section.
+// here (Mike, Ely, Brett, custom names) has unrestricted access by default.
+// Chelsea is gone from the roster entirely -- Jeremy now covers both his
+// original Drivers area and Cashiers (what she used to handle).
 var UPLOAD_PERMISSIONS = {
-  'Jeremy': ['drv'],
-  'Chelsea': ['csh']
+  'Jeremy': ['drv', 'csh']
 };
 function canUploadType(type) {
   var user = getCurrentUser();
@@ -12251,7 +12251,7 @@ function showOverrideLog(btn) {
   var body = document.getElementById('override-log-body');
   body.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:20px;">Loading...</div>';
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var REQUIRED_ACK_MANAGERS = ['Chelsea','Jeremy','Brett'];
+  var REQUIRED_ACK_MANAGERS = ['Jeremy','Brett'];
 
   function escHtml(s) {
     return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -12507,7 +12507,6 @@ function handleLockIconTap() {
     <div style="font-size:13px;color:#888;margin-bottom:20px;">This is a one-time setup. Your name will be saved on this device.</div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <button onclick="setIdentity('Mike B')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Mike</button>
-      <button onclick="setIdentity('Chelsea')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Chelsea</button>
       <button onclick="setIdentity('Jeremy')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Jeremy</button>
       <button onclick="setIdentity('Brett')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Brett</button>
       <button onclick="setIdentity('Ely')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Ely</button>
@@ -12986,7 +12985,7 @@ function printDomsNoteFromAck(note, user) {
 var _schedPrintView = null;
 
 // Opens the section picker. Different people manage different sections
-// (Jeremy does Drivers, Chelsea does Cashiers, etc.) so copying always
+// (Jeremy does Drivers and Cashiers, etc.) so copying always
 // touches only what's explicitly checked — everything else on the target
 // week is left exactly as it already is.
 var _copyWeekNextStr = null;
