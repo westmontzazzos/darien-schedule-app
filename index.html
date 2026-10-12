@@ -9387,7 +9387,7 @@ function renderPrivate() {
       var w=wageFor(e);
       var oH=w.oH, otCost=w.oP;
       gtOT+=otCost;
-      html+='<tr><td><strong><a href="#" onclick="showOTDetail(\''+e.n.replace(/'/g,"\\'")+'\');return false;" style="color:var(--red);text-decoration:underline;">'+e.n+'</a></strong></td><td>'+e.role+'</td><td>'+e.wh.toFixed(1)+'h</td>';
+      html+='<tr><td><button onclick="showOTDetail(\''+e.n.replace(/'/g,"\\'")+'\')" style="background:#fff0f0;border:1px solid #f3c2c9;color:var(--red);border-radius:8px;padding:6px 12px;font-weight:700;font-size:13px;cursor:pointer;min-height:36px;">'+e.n+' ›</button></td><td>'+e.role+'</td><td>'+e.wh.toFixed(1)+'h</td>';
       html+='<td style="color:var(--red);font-weight:700">'+oH.toFixed(1)+'h</td>';
       html+='<td>$'+w.avgRate.toFixed(2)+' avg × 1.5 = $'+(w.avgRate*1.5).toFixed(2)+'/hr</td>';
       html+='<td style="color:var(--red);font-weight:700">'+fmt$(otCost)+'</td></tr>';
