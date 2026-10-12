@@ -8823,16 +8823,20 @@ function editRosterEmployee(origName) {
 
 var _editAliasesTarget = null;
 var _otDetailCurrent = null;
-function showOTDetail(name) {
-  if(!LAST_PAYROLL || !LAST_PAYROLL.hly) return;
-  var person = LAST_PAYROLL.hly.find(function(e){ return e.n === name; });
-  if(!person || !person.dayBreakdown) { alert('No hour breakdown available for ' + name + '.'); return; }
-  _otDetailCurrent = person;
+function showOTDetailFromBtn(btn) {
+  var name = btn.getAttribute('data-name');
+  var breakdown;
+  try { breakdown = JSON.parse(btn.getAttribute('data-breakdown')); } catch(e) { breakdown = null; }
+  showOTDetail(name, breakdown);
+}
+function showOTDetail(name, dayBreakdown) {
+  if(!dayBreakdown || !dayBreakdown.length) { alert('No hour breakdown available for ' + name + '.'); return; }
+  _otDetailCurrent = {n: name, dayBreakdown: dayBreakdown};
   document.getElementById('ot-detail-name').textContent = name + ' — Hours This Week';
   var body = document.getElementById('ot-detail-body');
   var rowsHtml = '';
   var weekRegTotal = 0, weekOtTotal = 0;
-  person.dayBreakdown.forEach(function(d, di){
+  dayBreakdown.forEach(function(d, di){
     weekRegTotal += d.reg; weekOtTotal += d.ot;
     if(d.reg < 0.01 && d.ot < 0.01) {
       rowsHtml += '<div style="padding:9px 0;border-bottom:1px solid #f0efec;display:flex;justify-content:space-between;">'
@@ -9387,7 +9391,11 @@ function renderPrivate() {
       var w=wageFor(e);
       var oH=w.oH, otCost=w.oP;
       gtOT+=otCost;
-      html+='<tr><td><button onclick="showOTDetail(\''+e.n.replace(/'/g,"\\'")+'\')" style="background:#fff0f0;border:1px solid #f3c2c9;color:var(--red);border-radius:8px;padding:6px 12px;font-weight:700;font-size:13px;cursor:pointer;min-height:36px;">'+e.n+' ›</button></td><td>'+e.role+'</td><td>'+e.wh.toFixed(1)+'h</td>';
+      // The day breakdown is embedded directly on the button itself (not
+      // looked up later from a shared variable at click time) -- this way
+      // there is nothing that can possibly be stale or out of sync by the
+      // time someone actually taps it.
+      html+='<tr><td><button data-name="'+e.n.replace(/"/g,'&quot;')+'" data-breakdown=\''+JSON.stringify(e._dayBreakdown||[]).replace(/'/g,'&apos;')+'\' onclick="showOTDetailFromBtn(this)" style="background:#fff0f0;border:1px solid #f3c2c9;color:var(--red);border-radius:8px;padding:6px 12px;font-weight:700;font-size:13px;cursor:pointer;min-height:36px;">'+e.n+' ›</button></td><td>'+e.role+'</td><td>'+e.wh.toFixed(1)+'h</td>';
       html+='<td style="color:var(--red);font-weight:700">'+oH.toFixed(1)+'h</td>';
       html+='<td>$'+w.avgRate.toFixed(2)+' avg × 1.5 = $'+(w.avgRate*1.5).toFixed(2)+'/hr</td>';
       html+='<td style="color:var(--red);font-weight:700">'+fmt$(otCost)+'</td></tr>';
