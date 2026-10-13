@@ -6558,7 +6558,7 @@ function showPINModal(onSuccess) {
   okBtn.style.cssText = 'flex:1;padding:13px;background:#0d0d0d;color:#fff;border:none;border-radius:10px;font-size:18px;font-weight:700;cursor:pointer;';
   okBtn.textContent = 'UNLOCK';
   okBtn.addEventListener('click', function(){
-    if(inp.value === '2026') {
+    if(inp.value === '1044') {
       var m=document.getElementById('pin-adj-modal'); if(m) document.body.removeChild(m);
       onSuccess();
     } else {
@@ -7082,7 +7082,7 @@ function acceptError(di, dept, msg) {
     var inp = document.createElement('input');
     inp.id = 'zp-override-pin';
     inp.type = 'hidden';
-    inp.value = '2026';
+    inp.value = '1044';
     inner.appendChild(inp);
   }
 
@@ -7130,7 +7130,7 @@ function zpConfirmOverride(di, dept, msg) {
   if(!window._zpOverrideWho) { alert('Please select who is overriding.'); return; }
   if(!window._zpOverrideAck) { alert('Please select an acknowledgment.'); return; }
   var pin = (document.getElementById('zp-override-pin')||{}).value;
-  if(String(pin).trim() !== '2026') {
+  if(String(pin).trim() !== '1044') {
     var pinInp = document.getElementById('zp-override-pin');
     if(pinInp){ pinInp.style.borderColor='#E31010'; pinInp.value=''; pinInp.placeholder='Incorrect PIN'; }
     return;
@@ -7434,7 +7434,7 @@ async function toggleSchedEditMode() {
     // Ask PIN
     if(!window._editorUnlocked) {
       var pin = await askPin('Enter PIN to edit schedule');
-      if(pin !== '2026') { if(pin !== null) alert('Incorrect PIN.'); return; }
+      if(pin !== '1044') { if(pin !== null) alert('Incorrect PIN.'); return; }
       window._editorUnlocked = true;
     }
     window._schedEditMode = true;
@@ -10483,7 +10483,7 @@ async function openEditor(di, focusName) {
   // Only ask PIN once per session
   if(!window._editorUnlocked) {
     var pin = await askPin('Enter PIN to edit schedule');
-    if(pin !== '2026') {
+    if(pin !== '1044') {
       if(pin !== null) alert('Incorrect PIN.');
       return;
     }
@@ -12050,7 +12050,7 @@ async function clearWeekRecord() {
   if(!weekStart) { alert('Please select a week start date first.'); return; }
 
   var pin = await askPin('Enter PIN to clear schedule');
-  if(pin !== '2026') { if(pin !== null) alert('Incorrect PIN.'); return; }
+  if(pin !== '1044') { if(pin !== null) alert('Incorrect PIN.'); return; }
 
   var d = new Date(weekStart + 'T00:00:00');
   var end = new Date(d); end.setDate(d.getDate() + 6);
