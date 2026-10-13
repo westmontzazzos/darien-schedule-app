@@ -5375,8 +5375,8 @@ const DEFAULT_ROSTER = {
   'Chelsea': [{role:'Manager',rate:20,keys:['Chelsea']}],
   'Broccoli': [{role:'Kitchen',rate:18,keys:['Broccoli']}],
   'Javier': [{role:'Kitchen',rate:19,keys:['Javier']}],
-  'Jesus': [{role:'Pizza',rate:21,keys:['Jesus']},{role:'Kitchen',rate:21,keys:['Jesus']}],
-  'Arturo': [{role:'Kitchen',rate:21,keys:['Arturo']},{role:'Pizza',rate:21,keys:['Arturo']}],
+  'Jesus': [{role:'Utility',rate:21,keys:['Jesus']}],
+  'Arturo': [{role:'Utility',rate:21,keys:['Arturo']}],
   'Laura Z': [{role:'Pizza',rate:20,keys:['Laura Z']},{role:'Kitchen',rate:20,keys:['Laura Z']},{role:'Cashier',rate:20,keys:['Laura Z']}],
   'Gustavo': [{role:'Pizza',rate:20,keys:['Gustavo']},{role:'Kitchen',rate:20,keys:['Gustavo']},{role:'Cashier',rate:20,keys:['Gustavo']}],
   'Francisco': [{role:'Pizza',rate:21,keys:['Francisco']}],
@@ -5428,17 +5428,30 @@ const PIZZA = {
   'Junior': [null,null,null,null,null,null,null],
   'Valente': [null,null,null,null,null,null,null],
   'Luis': [null,null,null,null,null,null,null],
-  'Arturo': [null,null,null,null,null,null,null],
   'Laura Z': [null,null,null,null,null,null,null],
   'Gustavo': [null,null,null,null,null,null,null],
 };
 const KITCHEN = {
   'Javier': [null,null,null,null,null,null,null],
-  'Jesus': [null,null,null,null,null,null,null],
   'Broccoli': [null,null,null,null,null,null,null],
-  'Arturo': [null,null,null,null,null,null,null],
   'Laura Z': [null,null,null,null,null,null,null],
   'Gustavo': [null,null,null,null,null,null,null],
+};
+// Utility: Arturo and Jesus float between Pizza and Kitchen day to day, but
+// never work both at once. They used to be listed in BOTH sections with a
+// full shift in each, which meant a real 6-hour shift got paid as 12 --
+// every "Kitchen" role-item and every "Pizza" role-item independently read
+// the same underlying shift and both counted it. One section, one shift per
+// day, solves that at the root. UTILITY_ROLE is a separate, parallel array
+// that just records which one (P or K) they actually did that day -- for
+// display only, never involved in computing hours or pay.
+const UTILITY = {
+  'Arturo': [null,null,null,null,null,null,null],
+  'Jesus': [null,null,null,null,null,null,null],
+};
+const UTILITY_ROLE = {
+  'Arturo': [null,null,null,null,null,null,null],
+  'Jesus': [null,null,null,null,null,null,null],
 };
 // Darien has no Prep or Bus sections (BOH = Pizza, Kitchen, Dish only). Left empty
 // rather than removed so the rest of the app's section-rendering code needs no rework.
@@ -5543,7 +5556,7 @@ const HOSTS = {
 // reference a section by its string name, since these are top-level `const`
 // declarations and are not reachable via window['SERVERS'] etc.
 const SECTION_ARRAYS = {
-  DRIVERS, MANAGERS, PIZZA, KITCHEN, DISH, PREP, BUS, SERVERS, BARTENDERS, CASHIERS, HOSTS
+  DRIVERS, MANAGERS, PIZZA, KITCHEN, DISH, PREP, BUS, SERVERS, BARTENDERS, CASHIERS, HOSTS, UTILITY
 };
 // role label -> {arrName, type}. type 'b' = BOH (uses weekHrsB), 'f' = FOH (uses weekHrsF + role2)
 const CUSTOM_ROLE_MAP = {
@@ -5557,7 +5570,8 @@ const CUSTOM_ROLE_MAP = {
   'Kitchen':   {arr:'KITCHEN',    type:'b'},
   'Dish':      {arr:'DISH',       type:'b'},
   'Prep':      {arr:'PREP',       type:'b'},
-  'Bus':       {arr:'BUS',        type:'b'}
+  'Bus':       {arr:'BUS',        type:'b'},
+  'Utility':   {arr:'UTILITY',    type:'b'}
 };
 
 // Canonical FOH roster per section, captured before any week's data replaces these.
@@ -7458,7 +7472,13 @@ async function saveSchedInlineEdits() {
     var name = inp.dataset.name;
     var di = parseInt(inp.dataset.di);
     var val = inp.value.trim();
-    var secObj = {MANAGERS:MANAGERS,DRIVERS:DRIVERS,PIZZA:PIZZA,KITCHEN:KITCHEN,PREP:PREP,BUS:BUS,DISH:DISH,SERVERS:SERVERS,BARTENDERS:BARTENDERS,CASHIERS:CASHIERS,HOSTS:HOSTS}[section];
+    // UTILITY_ROLE just stores a plain "P"/"K" string per day -- not a shift
+    // time at all, so it skips every time-parsing branch below entirely.
+    if(section === 'UTILITY_ROLE') {
+      if(UTILITY_ROLE[name] !== undefined) UTILITY_ROLE[name][di] = val || null;
+      return;
+    }
+    var secObj = {MANAGERS:MANAGERS,DRIVERS:DRIVERS,PIZZA:PIZZA,KITCHEN:KITCHEN,PREP:PREP,BUS:BUS,DISH:DISH,UTILITY:UTILITY,SERVERS:SERVERS,BARTENDERS:BARTENDERS,CASHIERS:CASHIERS,HOSTS:HOSTS}[section];
     if(!secObj || secObj[name] === undefined) return;
     if(FOH_SECTIONS[section]) {
       if(!val) { secObj[name][di] = null; return; }
@@ -7484,7 +7504,7 @@ async function saveSchedInlineEdits() {
       method: 'PATCH',
       headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=minimal'},
       body: JSON.stringify({
-        boh_data: JSON.stringify({MANAGERS:MANAGERS,PIZZA:PIZZA,KITCHEN:KITCHEN,PREP:PREP,BUS:BUS,DISH:DISH}),
+        boh_data: JSON.stringify({MANAGERS:MANAGERS,PIZZA:PIZZA,KITCHEN:KITCHEN,PREP:PREP,BUS:BUS,DISH:DISH,UTILITY:UTILITY,UTILITY_ROLE:UTILITY_ROLE}),
         foh_data: JSON.stringify({SERVERS:SERVERS,BARTENDERS:BARTENDERS,HOSTS:HOSTS}),
         cashier_data: JSON.stringify(CASHIERS),
         driver_data: JSON.stringify(DRIVERS),
@@ -7584,11 +7604,33 @@ function renderSchedule() {
       html+='</tr>';
     });
   } else {
-    [{l:'MANAGERS',d:MANAGERS},{l:'PIZZA',d:PIZZA},{l:'KITCHEN',d:KITCHEN},{l:'PREP',d:PREP},{l:'BUS',d:BUS},{l:'DISH',d:DISH}].forEach(({l,d})=>{
+    [{l:'MANAGERS',d:MANAGERS},{l:'PIZZA',d:PIZZA},{l:'KITCHEN',d:KITCHEN},{l:'PREP',d:PREP},{l:'BUS',d:BUS},{l:'DISH',d:DISH},{l:'UTILITY',d:UTILITY}].forEach(({l,d})=>{
       html+=`<tr class="sched-sec-hdr"><td colspan="8">${l}</td></tr>`;
       schedSort(Object.entries(d),'boh').forEach(([name,days])=>{
         html+=`<tr><td>${name}</td>`;
         days.forEach((raw,di)=>{
+          if(l==='UTILITY'){
+            // Utility floats between Pizza and Kitchen day to day -- the P/K
+            // choice is tracked separately in UTILITY_ROLE, purely for
+            // display (which role they actually worked that day). It plays
+            // no part in computing hours; the time itself is what's counted.
+            var curRole = (UTILITY_ROLE[name] && UTILITY_ROLE[name][di]) || '';
+            if(window._schedEditMode){
+              html+=`<td style="white-space:nowrap;">`
+                + `<input class="sched-inline-input" data-section="UTILITY" data-name="${name}" data-di="${di}" value="${raw||''}" style="width:52px;font-size:11px;padding:2px 3px;border:1px solid #ddd;border-radius:4px;">`
+                + `<select class="sched-inline-input" data-section="UTILITY_ROLE" data-name="${name}" data-di="${di}" style="width:34px;font-size:11px;padding:2px 1px;border:1px solid #ddd;border-radius:4px;margin-left:2px;">`
+                + `<option value=""${curRole?'':' selected'}>-</option>`
+                + `<option value="P"${curRole==='P'?' selected':''}>P</option>`
+                + `<option value="K"${curRole==='K'?' selected':''}>K</option>`
+                + `</select></td>`;
+              return;
+            }
+            const p=parseBOH(raw,di);
+            if(!p){html+='<td></td>';return;}
+            var roleTag = curRole ? ` <span style="font-weight:700;color:var(--red);">(${curRole})</span>` : '';
+            html+=`<td>${p.p?p.a+' – '+p.p:p.a}${roleTag}</td>`;
+            return;
+          }
           if(window._schedEditMode){
             html+=`<td><input class="sched-inline-input" data-section="${l}" data-name="${name}" data-di="${di}" value="${raw||''}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;"></td>`;
             return;
@@ -8421,7 +8463,7 @@ function loadCustomRosterThenRender() {
 // every time schedule data loads, so an alias takes effect immediately for
 // whatever's already saved, not just future uploads.
 function applyNameAliasesToSections() {
-  [DRIVERS, MANAGERS, PIZZA, KITCHEN, PREP, BUS, DISH, SERVERS, BARTENDERS, CASHIERS, HOSTS].forEach(function(sectionObj){
+  [DRIVERS, MANAGERS, PIZZA, KITCHEN, PREP, BUS, DISH, SERVERS, BARTENDERS, CASHIERS, HOSTS, UTILITY].forEach(function(sectionObj){
     Object.keys(sectionObj).forEach(function(key){
       // .trim() matters here: a name coming from an AI-parsed photo upload
       // can easily pick up a stray leading/trailing space, which would make
@@ -8824,6 +8866,28 @@ function editRosterEmployee(origName) {
 
 var _editAliasesTarget = null;
 var _otDetailCurrent = null;
+function buildOTScreenTable(person){
+  var weekRegTotal = 0, weekOtTotal = 0;
+  var rows = '';
+  (person.dayBreakdown || []).forEach(function(d, di){
+    weekRegTotal += d.reg; weekOtTotal += d.ot;
+    var isOff = d.reg < 0.01 && d.ot < 0.01;
+    var dayTotal = d.reg + d.ot;
+    rows += '<tr>'
+      + '<td style="padding:6px 4px;font-weight:700;font-size:12px;">' + DAYS[di].slice(0,3) + '</td>'
+      + '<td style="padding:6px 4px;text-align:right;color:#1a7a3c;font-weight:700;font-size:12px;">' + (isOff ? '—' : d.reg.toFixed(1)) + '</td>'
+      + '<td style="padding:6px 4px;text-align:right;color:#c8102e;font-weight:700;font-size:12px;">' + (isOff || d.ot < 0.01 ? '—' : d.ot.toFixed(1)) + '</td>'
+      + '<td style="padding:6px 4px;text-align:right;font-weight:700;font-size:12px;">' + (isOff ? '—' : dayTotal.toFixed(1)) + '</td>'
+      + '</tr>';
+  });
+  rows += '<tr style="border-top:2px solid #222;">'
+    + '<td style="padding:6px 4px;font-weight:700;font-size:12px;">Total</td>'
+    + '<td style="padding:6px 4px;text-align:right;color:#1a7a3c;font-weight:700;font-size:12px;">' + weekRegTotal.toFixed(1) + '</td>'
+    + '<td style="padding:6px 4px;text-align:right;color:#c8102e;font-weight:700;font-size:12px;">' + weekOtTotal.toFixed(1) + '</td>'
+    + '<td style="padding:6px 4px;text-align:right;font-weight:700;font-size:12px;">' + (weekRegTotal+weekOtTotal).toFixed(1) + '</td>'
+    + '</tr>';
+  return rows;
+}
 function openOTBreakdownModal() {
   renderPrivate(); // guarantees window._otEmpsForModal is freshly computed right now
   var people = window._otEmpsForModal || [];
@@ -8834,30 +8898,17 @@ function openOTBreakdownModal() {
     document.getElementById('ot-detail-modal').style.display = 'flex';
     return;
   }
+  var tableHeader = '<tr style="border-bottom:2px solid #222;">'
+    + '<th style="text-align:left;padding:4px;font-size:10px;color:#888;text-transform:uppercase;">Day</th>'
+    + '<th style="text-align:right;padding:4px;font-size:10px;color:#888;text-transform:uppercase;">Regular</th>'
+    + '<th style="text-align:right;padding:4px;font-size:10px;color:#888;text-transform:uppercase;">OT</th>'
+    + '<th style="text-align:right;padding:4px;font-size:10px;color:#888;text-transform:uppercase;">Total</th>'
+    + '</tr>';
   var html = '';
   people.forEach(function(person, pi){
-    if(pi > 0) html += '<div style="height:1px;background:#e5e3de;margin:14px 0;"></div>';
-    html += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:16px;letter-spacing:0.04em;color:#222;margin-bottom:4px;">' + person.n + ' <span style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:#999;font-weight:400;">' + person.role + '</span></div>';
-    var weekRegTotal = 0, weekOtTotal = 0;
-    (person.dayBreakdown || []).forEach(function(d, di){
-      weekRegTotal += d.reg; weekOtTotal += d.ot;
-      if(d.reg < 0.01 && d.ot < 0.01) {
-        html += '<div style="padding:7px 0;border-bottom:1px solid #f0efec;display:flex;justify-content:space-between;">'
-          + '<span style="font-weight:700;font-size:12.5px;">' + DAYS[di] + '</span>'
-          + '<span style="color:#bbb;font-size:12.5px;">Off</span></div>';
-        return;
-      }
-      html += '<div style="padding:7px 0;border-bottom:1px solid #f0efec;">'
-        + '<div style="font-weight:700;font-size:12.5px;margin-bottom:2px;">' + DAYS[di] + ' <span style="font-weight:400;color:#999;font-size:10.5px;">' + (FULL_DATES[di]||'') + '</span></div>'
-        + '<div style="display:flex;gap:14px;">'
-        + (d.reg >= 0.01 ? '<span style="color:#1a7a3c;font-weight:700;font-size:13px;">' + d.reg.toFixed(1) + 'h regular</span>' : '')
-        + (d.ot >= 0.01 ? '<span style="color:#c8102e;font-weight:700;font-size:13px;">' + d.ot.toFixed(1) + 'h OT</span>' : '')
-        + '</div></div>';
-    });
-    html += '<div style="padding:8px 0 0;display:flex;justify-content:space-between;font-weight:700;font-size:12.5px;">'
-      + '<span>Total</span>'
-      + '<span><span style="color:#1a7a3c;">' + weekRegTotal.toFixed(1) + 'h reg</span> &nbsp; <span style="color:#c8102e;">' + weekOtTotal.toFixed(1) + 'h OT</span></span>'
-      + '</div>';
+    if(pi > 0) html += '<div style="height:1px;background:#e5e3de;margin:16px 0;"></div>';
+    html += '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:17px;letter-spacing:0.04em;color:#222;margin-bottom:6px;">' + person.n + ' <span style="font-family:\'DM Sans\',sans-serif;font-size:11px;color:#999;font-weight:400;">' + person.role + '</span></div>';
+    html += '<table style="width:100%;border-collapse:collapse;">' + tableHeader + buildOTScreenTable(person) + '</table>';
   });
   body.innerHTML = html;
   _otDetailCurrent = {n: 'All OT Employees', dayBreakdown: null, multiPerson: people};
@@ -8906,11 +8957,13 @@ function buildOTTableRows(person){
   (person.dayBreakdown||[]).forEach(function(d, di){
     weekRegTotal += d.reg; weekOtTotal += d.ot;
     var isOff = d.reg < 0.01 && d.ot < 0.01;
+    var dayTotal = d.reg + d.ot;
     rows += '<tr><td>' + DAYS[di] + '</td><td>' + (FULL_DATES[di]||'') + '</td>'
       + '<td class="reg">' + (isOff ? '—' : d.reg.toFixed(1) + 'h') + '</td>'
-      + '<td class="ot">' + (isOff || d.ot < 0.01 ? '—' : d.ot.toFixed(1) + 'h') + '</td></tr>';
+      + '<td class="ot">' + (isOff || d.ot < 0.01 ? '—' : d.ot.toFixed(1) + 'h') + '</td>'
+      + '<td>' + (isOff ? '—' : dayTotal.toFixed(1) + 'h') + '</td></tr>';
   });
-  rows += '<tr class="total-row"><td colspan="2">Week Total</td><td class="reg">' + weekRegTotal.toFixed(1) + 'h</td><td class="ot">' + weekOtTotal.toFixed(1) + 'h</td></tr>';
+  rows += '<tr class="total-row"><td colspan="2">Week Total</td><td class="reg">' + weekRegTotal.toFixed(1) + 'h</td><td class="ot">' + weekOtTotal.toFixed(1) + 'h</td><td>' + (weekRegTotal+weekOtTotal).toFixed(1) + 'h</td></tr>';
   return rows;
 }
 function printOTDetail() {
@@ -8934,13 +8987,13 @@ function printOTDetail() {
     person.multiPerson.forEach(function(p, pi){
       if(pi > 0) html += '<div style="height:1px;background:#ddd;margin:22px 0;"></div>';
       html += '<h2 style="font-size:15px;margin:0 0 10px;">' + p.n + (p.role ? ' <span style="font-weight:400;color:#888;font-size:12px;">' + p.role + '</span>' : '') + '</h2>'
-        + '<table><thead><tr><th>Day</th><th>Date</th><th>Regular</th><th>Overtime</th></tr></thead><tbody>'
+        + '<table><thead><tr><th>Day</th><th>Date</th><th>Regular</th><th>Overtime</th><th>Total</th></tr></thead><tbody>'
         + buildOTTableRows(p) + '</tbody></table>';
     });
   } else {
     html += '<h1>' + person.n + '</h1>'
       + '<div class="sub">Weekly Hours Breakdown — Regular vs Overtime</div>'
-      + '<table><thead><tr><th>Day</th><th>Date</th><th>Regular</th><th>Overtime</th></tr></thead><tbody>'
+      + '<table><thead><tr><th>Day</th><th>Date</th><th>Regular</th><th>Overtime</th><th>Total</th></tr></thead><tbody>'
       + buildOTTableRows(person) + '</tbody></table>';
   }
   html += '<script>window.print();<\/script></body></html>';
@@ -9607,7 +9660,7 @@ function computeWeekDailyLaborCost(bohObj, fohObj, cshObj, drvObj) {
       }
     });
   }
-  ['MANAGERS','PIZZA','KITCHEN','PREP','BUS','DISH'].forEach(function(sec){ addBOHStyle(bohObj && bohObj[sec]); });
+  ['MANAGERS','PIZZA','KITCHEN','PREP','BUS','DISH','UTILITY'].forEach(function(sec){ addBOHStyle(bohObj && bohObj[sec]); });
   ['SERVERS','BARTENDERS','HOSTS'].forEach(function(sec){ addFOHStyle(fohObj && fohObj[sec]); });
   addFOHStyle(cshObj);
   addBOHStyle(drvObj);
@@ -10474,6 +10527,7 @@ async function openEditor(di, focusName) {
     {label:'PREP', data:PREP, type:'boh'},
     {label:'BUS', data:BUS, type:'boh'},
     {label:'DISH', data:DISH, type:'boh'},
+    {label:'UTILITY', data:UTILITY, type:'boh'},
     {label:'SERVERS', data:SERVERS, type:'foh'},
     {label:'BARTENDERS', data:BARTENDERS, type:'foh'},
     {label:'HOSTS', data:HOSTS, type:'foh'},
@@ -10561,7 +10615,7 @@ async function saveEdits() {
 
   var sectionMaps = {
     'MANAGERS': MANAGERS, 'PIZZA': PIZZA, 'KITCHEN': KITCHEN,
-    'PREP': PREP, 'BUS': BUS, 'DISH': DISH,
+    'PREP': PREP, 'BUS': BUS, 'DISH': DISH, 'UTILITY': UTILITY,
     'SERVERS': SERVERS, 'BARTENDERS': BARTENDERS,
     'CASHIERS': CASHIERS, 'HOSTS': HOSTS, 'DRIVERS': DRIVERS
   };
@@ -10607,7 +10661,7 @@ async function saveEdits() {
           'Prefer': 'return=minimal'
         },
         body: JSON.stringify({
-          boh_data: JSON.stringify({MANAGERS:MANAGERS,PIZZA:PIZZA,KITCHEN:KITCHEN,PREP:PREP,BUS:BUS,DISH:DISH}),
+          boh_data: JSON.stringify({MANAGERS:MANAGERS,PIZZA:PIZZA,KITCHEN:KITCHEN,PREP:PREP,BUS:BUS,DISH:DISH,UTILITY:UTILITY,UTILITY_ROLE:UTILITY_ROLE}),
           foh_data: JSON.stringify({SERVERS:SERVERS,BARTENDERS:BARTENDERS,HOSTS:HOSTS}),
           cashier_data: JSON.stringify(CASHIERS),
           driver_data: JSON.stringify(DRIVERS),
@@ -10957,6 +11011,10 @@ function parseWeekData(week) {
     if(boh.PREP)     boh.PREP     = cleanNames(boh.PREP);
     if(boh.BUS)      boh.BUS      = cleanNames(boh.BUS);
     if(boh.DISH)     boh.DISH     = cleanNames(boh.DISH);
+    if(boh.UTILITY)  boh.UTILITY  = cleanNames(boh.UTILITY);
+    // UTILITY_ROLE is keyed by the same names as UTILITY but isn't itself a
+    // shift-time section, so it skips cleanNames (which expects shift-time
+    // values, not "P"/"K" strings).
     if(foh.SERVERS)    foh.SERVERS    = cleanNames(foh.SERVERS);
     if(foh.BARTENDERS) foh.BARTENDERS = cleanNames(foh.BARTENDERS);
     if(foh.HOSTS)      foh.HOSTS      = cleanNames(foh.HOSTS);
@@ -10968,6 +11026,8 @@ function parseWeekData(week) {
     Object.keys(PREP).forEach(k => delete PREP[k]);         if(boh.PREP)     Object.assign(PREP, boh.PREP);
     Object.keys(BUS).forEach(k => delete BUS[k]);           if(boh.BUS)      Object.assign(BUS, boh.BUS);
     Object.keys(DISH).forEach(k => delete DISH[k]);         if(boh.DISH)     Object.assign(DISH, boh.DISH);
+    Object.keys(UTILITY).forEach(k => delete UTILITY[k]);   if(boh.UTILITY)  Object.assign(UTILITY, boh.UTILITY);
+    Object.keys(UTILITY_ROLE).forEach(k => delete UTILITY_ROLE[k]); if(boh.UTILITY_ROLE) Object.assign(UTILITY_ROLE, boh.UTILITY_ROLE);
     Object.keys(SERVERS).forEach(k => delete SERVERS[k]);       if(foh.SERVERS)    Object.assign(SERVERS, foh.SERVERS);
     Object.keys(BARTENDERS).forEach(k => delete BARTENDERS[k]); if(foh.BARTENDERS) Object.assign(BARTENDERS, foh.BARTENDERS);
     Object.keys(CASHIERS).forEach(k => delete CASHIERS[k]);     if(csh)            Object.assign(CASHIERS, csh);
@@ -12096,6 +12156,7 @@ async function processSchedules() {
     // Process each schedule image with Claude
     statusEl.innerHTML = '<div style="padding:16px;background:var(--gray-50);border-radius:8px;font-size:13px;color:var(--gray-600);">⏳ Reading BOH schedule...</div>';
     var bohData = await readScheduleImage(uploadedImages.boh, 'BOH');
+    consolidateUtilityFromUpload(bohData);
 
     statusEl.innerHTML = '<div style="padding:16px;background:var(--gray-50);border-radius:8px;font-size:13px;color:var(--gray-600);">⏳ Reading events...</div>';
     var eventData = await readEventsFromBOH(uploadedImages.boh);
@@ -12229,6 +12290,49 @@ async function repairRows(base64, mediaType, rows, knownNames, cellType, scopeLa
     });
   }
   return rows;
+}
+
+// Arturo and Jesus float between Pizza and Kitchen day to day but never
+// work both at once -- the AI vision prompt still reads them exactly as it
+// always has (under whichever header the photo shows them), since the
+// physical schedule sheet hasn't changed. This is the surgical fix: right
+// after the AI returns its reading, before anything gets saved, pull their
+// shifts out of PIZZA/KITCHEN and consolidate into one UTILITY entry with a
+// P/K tag recording which one they actually did. That is what stops a real
+// 6-hour shift from being saved (and then paid) as two separate 6-hour
+// shifts in two different sections.
+var UTILITY_PEOPLE = ['Arturo', 'Jesus'];
+function consolidateUtilityFromUpload(bohData) {
+  if(!bohData) return;
+  if(!bohData.UTILITY) bohData.UTILITY = {};
+  if(!bohData.UTILITY_ROLE) bohData.UTILITY_ROLE = {};
+  UTILITY_PEOPLE.forEach(function(name){
+    var pizzaRow = bohData.PIZZA && bohData.PIZZA[name];
+    var kitchenRow = bohData.KITCHEN && bohData.KITCHEN[name];
+    if(!pizzaRow && !kitchenRow) return; // not on this week's photo at all
+    var utilRow = [null,null,null,null,null,null,null];
+    var roleRow = [null,null,null,null,null,null,null];
+    for(var di=0; di<7; di++){
+      var pVal = pizzaRow ? pizzaRow[di] : null;
+      var kVal = kitchenRow ? kitchenRow[di] : null;
+      if(pVal && kVal) {
+        // Both filled for the same day is a genuine data conflict (he can't
+        // be in two places at once) -- keep Pizza's value rather than
+        // silently adding them together, and this is exactly the kind of
+        // thing worth a console note for whoever reviews the upload.
+        console.log('Utility conflict for ' + name + ' on day ' + di + ': both Pizza ("' + pVal + '") and Kitchen ("' + kVal + '") were filled. Kept Pizza.');
+        utilRow[di] = pVal; roleRow[di] = 'P';
+      } else if(pVal) {
+        utilRow[di] = pVal; roleRow[di] = 'P';
+      } else if(kVal) {
+        utilRow[di] = kVal; roleRow[di] = 'K';
+      }
+    }
+    bohData.UTILITY[name] = utilRow;
+    bohData.UTILITY_ROLE[name] = roleRow;
+    if(bohData.PIZZA) delete bohData.PIZZA[name];
+    if(bohData.KITCHEN) delete bohData.KITCHEN[name];
+  });
 }
 
 async function readScheduleImage(dataUrl, type) {
@@ -13182,7 +13286,7 @@ async function runCopyWeekToNext() {
   if(!checked.length) { alert('Pick at least one section to copy.'); return; }
 
   var payload = {};
-  if(checked.indexOf('boh') !== -1) payload.boh_data = JSON.stringify({MANAGERS:MANAGERS,PIZZA:PIZZA,KITCHEN:KITCHEN,PREP:PREP,BUS:BUS,DISH:DISH});
+  if(checked.indexOf('boh') !== -1) payload.boh_data = JSON.stringify({MANAGERS:MANAGERS,PIZZA:PIZZA,KITCHEN:KITCHEN,PREP:PREP,BUS:BUS,DISH:DISH,UTILITY:UTILITY,UTILITY_ROLE:UTILITY_ROLE});
   if(checked.indexOf('foh') !== -1) payload.foh_data = JSON.stringify({SERVERS:SERVERS,BARTENDERS:BARTENDERS,HOSTS:HOSTS});
   if(checked.indexOf('cashiers') !== -1) payload.cashier_data = JSON.stringify(CASHIERS);
   if(checked.indexOf('drivers') !== -1) payload.driver_data = JSON.stringify(DRIVERS);
