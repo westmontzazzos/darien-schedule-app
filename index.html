@@ -5375,8 +5375,8 @@ const DEFAULT_ROSTER = {
   'Chelsea': [{role:'Manager',rate:20,keys:['Chelsea']}],
   'Broccoli': [{role:'Kitchen',rate:18,keys:['Broccoli']}],
   'Javier': [{role:'Kitchen',rate:19,keys:['Javier']}],
-  'Jesus': [{role:'Utility',rate:21,keys:['Jesus']}],
-  'Arturo': [{role:'Utility',rate:21,keys:['Arturo']}],
+  'Jesus': [{role:'Pizza',rate:21,keys:['Jesus']},{role:'Kitchen',rate:21,keys:['Jesus']}],
+  'Arturo': [{role:'Kitchen',rate:21,keys:['Arturo']},{role:'Pizza',rate:21,keys:['Arturo']}],
   'Laura Z': [{role:'Pizza',rate:20,keys:['Laura Z']},{role:'Kitchen',rate:20,keys:['Laura Z']},{role:'Cashier',rate:20,keys:['Laura Z']}],
   'Gustavo': [{role:'Pizza',rate:20,keys:['Gustavo']},{role:'Kitchen',rate:20,keys:['Gustavo']},{role:'Cashier',rate:20,keys:['Gustavo']}],
   'Francisco': [{role:'Pizza',rate:21,keys:['Francisco']}],
@@ -5428,31 +5428,20 @@ const PIZZA = {
   'Junior': [null,null,null,null,null,null,null],
   'Valente': [null,null,null,null,null,null,null],
   'Luis': [null,null,null,null,null,null,null],
+  'Arturo': [null,null,null,null,null,null,null],
   'Laura Z': [null,null,null,null,null,null,null],
   'Gustavo': [null,null,null,null,null,null,null],
 };
 const KITCHEN = {
   'Javier': [null,null,null,null,null,null,null],
+  'Jesus': [null,null,null,null,null,null,null],
   'Broccoli': [null,null,null,null,null,null,null],
+  'Arturo': [null,null,null,null,null,null,null],
   'Laura Z': [null,null,null,null,null,null,null],
   'Gustavo': [null,null,null,null,null,null,null],
 };
-// Utility: Arturo and Jesus float between Pizza and Kitchen day to day, but
-// never work both at once. They used to be listed in BOTH sections with a
-// full shift in each, which meant a real 6-hour shift got paid as 12 --
-// every "Kitchen" role-item and every "Pizza" role-item independently read
-// the same underlying shift and both counted it. One section, one shift per
-// day, solves that at the root. UTILITY_ROLE is a separate, parallel array
-// that just records which one (P or K) they actually did that day -- for
-// display only, never involved in computing hours or pay.
-const UTILITY = {
-  'Arturo': [null,null,null,null,null,null,null],
-  'Jesus': [null,null,null,null,null,null,null],
-};
-const UTILITY_ROLE = {
-  'Arturo': [null,null,null,null,null,null,null],
-  'Jesus': [null,null,null,null,null,null,null],
-};
+const UTILITY = {};
+const UTILITY_ROLE = {};
 // Darien has no Prep or Bus sections (BOH = Pizza, Kitchen, Dish only). Left empty
 // rather than removed so the rest of the app's section-rendering code needs no rework.
 const PREP = {};
@@ -11668,8 +11657,8 @@ function checkScheduleErrors() {
   var ROLE_MAP = {
     'Francisco':['Pizza'],'Luis B':['Pizza'],'Juan':['Pizza'],'Victor':['Pizza'],
     'Junior':['Pizza'],'Valente':['Pizza'],'Luis':['Pizza'],
-    'Arturo':['Utility'],'Laura Z':['Pizza','Kitchen','Cashiers'],'Gustavo':['Pizza','Kitchen','Cashiers'],
-    'Javier':['Kitchen'],'Jesus':['Utility'],'Broccoli':['Kitchen'],
+    'Arturo':['Pizza','Kitchen'],'Laura Z':['Pizza','Kitchen','Cashiers'],'Gustavo':['Pizza','Kitchen','Cashiers'],
+    'Javier':['Kitchen'],'Jesus':['Pizza','Kitchen'],'Broccoli':['Kitchen'],
     'Gabe':['Dish'],'Lorenzo':['Dish'],
     'Abi':['Servers'],'Erika H':['Servers','Bartenders'],'Liz':['Servers'],'Leanne':['Servers'],
     'Leon':['Servers'],'Katelyn':['Servers'],'Carly':['Servers'],
@@ -12286,7 +12275,7 @@ async function repairRows(base64, mediaType, rows, knownNames, cellType, scopeLa
 // P/K tag recording which one they actually did. That is what stops a real
 // 6-hour shift from being saved (and then paid) as two separate 6-hour
 // shifts in two different sections.
-var UTILITY_PEOPLE = ['Arturo', 'Jesus'];
+var UTILITY_PEOPLE = [];
 function consolidateUtilityFromUpload(bohData) {
   if(!bohData) return;
   if(!bohData.UTILITY) bohData.UTILITY = {};
@@ -12326,7 +12315,7 @@ async function readScheduleImage(dataUrl, type) {
 
   var prompt = '';
   if(type === 'BOH') {
-    prompt = 'You are extracting a Back of House restaurant schedule from a photo or screenshot.\n\nThe schedule is a grid where rows are employee names and columns are days of the week (Monday through Sunday). Each cell contains either a shift time or is blank/off.\n\nExtract EVERY employee and EVERY day. Do not skip anyone. Do not skip any days.\n\nMany cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells. A cell is null ONLY if it is truly blank. Before you finish, re-check every row against the image and confirm you did not leave any filled cell as null.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{\n  "MANAGERS": {"EmployeeName": ["MonShift","TueShift","WedShift","ThuShift","FriShift","SatShift","SunShift"]},\n  "PIZZA": {},\n  "KITCHEN": {},\n  "DISH": {}\n}\n\nRules:\n- Use null for days off or blank cells\n- Preserve shift times exactly as written (e.g. "4pm", "9am-8pm", "4pm-c", "4pm-cl", "1pm-close", "9am")\n- "c" or "cl" or "close" at the end means closing shift — keep it as written\n- Include ALL employees listed under each section header\n- If a section has no employees visible, use an empty object {}\n- The 7 array values correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- Employee names must be first name only or first+initial — strip any phone numbers or digits in parentheses (e.g. "Jose (630-123-4567)" becomes "Jose")\n- CRITICAL: Only include employees whose name you can physically see in that section of the photo. Do NOT infer, guess, or add anyone not visibly present in a section.\n- CRITICAL: A person can appear in MULTIPLE sections (e.g. Laura Z and Gustavo regularly work both Pizza and Kitchen). If you see the same name under both sections, include them in BOTH with their respective shifts. Do not deduplicate. (Arturo and Jesus also float between Pizza and Kitchen, but are handled separately after this step -- read them under whichever single section you actually see them in on the photo, same as anyone else; do not place them in both.)\n- If a section appears empty or a person is not visible in it, use null for that day. Do not fill in names from memory or context.';
+    prompt = 'You are extracting a Back of House restaurant schedule from a photo or screenshot.\n\nThe schedule is a grid where rows are employee names and columns are days of the week (Monday through Sunday). Each cell contains either a shift time or is blank/off.\n\nExtract EVERY employee and EVERY day. Do not skip anyone. Do not skip any days.\n\nMany cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells. A cell is null ONLY if it is truly blank. Before you finish, re-check every row against the image and confirm you did not leave any filled cell as null.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{\n  "MANAGERS": {"EmployeeName": ["MonShift","TueShift","WedShift","ThuShift","FriShift","SatShift","SunShift"]},\n  "PIZZA": {},\n  "KITCHEN": {},\n  "DISH": {}\n}\n\nRules:\n- Use null for days off or blank cells\n- Preserve shift times exactly as written (e.g. "4pm", "9am-8pm", "4pm-c", "4pm-cl", "1pm-close", "9am")\n- "c" or "cl" or "close" at the end means closing shift — keep it as written\n- Include ALL employees listed under each section header\n- If a section has no employees visible, use an empty object {}\n- The 7 array values correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- Employee names must be first name only or first+initial — strip any phone numbers or digits in parentheses (e.g. "Jose (630-123-4567)" becomes "Jose")\n- CRITICAL: Only include employees whose name you can physically see in that section of the photo. Do NOT infer, guess, or add anyone not visibly present in a section.\n- CRITICAL: A person can appear in MULTIPLE sections (e.g. Arturo, Laura Z, Gustavo, and Jesus regularly work both Pizza and Kitchen). If you see the same name under both sections, include them in BOTH with their respective shifts. Do not deduplicate.\n- If a section appears empty or a person is not visible in it, use null for that day. Do not fill in names from memory or context.';
   } else if(type === 'FOH') {
     prompt = 'You are extracting a Front of House restaurant schedule from a photo or screenshot.\n\nThe schedule is a grid where rows are employee names and columns are days of the week (Monday through Sunday). Each cell contains either a start time, a start-end time range, or is blank/off.\n\nExtract EVERY employee and EVERY day. Do not skip anyone. Do not skip any days.\n\nMany cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells. A cell is null ONLY if it is truly blank. Before you finish, re-check every row against the image and confirm you did not leave any filled cell as null.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{\n  "SERVERS": {"EmployeeName": [["startTime","endTimeOrC"],null,...]},\n  "BARTENDERS": {},\n  "HOSTS": {}\n}\n\nRules:\n- Use null for days off or blank cells\n- Each working day is an array: ["startTime", "endTime"] or ["startTime", "C"] for close or ["startTime", null] if no end shown\n- Preserve times exactly as written (e.g. "4pm", "10:30am", "4:30pm")\n- "C" means closing shift\n- Include ALL employees under each section\n- The 7 array positions correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- If a section has no employees, use {}\n- Employee names must be first name only or first+last — strip any phone numbers or digits in parentheses (e.g. "Abby (630-880-4270)" becomes "Abby")\n- CRITICAL: Only include a person under a section if you can physically see their name listed under that SPECIFIC section\'s header in the photo. A person who works both Server and Bartender shifts will have TWO separate rows, one under each header, possibly with different shifts on different days -- do not copy one row\'s shifts into the other section just because it is the same person. If a name appears under only ONE section, leave them out of the others entirely.';
   } else if(type === 'CSH') {
