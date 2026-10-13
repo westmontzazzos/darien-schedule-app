@@ -5623,6 +5623,20 @@ function getFOHSection(sectionData, di) {
 
 // DOM'S NOTES
 
+// Opener/closer highlighting -- edit mode only, per request. Closer uses the
+// same -c/-cl/-close marker the rest of the app already recognizes. Opener
+// is a fixed rule: starts at exactly 9am. An explicit 9pm must never match
+// (that's a closing shift, not an opener), so it's checked and excluded
+// first before the broader 9am-ish pattern is tested.
+function getOpenerCloserBg(rawVal) {
+  if(!rawVal) return '';
+  var s = String(rawVal).trim().toLowerCase().replace(/\s+/g,'');
+  if(/[-\/](c|cl|close)$/.test(s)) return 'background:#cde8f5;'; // light baby blue
+  if(/^9(:00)?pm/.test(s)) return ''; // explicit 9pm is never an opener
+  if(/^9(:00)?(am)?($|[-\/])/.test(s)) return 'background:#fff3b0;'; // yellow
+  return '';
+}
+
 function schedSort(entries, typ) {
   // Sort entries alphabetically by name (case-insensitive, natural number order)
   return entries.sort(function(a, b) {
@@ -7604,7 +7618,7 @@ function renderSchedule() {
         html+=`<tr><td>${name}</td>`;
         days.forEach((raw,di)=>{
           if(window._schedEditMode){
-            html+=`<td><input class="sched-inline-input" data-section="DRIVERS" data-name="${name}" data-di="${di}" value="${raw||''}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;"></td>`;
+            html+=`<td><input class="sched-inline-input" data-section="DRIVERS" data-name="${name}" data-di="${di}" value="${raw||''}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(raw)}"></td>`;
             return;
           }
           if(!raw){html+='<td></td>';return;}
@@ -7623,7 +7637,7 @@ function renderSchedule() {
         days.forEach((e,di)=>{
           if(window._schedEditMode){
             var rawVal = e ? (Array.isArray(e) ? e.join('-') : e) : '';
-            html+=`<td><input class="sched-inline-input" data-section="${l}" data-name="${name}" data-di="${di}" value="${rawVal}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;"></td>`;
+            html+=`<td><input class="sched-inline-input" data-section="${l}" data-name="${name}" data-di="${di}" value="${rawVal}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(rawVal)}"></td>`;
             return;
           }
           if(!e){html+='<td></td>';return;}
@@ -7641,7 +7655,7 @@ function renderSchedule() {
       days.forEach((e,di)=>{
         if(window._schedEditMode){
           var rawVal = e ? (Array.isArray(e) ? e.join('-') : e) : '';
-          html+=`<td><input class="sched-inline-input" data-section="CASHIERS" data-name="${name}" data-di="${di}" value="${rawVal}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;"></td>`;
+          html+=`<td><input class="sched-inline-input" data-section="CASHIERS" data-name="${name}" data-di="${di}" value="${rawVal}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(rawVal)}"></td>`;
           return;
         }
         if(!e){html+='<td></td>';return;}
@@ -7665,7 +7679,7 @@ function renderSchedule() {
             var curRole = (UTILITY_ROLE[name] && UTILITY_ROLE[name][di]) || '';
             if(window._schedEditMode){
               html+=`<td style="white-space:nowrap;">`
-                + `<input class="sched-inline-input" data-section="UTILITY" data-name="${name}" data-di="${di}" value="${raw||''}" style="width:52px;font-size:11px;padding:2px 3px;border:1px solid #ddd;border-radius:4px;">`
+                + `<input class="sched-inline-input" data-section="UTILITY" data-name="${name}" data-di="${di}" value="${raw||''}" style="width:52px;font-size:11px;padding:2px 3px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(raw)}">`
                 + `<select class="sched-inline-input" data-section="UTILITY_ROLE" data-name="${name}" data-di="${di}" style="width:34px;font-size:11px;padding:2px 1px;border:1px solid #ddd;border-radius:4px;margin-left:2px;">`
                 + `<option value=""${curRole?'':' selected'}>-</option>`
                 + `<option value="P"${curRole==='P'?' selected':''}>P</option>`
@@ -7680,7 +7694,7 @@ function renderSchedule() {
             return;
           }
           if(window._schedEditMode){
-            html+=`<td><input class="sched-inline-input" data-section="${l}" data-name="${name}" data-di="${di}" value="${raw||''}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;"></td>`;
+            html+=`<td><input class="sched-inline-input" data-section="${l}" data-name="${name}" data-di="${di}" value="${raw||''}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(raw)}"></td>`;
             return;
           }
           const p=parseBOH(raw,di);
