@@ -8926,28 +8926,13 @@ function showOTDetail(name, dayBreakdown) {
   _otDetailCurrent = {n: name, dayBreakdown: dayBreakdown};
   document.getElementById('ot-detail-name').textContent = name + ' — Hours This Week';
   var body = document.getElementById('ot-detail-body');
-  var rowsHtml = '';
-  var weekRegTotal = 0, weekOtTotal = 0;
-  dayBreakdown.forEach(function(d, di){
-    weekRegTotal += d.reg; weekOtTotal += d.ot;
-    if(d.reg < 0.01 && d.ot < 0.01) {
-      rowsHtml += '<div style="padding:9px 0;border-bottom:1px solid #f0efec;display:flex;justify-content:space-between;">'
-        + '<span style="font-weight:700;font-size:13px;">' + DAYS[di] + '</span>'
-        + '<span style="color:#bbb;font-size:13px;">Off</span></div>';
-      return;
-    }
-    rowsHtml += '<div style="padding:9px 0;border-bottom:1px solid #f0efec;">'
-      + '<div style="font-weight:700;font-size:13px;margin-bottom:3px;">' + DAYS[di] + ' <span style="font-weight:400;color:#999;font-size:11px;">' + (FULL_DATES[di]||'') + '</span></div>'
-      + '<div style="display:flex;gap:16px;">'
-      + (d.reg >= 0.01 ? '<span style="color:#1a7a3c;font-weight:700;font-size:14px;">' + d.reg.toFixed(1) + 'h regular</span>' : '')
-      + (d.ot >= 0.01 ? '<span style="color:#c8102e;font-weight:700;font-size:14px;">' + d.ot.toFixed(1) + 'h OT</span>' : '')
-      + '</div></div>';
-  });
-  body.innerHTML = rowsHtml
-    + '<div style="padding:12px 0 0;display:flex;justify-content:space-between;font-weight:700;">'
-    + '<span>Week Total</span>'
-    + '<span><span style="color:#1a7a3c;">' + weekRegTotal.toFixed(1) + 'h reg</span> &nbsp; <span style="color:#c8102e;">' + weekOtTotal.toFixed(1) + 'h OT</span></span>'
-    + '</div>';
+  var tableHeader = '<tr style="border-bottom:2px solid #222;">'
+    + '<th style="text-align:left;padding:4px;font-size:10px;color:#888;text-transform:uppercase;">Day</th>'
+    + '<th style="text-align:right;padding:4px;font-size:10px;color:#888;text-transform:uppercase;">Regular</th>'
+    + '<th style="text-align:right;padding:4px;font-size:10px;color:#888;text-transform:uppercase;">OT</th>'
+    + '<th style="text-align:right;padding:4px;font-size:10px;color:#888;text-transform:uppercase;">Total</th>'
+    + '</tr>';
+  body.innerHTML = '<table style="width:100%;border-collapse:collapse;">' + tableHeader + buildOTScreenTable({dayBreakdown: dayBreakdown}) + '</table>';
   document.getElementById('ot-detail-modal').style.display = 'flex';
 }
 
