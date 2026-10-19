@@ -7764,7 +7764,7 @@ function getCurrentUser() {
 // its own row sharing one thread_id, so the whole exchange logs together
 // in the Schedule Log. Recipients are Darien's real sign-in identities so
 // a message addressed to someone actually reaches them on next load.
-var MSG_MANAGERS = ['Mike B','Jeremy','Brett','Ely','Dom'];
+var MSG_MANAGERS = ['Mike B','Jeremy','Brett','Ely','Dom','Lisa B'];
 var MSG_MANAGER_LABELS = {'Mike B':'Mike'};
 var _selectedMsgRecipients = [];
 var _pendingMsgAction = null;
@@ -12821,6 +12821,7 @@ function handleLockIconTap() {
       <button onclick="setIdentity('Brett')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Brett</button>
       <button onclick="setIdentity('Ely')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Ely</button>
       <button onclick="setIdentity('Dom')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Dom</button>
+      <button onclick="setIdentity('Lisa B')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Lisa</button>
       <button onclick="showIdentityInput()" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;color:#888;">Add / Not Listed</button>
       <div id="identity-input-wrap" style="display:none;">
         <input id="identity-custom-input" type="text" placeholder="Enter your name" style="width:100%;padding:12px;border:2px solid #e0e0e0;border-radius:10px;font-size:16px;box-sizing:border-box;margin-bottom:8px;">
