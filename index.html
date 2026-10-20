@@ -11439,7 +11439,7 @@ function checkScheduleErrors() {
     if(!startVal) return null;
     var hasClose = endVal && String(endVal).trim().toLowerCase().match(/^c[l]?$|^close$/);
     var hasEnd = endVal !== null && endVal !== undefined && String(endVal).trim() !== '';
-    return { st: startVal, hasClose: !!hasClose, hasEnd: !!hasEnd };
+    return { st: startVal, en: endVal, hasClose: !!hasClose, hasEnd: !!hasEnd };
   }
 
   // Check if a FOH entry has a closer
