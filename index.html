@@ -11656,8 +11656,8 @@ function checkScheduleErrors() {
     // ---------- Cashiers: day-specific minimum headcount, opener rule, universal 8PM end ----------
     var cashierShifts = Object.entries(CASHIERS).map(function(e){ return {n:e[0], p:parseFOHRaw(e[1][di])}; }).filter(function(x){ return x.p; });
     var cashierCount = cashierShifts.length;
-    if(di===4 || di===5 || isSun) {
-      // Fri/Sat/Sun: only need 2 cashiers actually overlapping the 2PM-8PM window
+    if(di===4 || di===5) {
+      // Fri/Sat: need 2 cashiers actually overlapping the 2PM-8PM window
       var cashierPMOverlap = cashierShifts.filter(function(x){
         var stH = hitlistHour(x.p.st, di); if(stH===null) return false;
         var enH = x.p.hasClose ? storeClose : (x.p.hasEnd ? hitlistHour(x.p.en, di, true) : 20);
@@ -11666,6 +11666,23 @@ function checkScheduleErrors() {
       }).length;
       if(cashierPMOverlap < 2)
         errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'Only '+cashierPMOverlap+' cashier(s) between 2-8PM — need at least 2'});
+    } else if(isSun) {
+      // Sunday has its own, different two-part requirement: 2 cashiers
+      // overlapping the 4-7PM window specifically, and at least 1 person
+      // covering all the way to 8PM (close or an explicit end at/after 8PM).
+      function cashierEnd(x){
+        var enH = x.p.hasClose ? storeClose : (x.p.hasEnd ? hitlistHour(x.p.en, di, true) : 20);
+        return enH===null ? 20 : enH;
+      }
+      var cashier4to7 = cashierShifts.filter(function(x){
+        var stH = hitlistHour(x.p.st, di); if(stH===null) return false;
+        return stH < 19 && cashierEnd(x) > 16;
+      }).length;
+      if(cashier4to7 < 2)
+        errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'Only '+cashier4to7+' cashier(s) between 4-7PM — need at least 2 (Sunday only)'});
+      var hasUntil8 = cashierShifts.some(function(x){ return cashierEnd(x) >= 20; });
+      if(!hasUntil8)
+        errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'No cashier covering until at least 8PM (Sunday only)'});
     } else {
       // Mon-Thu: at least 1 cashier scheduled, no specific window
       if(cashierCount < 1)
