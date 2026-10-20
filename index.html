@@ -5060,7 +5060,7 @@ document.addEventListener("DOMContentLoaded",function(){
     <div class="card">
       <div class="card-header">💵 Cashier Rules</div>
       <div style="font-size:13px;color:var(--gray-800);line-height:1.7;padding-top:4px;">
-        <b>Sun:</b> opener by 11:30AM (only day with an opener) · at least 2 cashiers working between 2–8PM<br>
+        <b>Sun:</b> someone starting between 9AM-12PM (only day with this requirement) · at least 2 cashiers working between 2–8PM<br>
         <b>Fri &amp; Sat:</b> at least 2 cashiers working between 2–8PM<br>
         <b>Mon–Thu:</b> 1 cashier, in by 4PM<br>
         No cashier starts later than 4PM, any day · everyone ends at 8PM regardless of start time
@@ -11672,8 +11672,12 @@ function checkScheduleErrors() {
         errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'Only '+cashierCount+' cashier(s) — need at least 1'});
     }
     if(isSun){
-      if(!cashierShifts.some(function(x){ var stH=hitlistHour(x.p.st,di); return stH!==null && stH<=11.5; }))
-        errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'No opening cashier at or before 11:30AM (Sunday only)'});
+      // Sunday needs someone starting somewhere within the 9AM-12PM window --
+      // not as early as possible, just within that range. Friday/Saturday
+      // have no such requirement (a cashier can start in that window if
+      // needed, but it's not mandatory) -- matching existing behavior there.
+      if(!cashierShifts.some(function(x){ var stH=hitlistHour(x.p.st,di); return stH!==null && stH>=9 && stH<=12; }))
+        errors.FOH.push({di:di, day:day, name:'—', dept:'Cashiers', msg:'No cashier starting between 9AM-12PM (Sunday only)'});
     }
     cashierShifts.forEach(function(x){
       var stH = hitlistHour(x.p.st, di);
