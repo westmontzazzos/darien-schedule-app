@@ -5510,7 +5510,12 @@ function getBOHSection(sectionData, di) {
   Object.entries(sectionData).forEach(([name,days])=>{
     const raw=days[di];
     const parsed=parseBOH(raw,di);
-    if(parsed) result.push({n:name, a:parsed.a, p:parsed.p});
+    // Run Sheets only -- blank and "X" are already excluded by parseBOH
+    // itself; this additionally excludes the literal word "Off" typed out,
+    // same reasoning: the run sheet only needs to show who's actually here
+    // today. This does not touch parseBOH itself, so the main Schedule tab
+    // (which still uses parseBOH directly) is unaffected.
+    if(parsed && !(parsed.freeText && String(parsed.a).trim().toLowerCase()==='off')) result.push({n:name, a:parsed.a, p:parsed.p});
   });
   result.sort((a,b)=>{
     const toM=s=>{const m=s.match(/(\d+)(?::(\d+))?(AM|PM)/i);if(!m)return 9999;let h=parseInt(m[1]),mn=parseInt(m[2]||0);if(m[3].toUpperCase()==='PM'&&h!==12)h+=12;return h*60+mn;};
@@ -5608,6 +5613,7 @@ function getFOHSection(sectionData, di) {
     const e=days[di]; if(!e) return;
     const [start,end]=e;
     if(!start) return;
+    if(String(start).trim().toLowerCase()==='off') return; // Run Sheets only -- same reasoning as BOH above
     // If it doesn't parse as a time, show exactly what was entered instead
     // of silently dropping the row.
     const am=fmtFOH(start,di,false,false) || String(start).trim();
@@ -5660,6 +5666,7 @@ function getDriversForDay(di) {
   Object.entries(DRIVERS).forEach(([name, shifts]) => {
     const raw = shifts[di];
     if(!raw) return;
+    if(String(raw).trim().toLowerCase()==='off') return; // Run Sheets only -- same reasoning as BOH/FOH above
     const t = parseHour(String(raw));
     if(t) {
       let am = t.display, pm = '';
