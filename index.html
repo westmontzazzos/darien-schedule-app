@@ -11737,11 +11737,13 @@ function checkScheduleErrors() {
       var totalDrivers = driverParsed.length;
       var closerCount = driverParsed.filter(function(x){ return x.p.hasClose; }).length;
 
-      // Morning coverage
+      // Morning coverage -- Sunday uses an 11AM window instead of 10:30AM
+      // (confirmed directly; different threshold for a different day).
       var amNeeded = dIsFriSatSun ? 2 : 1;
-      var amCount = countStartedBy(10.5);
+      var amThreshold = (ddi===6) ? 11 : 10.5;
+      var amCount = countStartedBy(amThreshold);
       if(amCount < amNeeded)
-        errors.Drivers.push({di:ddi, day:dday, name:'—', dept:'Drivers', msg:'Only '+amCount+' driver(s) in by 10:30AM — need at least '+amNeeded});
+        errors.Drivers.push({di:ddi, day:dday, name:'—', dept:'Drivers', msg:'Only '+amCount+' driver(s) in by '+(amThreshold===11?'11AM':'10:30AM')+' — need at least '+amNeeded});
 
       // Closer
       if(closerCount === 0)
@@ -11752,7 +11754,7 @@ function checkScheduleErrors() {
       if(ddi<=3)      { totalMin=3; by4Min=2; lastHour=17.5; byLastMin=3; }   // Mon-Thu
       else if(ddi===4){ totalMin=6; by4Min=2; lastHour=17.5; byLastMin=6; }   // Fri
       else if(ddi===5){ totalMin=5; by4Min=2; lastHour=17.5; byLastMin=5; }   // Sat
-      else            { totalMin=5; by4Min=3; lastHour=17.5; byLastMin=5; }   // Sun (2 AM drivers hold over + 1 more by 4PM)
+      else            { totalMin=4; by4Min=2; lastHour=17.5; byLastMin=3; }   // Sun (confirmed directly)
 
       if(totalDrivers < totalMin)
         errors.Drivers.push({di:ddi, day:dday, name:'—', dept:'Drivers', msg:'Only '+totalDrivers+' driver(s) scheduled — need at least '+totalMin});
