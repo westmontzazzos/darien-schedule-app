@@ -9874,6 +9874,12 @@ function hitlistHour(t, di, isEnd) {
   if(t === null || t === undefined) return null;
   var s = String(t).trim().toLowerCase();
   if(s === '') return null;
+  // Strip a trailing "/note" annotation (e.g. "1pm/bills") before parsing --
+  // a person's reason for their hours shouldn't make the time itself
+  // unreadable to every check that uses it. This is the shared, low-level
+  // time parser, so fixing it here covers every section (BOH, FOH,
+  // Drivers), not just the one place the bug was first found.
+  s = s.replace(/\/[a-z]+$/, '');
   if(s === 'c' || s === 'cl' || s === 'close') return (di===4||di===5) ? 23.25 : 22.25;
   // Accept both colon ("10:30am") and period shorthand ("10.3am" meaning 10:30am,
   // as actually used on Darien's real schedules) as minute separators. A single
@@ -11414,6 +11420,12 @@ function checkScheduleErrors() {
   function parseBOHRaw(raw, di, closeHr) {
     if(!raw) return null;
     var s = String(raw).trim().toLowerCase().replace(/\s+/g, '');
+    // Strip a trailing "/note" annotation (e.g. "9am-1pm/bills") before
+    // parsing the time -- a person adding a reason for their hours
+    // shouldn't make the whole shift invisible to every check that reads
+    // it. Only strips a plain word after the last slash; never touches "-c"
+    // closer detection, which is dash-based and unaffected either way.
+    s = s.replace(/\/[a-z]+$/, '');
     if(!s || s==='x' || ['kitchen','pizza','dish','bus','prep','serve','bar','host'].includes(s)) return null;
     if(closeHr === undefined) closeHr = (di===4||di===5) ? 24 : 23; // default: actual store close
     var hasClose = false, st = null, en = null;
