@@ -5434,7 +5434,6 @@ const DEFAULT_ROSTER = {
 const MANAGERS = {
   'Brett': [null,null,null,null,null,null,null],
   'Chelsea': [null,null,null,null,null,null,null],
-  'Jeremy': [null,null,null,null,null,null,null],
   'Lisa B': [null,null,null,null,null,null,null],
   'Mike B': [null,null,null,null,null,null,null],
 };
@@ -7072,7 +7071,7 @@ function acceptError(di, dept, msg) {
   // Who buttons
   var whoRow = document.createElement('div');
   whoRow.style.cssText = 'display:flex;gap:8px;margin-bottom:14px;';
-  ['Mike','Jeremy','Brett'].forEach(function(name){
+  ['Mike','Brett'].forEach(function(name){
     var b = document.createElement('button');
     b.className = 'zp-who-btn';
     b.style.cssText = 'flex:1;padding:10px;border:2px solid #e0e0e0;border-radius:8px;background:#fff;font-size:13px;font-weight:600;cursor:pointer;';
@@ -7312,7 +7311,7 @@ function printWageRoster() {
   function subRow(lbl,ann){pb(rH+2);rect(p,M,y,PW-2*M,rH,[0.93,0.93,0.91]);text(p,M+4,y+10,lbl+' Subtotal',8,true,[0.35,0.35,0.35]);rtext(p,CA,y+10,'~$'+Math.round(ann).toLocaleString()+' / yr',8.5,true);y+=rH+3;}
   var sections=[
     {l:'Owners',r:[['Lisa B',true,40000],['Mike B',true,100000]]},
-    {l:'Managers',r:[['Chelsea',false,20],['Jeremy',true,70000],['Brett',true,40000]]},
+    {l:'Managers',r:[['Chelsea',false,20],['Brett',true,40000]]},
     {l:'Pizza',r:[['Francisco',false,21],['Luis B',false,20],['Juan',false,19.5],['Victor',false,20.5],['Junior',false,17.5],['Valente',false,21],['Luis',false,18],['Arturo',false,21],['Laura Z',false,20],['Gustavo',false,20]]},
     {l:'Kitchen',r:[['Javier',false,19],['Jesus',false,21],['Broccoli',false,18],['Arturo',false,21],['Laura Z',false,20],['Gustavo',false,20]]},
     {l:'Dish',r:[['Gabe',false,17.5],['Lorenzo',false,16.5]]},
@@ -7772,7 +7771,7 @@ function getCurrentUser() {
 // its own row sharing one thread_id, so the whole exchange logs together
 // in the Schedule Log. Recipients are Darien's real sign-in identities so
 // a message addressed to someone actually reaches them on next load.
-var MSG_MANAGERS = ['Mike B','Jeremy','Brett','Ely','Dom','Lisa B'];
+var MSG_MANAGERS = ['Mike B','Brett','Ely','Dom','Lisa B'];
 var MSG_MANAGER_LABELS = {'Mike B':'Mike'};
 var _selectedMsgRecipients = [];
 var _pendingMsgAction = null;
@@ -9233,7 +9232,6 @@ function renderPrivate() {
   var SAL=[
     {n:'Lisa B',s:40000,role:'Owner'},
     {n:'Mike B',s:100000,role:'Owner'},
-    {n:'Jeremy',s:70000,role:'Manager'},
     {n:'Brett',s:40000,role:'Manager'}
   ];
   // Salaried additions from Manage Roster were saved correctly to the
@@ -10025,7 +10023,7 @@ const RATES = {
   'Danielle':9,'Mary':9,'Natalie':15,'Presley':15,'Tia':15,'Emilie':15,'Ellianna':15,'Keegan':15,'Julia':9,'Molly':15,'Lea':9
 };
 // Salaried staff — global for the same reason as RATES above.
-const SALARIED_EMPLOYEES = {'Brett':1,'Jeremy':1,'Mike B':1,'Lisa B':1};
+const SALARIED_EMPLOYEES = {'Brett':1,'Mike B':1,'Lisa B':1};
 
 function renderHitList() {
   var el = document.getElementById('hitlist-content');
@@ -11978,10 +11976,7 @@ var uploadedImages = {boh: null, foh: null, csh: null, drv: null};
 
 // Upload permissions: who can save which schedule sections. Anyone NOT listed
 // here (Mike, Ely, Brett, custom names) has unrestricted access by default.
-// Chelsea is gone from the roster entirely -- Jeremy now covers both his
-// original Drivers area and Cashiers (what she used to handle).
 var UPLOAD_PERMISSIONS = {
-  'Jeremy': ['drv', 'csh']
 };
 function canUploadType(type) {
   var user = getCurrentUser();
@@ -12604,7 +12599,7 @@ function showOverrideLog(btn) {
   var body = document.getElementById('override-log-body');
   body.innerHTML = '<div style="color:#aaa;font-size:13px;text-align:center;padding:20px;">Loading...</div>';
   var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var REQUIRED_ACK_MANAGERS = ['Jeremy','Brett'];
+  var REQUIRED_ACK_MANAGERS = ['Brett'];
 
   function escHtml(s) {
     return (s==null?'':String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -12860,7 +12855,6 @@ function handleLockIconTap() {
     <div style="font-size:13px;color:#888;margin-bottom:20px;">This is a one-time setup. Your name will be saved on this device.</div>
     <div style="display:flex;flex-direction:column;gap:10px;">
       <button onclick="setIdentity('Mike B')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Mike</button>
-      <button onclick="setIdentity('Jeremy')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Jeremy</button>
       <button onclick="setIdentity('Brett')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Brett</button>
       <button onclick="setIdentity('Ely')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Ely</button>
       <button onclick="setIdentity('Dom')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Dom</button>
@@ -13338,10 +13332,9 @@ function printDomsNoteFromAck(note, user) {
 <script>
 var _schedPrintView = null;
 
-// Opens the section picker. Different people manage different sections
-// (Jeremy does Drivers and Cashiers, etc.) so copying always
-// touches only what's explicitly checked — everything else on the target
-// week is left exactly as it already is.
+// Opens the section picker. Different people manage different sections,
+// so copying always touches only what's explicitly checked — everything
+// else on the target week is left exactly as it already is.
 var _copyWeekNextStr = null;
 var _copyWeekNextLabel = null;
 var _copyWeekExisting = null;
