@@ -10138,14 +10138,14 @@ function renderHitList() {
 
   // Prorated daily salaried burden (wages + employer taxes, spread over 365 days)
   var SAL_DAILY = (function(){
-    var SAL_LIST = [100000,40000,60000,40292,10000]; // Ely, Lisa, Dom, Selena, Brett
+    var SAL_LIST = [40000,100000,40000]; // Lisa B, Mike B, Brett
     var total = 0;
     SAL_LIST.forEach(function(s){ total += (s*(1+HM_SS+HM_MED)+42+431)/365; });
     return total;
   })(); // ≈ $746/day
 
   var totalCost = hourlyTrueCost + SAL_DAILY;
-  var _salWages=0;[100000,40000,60000,40292,10000].forEach(function(x){_salWages+=x/365;});
+  var _salWages=0;[40000,100000,40000].forEach(function(x){_salWages+=x/365;});
   var posLaborCost = totalHourlyWage + _salWages;
   window._posLaborCost = posLaborCost;
   // POS Labor = wages only, no employer taxes
@@ -10153,7 +10153,7 @@ function renderHitList() {
   var totalHourlyCostRaw = totalHourlyWage;
 
   // Weekly average true labor cost — sum across all 7 days
-  var _salW=0;[100000,40000,60000,40292,10000].forEach(function(x){_salW+=x/365;});
+  var _salW=0;[40000,100000,40000].forEach(function(x){_salW+=x/365;});
   var weeklyAvgCost = (function(){
     var weekTotal = 0; var wagesTotal = 0;
     for(var d=0; d<7; d++){
