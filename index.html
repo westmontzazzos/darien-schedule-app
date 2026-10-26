@@ -5389,7 +5389,6 @@ const NAME_ALIASES = {
 // extracted programmatically from the original hardcoded HLY array to
 // guarantee an exact match -- nobody's pay changed as part of this move.
 const DEFAULT_ROSTER = {
-  'Chelsea': [{role:'Manager',rate:20,keys:['Chelsea']}],
   'Broccoli': [{role:'Kitchen',rate:18,keys:['Broccoli']}],
   'Javier': [{role:'Kitchen',rate:19,keys:['Javier']}],
   'Jesus': [{role:'Pizza',rate:21,keys:['Jesus']},{role:'Kitchen',rate:21,keys:['Jesus']}],
@@ -5433,7 +5432,6 @@ const DEFAULT_ROSTER = {
 // DOM'S NOTES
 const MANAGERS = {
   'Brett': [null,null,null,null,null,null,null],
-  'Chelsea': [null,null,null,null,null,null,null],
   'Lisa B': [null,null,null,null,null,null,null],
   'Mike B': [null,null,null,null,null,null,null],
 };
@@ -7311,7 +7309,7 @@ function printWageRoster() {
   function subRow(lbl,ann){pb(rH+2);rect(p,M,y,PW-2*M,rH,[0.93,0.93,0.91]);text(p,M+4,y+10,lbl+' Subtotal',8,true,[0.35,0.35,0.35]);rtext(p,CA,y+10,'~$'+Math.round(ann).toLocaleString()+' / yr',8.5,true);y+=rH+3;}
   var sections=[
     {l:'Owners',r:[['Lisa B',true,40000],['Mike B',true,100000]]},
-    {l:'Managers',r:[['Chelsea',false,20],['Brett',true,40000]]},
+    {l:'Managers',r:[['Brett',true,40000]]},
     {l:'Pizza',r:[['Francisco',false,21],['Luis B',false,20],['Juan',false,19.5],['Victor',false,20.5],['Junior',false,17.5],['Valente',false,21],['Luis',false,18],['Arturo',false,21],['Laura Z',false,20],['Gustavo',false,20]]},
     {l:'Kitchen',r:[['Javier',false,19],['Jesus',false,21],['Broccoli',false,18],['Arturo',false,21],['Laura Z',false,20],['Gustavo',false,20]]},
     {l:'Dish',r:[['Gabe',false,17.5],['Lorenzo',false,16.5]]},
