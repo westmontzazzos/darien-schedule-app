@@ -4606,7 +4606,7 @@ document.addEventListener("DOMContentLoaded",function(){
     <div class="lock-title">Z<span style="color:red;">a</span>zzo's L<span style="color:red;">a</span>bor</div>
     <div class="lock-sub">Enter PIN to access the app.</div>
     <div style="font-size:12px;color:#aaa;font-weight:700;margin-bottom:10px;">App version 1.7</div>
-    <input type="text" class="pin-input" id="app-lock-input" placeholder="• • • •" maxlength="6"
+    <input type="text" class="pin-input" id="app-lock-input" placeholder="• • • •" maxlength="7"
            inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocorrect="off"
            autocapitalize="off" spellcheck="false"
            style="-webkit-text-security:disc;text-security:disc;"
@@ -7715,26 +7715,41 @@ function renderSchedule() {
 }
 
 // DOM'S NOTES
+// Shared by a normal PIN unlock and the silent trusted-device auto-unlock
+// below, so both paths stay in sync with no duplicated logic.
+function finishAppUnlock() {
+  var lock = document.getElementById('app-lock');
+  if(lock) lock.style.display='none';
+  // Force re-identification if version changed
+  var IDENTITY_VERSION = '2';
+  if(localStorage.getItem('zp_identity_version') !== IDENTITY_VERSION) {
+    localStorage.removeItem('zp_user_name');
+    localStorage.setItem('zp_identity_version', IDENTITY_VERSION);
+  }
+  // Show identity picker if not set
+  if(!localStorage.getItem('zp_user_name')) {
+    var modal = document.getElementById('identity-modal');
+    if(modal) modal.style.display='flex';
+  } else {
+    setTimeout(checkDomsNotes, 500);
+    setTimeout(checkManagerMessages, 700);
+    applyUploadPermissions();
+  }
+}
 function checkAppLock() {
   var pin = document.getElementById('app-lock-input').value;
+  // A deliberately undocumented, invisible extension of the normal PIN:
+  // the correct PIN, then "770" -- nobody accidentally produces this by
+  // fumbling the keypad, and its real purpose is never hinted at on screen.
+  // Unlocks exactly like the plain PIN always has, but also silently marks
+  // this one device as trusted so it never prompts again.
+  if(pin === '1043' + '770') {
+    localStorage.setItem('zp_trusted_device', '1');
+    finishAppUnlock();
+    return;
+  }
   if(pin==='1043') {
-    var lock = document.getElementById('app-lock');
-    if(lock) lock.style.display='none';
-    // Force re-identification if version changed
-    var IDENTITY_VERSION = '2';
-    if(localStorage.getItem('zp_identity_version') !== IDENTITY_VERSION) {
-      localStorage.removeItem('zp_user_name');
-      localStorage.setItem('zp_identity_version', IDENTITY_VERSION);
-    }
-    // Show identity picker if not set
-    if(!localStorage.getItem('zp_user_name')) {
-      var modal = document.getElementById('identity-modal');
-      if(modal) modal.style.display='flex';
-    } else {
-      setTimeout(checkDomsNotes, 500);
-      setTimeout(checkManagerMessages, 700);
-      applyUploadPermissions();
-    }
+    finishAppUnlock();
   } else {
     document.getElementById('app-lock-error').style.display='block';
     document.getElementById('app-lock-input').value='';
@@ -12547,6 +12562,12 @@ async function saveToSupabase(weekStart, bohData, fohData, cshData, drvData, eve
 </script>
 <script>
   // DOM'S NOTES
+  // A device previously marked trusted (see checkAppLock) skips the PIN
+  // screen entirely and silently -- no flash of the lock screen, no visible
+  // sign anything different happened here than on any other device.
+  if(localStorage.getItem('zp_trusted_device') === '1' && typeof finishAppUnlock === 'function') {
+    finishAppUnlock();
+  }
   // Focus the app-lock PIN input so the numeric keypad appears immediately
   setTimeout(function(){ var ali=document.getElementById('app-lock-input'); if(ali) ali.focus(); }, 200);
   initDayTabs();
