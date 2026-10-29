@@ -4714,93 +4714,118 @@ document.addEventListener("DOMContentLoaded",function(){
 <div id="tab-drawer" class="main" style="display:none">
   <div class="report-header">
     <div class="report-title">DRAWER COUNT</div>
-    <div class="report-sub">Count coins, rolls &amp; bills — enter what the register opened at, and it'll calculate the correct pull</div>
+    <div class="report-sub">Tap a drawer — it knows what step you're on</div>
   </div>
 
-  <div id="drawer-register-picker" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;"></div>
+  <!-- HOME: one status card per register, auto-detects Open vs needs-a-choice -->
+  <div id="drawer-home-screen">
+    <div style="font-size:11px;color:#999;text-align:center;margin-bottom:10px;" id="drawer-home-date-label">—</div>
+    <div id="drawer-reg-cards"><div style="color:#aaa;font-size:13px;text-align:center;padding:20px;">Loading…</div></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:4px;margin-bottom:10px;" onclick="printEverythingToday()">🖨 Print Everything (Today)</button>
+    <button class="btn btn-secondary" style="width:100%;" onclick="showDrawerHistory()">📅 History</button>
+  </div>
 
+  <!-- TYPE CHOICE: only shown for Cashier/Bar once an Open already exists today -->
+  <div id="drawer-type-choice-screen" style="display:none;">
+    <button class="btn btn-secondary" style="margin-bottom:14px;" onclick="cancelDrawerCount()">‹ Back</button>
+    <div style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);padding:20px;text-align:center;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.05em;margin-bottom:4px;" id="drawer-type-choice-title">—</div>
+      <div style="font-size:12.5px;color:#888;margin-bottom:16px;">Already opened today — what is this count?</div>
+      <div style="display:flex;gap:10px;">
+        <button class="btn btn-primary" style="flex:1;" onclick="chooseDrawerType('shift_change')">Shift Change</button>
+        <button class="btn btn-secondary" style="flex:1;background:#0D0D0D;color:#fff;border:none;" onclick="chooseDrawerType('closer')">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- COUNT FORM -->
   <div id="drawer-count-form" style="display:none;">
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;" id="drawer-type-picker">
-      <button class="btn btn-secondary drawer-type-btn" data-type="opener" onclick="selectDrawerType('opener')" style="flex:1;min-width:80px;">Opener</button>
-      <button class="btn btn-secondary drawer-type-btn" data-type="shift_change" onclick="selectDrawerType('shift_change')" style="flex:1;min-width:80px;">Shift Change</button>
-      <button class="btn btn-secondary drawer-type-btn" data-type="closer" onclick="selectDrawerType('closer')" style="flex:1;min-width:80px;">Closer</button>
-      <button class="btn btn-secondary drawer-type-btn" data-type="spot_check" onclick="selectDrawerType('spot_check')" style="flex:1;min-width:80px;">Spot Check</button>
+    <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="cancelDrawerCount()">‹ Back</button>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:0.05em;" id="drawer-count-form-title">—</div>
+      <div style="font-size:11px;color:#999;" id="drawer-count-form-date">—</div>
     </div>
-    <div style="display:none;gap:6px;flex-wrap:wrap;margin-bottom:14px;" id="drawer-type-picker-safe">
-      <button class="btn btn-secondary drawer-type-btn" data-type="am" onclick="selectDrawerType('am')" style="flex:1;min-width:80px;">AM Safe Count</button>
-      <button class="btn btn-secondary drawer-type-btn" data-type="pm" onclick="selectDrawerType('pm')" style="flex:1;min-width:80px;">PM Safe Count</button>
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-      <label id="drawer-who-label" style="font-size:12px;color:#666;font-weight:700;">Who was on this drawer?</label>
-      <input type="text" id="drawer-cashier-name" placeholder="Name" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;">
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-      <label style="font-size:12px;color:#666;font-weight:700;">Date:</label>
-      <input type="date" id="drawer-count-date" style="border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;">
-    </div>
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-      <label id="drawer-opening-label" style="font-size:12px;color:#666;font-weight:700;">What did the register open at?</label>
-      <input type="number" inputmode="decimal" step="0.01" id="drawer-opening-amount" value="250" oninput="recalcDrawerTotal()" style="width:90px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;text-align:right;">
-    </div>
-    <div id="drawer-pos-row" style="display:none;align-items:center;gap:10px;margin-bottom:14px;">
-      <label style="font-size:12px;color:#666;font-weight:700;">What does the POS say the drawer should be at?</label>
-      <input type="number" inputmode="decimal" step="0.01" id="drawer-pos-expected" oninput="recalcDrawerTotal()" style="width:90px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;text-align:right;">
-    </div>
-    <div id="drawer-tipout-row" style="display:none;align-items:center;gap:10px;margin-bottom:14px;">
-      <label style="font-size:12px;color:#666;font-weight:700;">Bartender tip-out (cash paid out)?</label>
-      <input type="number" inputmode="decimal" step="0.01" id="drawer-tipout-amount" value="0" oninput="recalcDrawerTotal()" style="width:90px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;text-align:right;">
+    <div style="background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);padding:14px;margin-bottom:14px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
+        <label id="drawer-who-label" style="color:#666;font-weight:600;font-size:12.5px;">Who was on this drawer?</label>
+        <input type="text" id="drawer-cashier-name" placeholder="Name" style="border:1px solid #ddd;border-radius:7px;padding:5px 9px;font-size:13px;width:140px;">
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
+        <label id="drawer-opening-label" style="color:#666;font-weight:600;font-size:12.5px;">Register opened at</label>
+        <input type="number" inputmode="decimal" step="0.01" id="drawer-opening-amount" value="250" oninput="recalcDrawerTotal()" style="border:1px solid #ddd;border-radius:7px;padding:5px 9px;font-size:13px;width:90px;text-align:right;">
+      </div>
+      <div id="drawer-pos-row" style="display:none;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
+        <label style="color:#666;font-weight:600;font-size:12.5px;">POS says it should be at</label>
+        <input type="number" inputmode="decimal" step="0.01" id="drawer-pos-expected" oninput="recalcDrawerTotal()" style="border:1px solid #ddd;border-radius:7px;padding:5px 9px;font-size:13px;width:90px;text-align:right;">
+      </div>
+      <div id="drawer-tipout-row" style="display:none;align-items:center;justify-content:space-between;padding:7px 0;font-size:13px;">
+        <label style="color:#666;font-weight:600;font-size:12.5px;">Bartender tip-out</label>
+        <input type="number" inputmode="decimal" step="0.01" id="drawer-tipout-amount" value="0" oninput="recalcDrawerTotal()" style="border:1px solid #ddd;border-radius:7px;padding:5px 9px;font-size:13px;width:90px;text-align:right;">
+      </div>
     </div>
 
-    <div id="drawer-section-coins"></div>
-    <div id="drawer-section-rolls" style="margin-top:16px;"></div>
-    <div id="drawer-section-bills" style="margin-top:16px;"></div>
-
-    <div id="drawer-total-box" style="margin-top:18px;border-radius:10px;padding:14px;background:#f7f7f5;text-align:center;">
-      <div style="font-size:11px;color:#888;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;">Total in Drawer</div>
-      <div id="drawer-total-amount" style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:#222;">$0.00</div>
-      <div id="drawer-tipout-line" style="display:none;font-size:12px;color:#888;margin-top:2px;">—</div>
-      <div id="drawer-pull-line" style="font-size:15px;font-weight:700;margin-top:4px;">—</div>
-      <div id="drawer-pos-variance-line" style="display:none;font-size:15px;font-weight:700;margin-top:6px;padding-top:6px;border-top:1px solid #e0ded9;">—</div>
+    <div class="DC-Accordion" id="drawer-acc-coins" style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);margin-bottom:10px;overflow:hidden;">
+      <div style="padding:13px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleDrawerAccordion('coins')">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.06em;">LOOSE COINS</div>
+        <div id="drawer-acc-coins-chevron" style="font-size:11px;color:#999;">▼</div>
+      </div>
+      <div id="drawer-section-coins" style="display:none;padding:4px 16px 14px;border-top:1px solid #f0efed;"></div>
+    </div>
+    <div class="DC-Accordion" id="drawer-acc-rolls" style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);margin-bottom:10px;overflow:hidden;">
+      <div style="padding:13px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleDrawerAccordion('rolls')">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.06em;">ROLLS</div>
+        <div id="drawer-acc-rolls-chevron" style="font-size:11px;color:#999;">▲</div>
+      </div>
+      <div id="drawer-section-rolls" style="padding:4px 16px 14px;border-top:1px solid #f0efed;"></div>
+    </div>
+    <div class="DC-Accordion" id="drawer-acc-bills" style="background:#fff;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,0.08);margin-bottom:10px;overflow:hidden;">
+      <div style="padding:13px 16px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;" onclick="toggleDrawerAccordion('bills')">
+        <div style="font-family:'Bebas Neue',sans-serif;font-size:14px;letter-spacing:0.06em;">BILLS</div>
+        <div id="drawer-acc-bills-chevron" style="font-size:11px;color:#999;">▲</div>
+      </div>
+      <div id="drawer-section-bills" style="padding:4px 16px 14px;border-top:1px solid #f0efed;"></div>
     </div>
 
-    <div style="display:flex;gap:10px;margin-top:16px;">
-      <button class="btn btn-primary" style="flex:1;" onclick="saveDrawerCount()">💾 Save Count</button>
+    <div id="drawer-total-box" style="margin-top:8px;border-radius:10px;padding:16px;background:#0D0D0D;text-align:center;color:#fff;">
+      <div style="font-size:10px;color:rgba(255,255,255,0.6);font-weight:700;letter-spacing:0.06em;text-transform:uppercase;">Total in Drawer</div>
+      <div id="drawer-total-amount" style="font-family:'Bebas Neue',sans-serif;font-size:34px;">$0.00</div>
+      <div id="drawer-tipout-line" style="display:none;font-size:12px;color:rgba(255,255,255,0.65);margin-top:2px;">—</div>
+      <div id="drawer-pull-line" style="font-size:15px;font-weight:700;margin-top:6px;color:#ffd166;">—</div>
+      <div id="drawer-pos-variance-line" style="display:none;font-size:15px;font-weight:700;margin-top:6px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.15);">—</div>
+    </div>
+
+    <div style="display:flex;gap:10px;margin-top:16px;margin-bottom:30px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="saveDrawerCount()">💾 Save</button>
       <button class="btn btn-secondary" style="flex:1" onclick="cancelDrawerCount()">Cancel</button>
     </div>
   </div>
 
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-top:26px;margin-bottom:8px;">
-    <div style="font-family:'Bebas Neue',sans-serif;font-size:16px;letter-spacing:0.06em;">Recent Counts</div>
-    <button class="btn btn-secondary" onclick="printDrawerCounts()">🖨 Print Tonight's Counts</button>
+  <!-- HISTORY: calendar -->
+  <div id="drawer-history-screen" style="display:none;">
+    <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="showDrawerScreen('home')">‹ Back</button>
+    <div id="drawer-cal-wrap"></div>
   </div>
 
-  <div style="border:1px solid #eee;border-radius:10px;padding:10px;margin-bottom:10px;">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px;">
-      <input type="text" id="drawer-search-name" placeholder="Search by name (cashier or manager)" style="flex:1;min-width:160px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;">
-      <select id="drawer-search-register" style="border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;">
-        <option value="">All registers</option>
-        <option value="Cashier 1">Cashier 1</option>
-        <option value="Cashier 2">Cashier 2</option>
-        <option value="Bar">Bar</option>
-        <option value="Safe">Safe</option>
-      </select>
-    </div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-      <label style="font-size:11px;color:#666;">From:</label>
-      <input type="date" id="drawer-search-from" style="border:1px solid #ddd;border-radius:8px;padding:6px 8px;font-size:12px;">
-      <label style="font-size:11px;color:#666;">To:</label>
-      <input type="date" id="drawer-search-to" style="border:1px solid #ddd;border-radius:8px;padding:6px 8px;font-size:12px;">
-      <label style="font-size:12px;color:#666;display:flex;align-items:center;gap:4px;margin-left:auto;">
-        <input type="checkbox" id="drawer-search-shorts-only"> Shorts only
-      </label>
-    </div>
-    <div style="display:flex;gap:8px;margin-top:8px;">
-      <button class="btn btn-primary" style="flex:1;" onclick="searchDrawerCounts()">🔍 Search</button>
-      <button class="btn btn-secondary" onclick="clearDrawerSearch()">Clear</button>
-    </div>
+  <!-- HISTORY: one day's registers -->
+  <div id="drawer-history-day-screen" style="display:none;">
+    <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="showDrawerScreen('history')">‹ Back to Calendar</button>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;margin-bottom:12px;" id="drawer-history-day-title">—</div>
+    <div id="drawer-history-day-content"></div>
   </div>
 
-  <div id="drawer-recent-list" style="font-size:13px;color:#aaa;">Loading...</div>
+  <!-- HISTORY: one register's Open/Shift Change(s)/Close sequence for that day -->
+  <div id="drawer-history-register-screen" style="display:none;">
+    <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="showDrawerScreen('history-day')">‹ Back</button>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;margin-bottom:12px;" id="drawer-history-register-title">—</div>
+    <div id="drawer-history-register-content"></div>
+  </div>
+
+  <!-- HISTORY: denomination breakdown of one specific count -->
+  <div id="drawer-history-entry-screen" style="display:none;">
+    <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="showDrawerScreen('history-register')">‹ Back</button>
+    <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;margin-bottom:12px;" id="drawer-history-entry-title">—</div>
+    <div id="drawer-history-entry-content"></div>
+  </div>
 </div>
 
 <!-- TIME OFF -->
@@ -8087,12 +8112,17 @@ async function reopenMessage() {
 // DRAWER COUNT — coins/rolls/bills entry, per-register, saved to Supabase
 // (darien_drawer_counts table), with a $250 starting balance used to compute
 // the nightly pull (or flag a shortage). Ported from Westmont's drawer feature.
+//
+// Redesigned per Ely's request: tapping a register auto-detects what count
+// this is (Open if nothing's been counted today, otherwise a Shift Change/
+// Close choice for Cashier+Bar, or straight to Close for Safe with no choice
+// at all) instead of making the person pick a type up front. "Today" is a
+// business day, not a calendar day -- see getBusinessDate below.
 // ---------------------------------------------------------------------------
-var DRAWER_REGISTERS = ['Cashier 1','Cashier 2','Bar','Safe'];
+var DRAWER_REGISTERS = ['Cashier','Bar','Safe'];
 var DRAWER_STARTING_BALANCE = 250;
 // The safe has no per-day "opening balance" to key off of like a register
-// does -- it has a fixed target it needs to be at: rolls of coins + bills,
-// counted AM and PM, by a manager rather than whoever's on the register.
+// does -- it has a fixed target it needs to be at: rolls of coins + bills.
 var SAFE_TARGET_BALANCE = 525;
 var _drawerIsSafe = false;
 var DRAWER_ITEMS = {
@@ -8119,48 +8149,146 @@ var DRAWER_ITEMS = {
 };
 var _drawerSelectedRegister = null;
 var _drawerSelectedType = null;
+var _drawerHomeData = {};
 
-function renderDrawerTab() {
-  var picker = document.getElementById('drawer-register-picker');
-  picker.innerHTML = DRAWER_REGISTERS.map(function(r){
-    return '<button class="btn btn-secondary drawer-reg-btn" data-reg="'+r+'" onclick="selectDrawerRegister(\''+r+'\')" style="flex:1;min-width:70px;">'+r+'</button>';
-  }).join('');
-  loadRecentDrawerCounts();
+// A business day runs past midnight: a Close recorded at 12:30am still
+// belongs to the day that's ending, not the new calendar day that's barely
+// started. 4am is the cutoff Ely set -- anything before it still counts as
+// the previous calendar day.
+function getBusinessDate(d) {
+  d = d || new Date();
+  var bd = new Date(d.getTime());
+  if(bd.getHours() < 4) bd.setDate(bd.getDate() - 1);
+  return bd.getFullYear() + '-' + String(bd.getMonth()+1).padStart(2,'0') + '-' + String(bd.getDate()).padStart(2,'0');
+}
+function formatDrawerDateLabel(dateStr) {
+  var months=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var dt = new Date(dateStr + 'T12:00:00');
+  return months[dt.getMonth()] + ' ' + dt.getDate() + ', ' + dt.getFullYear();
+}
+function fmtDrawerTime(iso) {
+  var t = new Date(iso);
+  return ((t.getHours()%12)||12) + ':' + String(t.getMinutes()).padStart(2,'0') + (t.getHours()>=12?'PM':'AM');
 }
 
-function selectDrawerRegister(reg) {
-  _drawerSelectedRegister = reg;
-  _drawerSelectedType = null;
-  _drawerIsSafe = (reg === 'Safe');
-  document.querySelectorAll('.drawer-type-btn').forEach(function(b){
-    b.classList.remove('btn-primary'); b.classList.add('btn-secondary');
+function showDrawerScreen(name) {
+  ['home','type-choice','history','history-day','history-register','history-entry'].forEach(function(s){
+    var el = document.getElementById('drawer-'+s+'-screen');
+    if(el) el.style.display = (s===name) ? 'block' : 'none';
   });
-  document.getElementById('drawer-type-picker').style.display = _drawerIsSafe ? 'none' : 'flex';
-  document.getElementById('drawer-type-picker-safe').style.display = _drawerIsSafe ? 'flex' : 'none';
-  document.getElementById('drawer-who-label').textContent = _drawerIsSafe ? 'Which manager counted the safe?' : 'Who was on this drawer?';
-  document.getElementById('drawer-opening-label').textContent = _drawerIsSafe ? 'Safe target amount' : 'What did the register open at?';
-  document.querySelectorAll('.drawer-reg-btn').forEach(function(b){
-    b.classList.toggle('btn-primary', b.getAttribute('data-reg') === reg);
-    b.classList.toggle('btn-secondary', b.getAttribute('data-reg') !== reg);
-  });
-  document.getElementById('drawer-count-form').style.display = 'block';
-  document.getElementById('drawer-opening-amount').value = _drawerIsSafe ? SAFE_TARGET_BALANCE : DRAWER_STARTING_BALANCE;
-  document.getElementById('drawer-pos-expected').value = '';
-  document.getElementById('drawer-pos-row').style.display = 'none';
-  document.getElementById('drawer-pos-variance-line').style.display = 'none';
-  // The tip-out row's visibility is handled in selectDrawerType -- it only
-  // ever shows at Shift Change/Closer on the Bar, never right when a
-  // register is first picked, before a type is chosen.
-  document.getElementById('drawer-tipout-row').style.display = 'none';
-  document.getElementById('drawer-tipout-amount').value = 0;
-  document.getElementById('drawer-cashier-name').value = '';
-  var dateInput = document.getElementById('drawer-count-date');
-  if(!dateInput.value) {
-    var now = new Date();
-    dateInput.value = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+  document.getElementById('drawer-count-form').style.display = (name==='count-form') ? 'block' : 'none';
+  if(name === 'home') refreshDrawerHome();
+}
+
+function toggleDrawerAccordion(sec) {
+  var body = document.getElementById('drawer-section-'+sec);
+  var chevron = document.getElementById('drawer-acc-'+sec+'-chevron');
+  var isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  chevron.textContent = isOpen ? '▼' : '▲';
+}
+
+async function renderDrawerTab() {
+  showDrawerScreen('home');
+}
+
+async function refreshDrawerHome() {
+  var businessDate = getBusinessDate();
+  document.getElementById('drawer-home-date-label').textContent = formatDrawerDateLabel(businessDate);
+  var cardsEl = document.getElementById('drawer-reg-cards');
+  try {
+    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_drawer_counts?count_date=eq.' + businessDate + '&register=in.(Cashier,Bar,Safe)&order=counted_at.asc', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    });
+    var rows = r.ok ? await r.json() : [];
+    _drawerHomeData = {Cashier:[],Bar:[],Safe:[]};
+    rows.forEach(function(row){ if(_drawerHomeData[row.register]) _drawerHomeData[row.register].push(row); });
+  } catch(e) {
+    cardsEl.innerHTML = '<div style="color:#c8102e;font-size:13px;text-align:center;padding:20px;">Failed to load today\'s status: ' + e.message + '</div>';
+    return;
   }
-  function buildSection(containerId, title, items) {
-    var html = '<div style="font-size:11px;font-weight:700;color:#888;letter-spacing:0.05em;text-transform:uppercase;margin-bottom:6px;">'+title+'</div>';
+  cardsEl.innerHTML = DRAWER_REGISTERS.map(buildDrawerRegCard).join('');
+}
+
+function buildDrawerRegCard(name) {
+  var entries = _drawerHomeData[name] || [];
+  var pillClass='notstarted', pillText='Not Started', statusText='Not started today', statusColor='#888';
+  var pillStyles = {notstarted:'background:#f0efed;color:#666;', inprogress:'background:#fff3b0;color:#6b5600;', closed:'background:#d4f0dd;color:#1a7a3c;'};
+  if(entries.length) {
+    var last = entries[entries.length-1];
+    if(last.count_type === 'closer') {
+      pillClass='closed'; pillText='Closed';
+      statusText = 'Closed for today · Final $' + Number(last.total).toFixed(2);
+      statusColor = '#1a7a3c';
+    } else {
+      pillClass='inprogress'; pillText = (name==='Safe') ? 'Awaiting Close' : 'In Progress';
+      var openTimeStr = fmtDrawerTime(entries[0].counted_at);
+      statusText = (name === 'Safe')
+        ? ('Opened ' + openTimeStr + ' — tap to close')
+        : ('Opened ' + openTimeStr + ' · ' + (entries.length - 1) + ' shift change(s) so far');
+      statusColor = '#8a6d00';
+    }
+  }
+  return '<div class="btn btn-secondary" style="width:100%;text-align:left;margin-bottom:10px;cursor:pointer;padding:16px;display:block;" onclick="tapDrawerRegister(\''+name+'\')">'
+    + '<div style="display:flex;align-items:center;gap:8px;font-family:\'Bebas Neue\',sans-serif;font-size:18px;letter-spacing:0.05em;">'+name
+    + '<span style="font-size:10px;font-weight:700;padding:2px 8px;border-radius:20px;text-transform:uppercase;letter-spacing:0.03em;'+pillStyles[pillClass]+'">'+pillText+'</span></div>'
+    + '<div style="font-size:12.5px;margin-top:4px;color:'+statusColor+';font-weight:'+(pillClass==='notstarted'?'400':'600')+';">'+statusText+'</div>'
+    + '</div>';
+}
+
+async function tapDrawerRegister(name) {
+  _drawerSelectedRegister = name;
+  _drawerIsSafe = (name === 'Safe');
+  var entries = _drawerHomeData[name] || [];
+  if(entries.length === 0) {
+    beginDrawerCount('opener');
+    return;
+  }
+  var last = entries[entries.length - 1];
+  if(last.count_type === 'closer') {
+    var proceed = confirm(name + ' was already closed for today at ' + fmtDrawerTime(last.counted_at) + ' by ' + (last.counted_by||'—') + '.\n\nAdd a correction count? This saves as an additional Close for today -- it does not erase the original.');
+    if(!proceed) return;
+    beginDrawerCount('closer');
+    return;
+  }
+  if(_drawerIsSafe) {
+    // Safe only ever has Open then Close -- the second tap is automatically
+    // the Close, no choice to make.
+    beginDrawerCount('closer');
+  } else {
+    document.getElementById('drawer-type-choice-title').textContent = name;
+    showDrawerScreen('type-choice');
+  }
+}
+
+function chooseDrawerType(type) {
+  beginDrawerCount(type);
+}
+
+function beginDrawerCount(type) {
+  _drawerSelectedType = type;
+  var typeLabels = {opener:'OPEN', shift_change:'SHIFT CHANGE', closer:'CLOSE'};
+  document.getElementById('drawer-count-form-title').textContent = _drawerSelectedRegister + ' — ' + (typeLabels[type] || type.toUpperCase());
+  document.getElementById('drawer-count-form-date').textContent = formatDrawerDateLabel(getBusinessDate());
+  document.getElementById('drawer-who-label').textContent = _drawerIsSafe ? 'Which manager counted the safe?' : 'Who was on this drawer?';
+  document.getElementById('drawer-opening-label').textContent = _drawerIsSafe ? 'Safe target amount' : 'Register opened at';
+  document.getElementById('drawer-opening-amount').value = _drawerIsSafe ? SAFE_TARGET_BALANCE : DRAWER_STARTING_BALANCE;
+  document.getElementById('drawer-cashier-name').value = '';
+  // The POS-expected comparison only makes sense at a handoff point -- a
+  // Shift Change or Close, where the POS has an actual running total to
+  // check against. An Open has nothing to compare yet.
+  var showPos = (type === 'shift_change' || type === 'closer');
+  document.getElementById('drawer-pos-row').style.display = showPos ? 'flex' : 'none';
+  document.getElementById('drawer-pos-expected').value = '';
+  document.getElementById('drawer-pos-variance-line').style.display = 'none';
+  // Same reasoning as the POS row: the bartender's cash tip-out only
+  // actually happens at a handoff, not at Open -- and only for the Bar.
+  var showTipout = showPos && _drawerSelectedRegister === 'Bar';
+  document.getElementById('drawer-tipout-row').style.display = showTipout ? 'flex' : 'none';
+  document.getElementById('drawer-tipout-amount').value = 0;
+  document.getElementById('drawer-tipout-line').style.display = 'none';
+  function buildSection(containerId, items) {
+    var html = '';
     items.forEach(function(it){
       html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0;">'
         + '<div style="font-size:13px;color:#333;">'+it.label+'</div>'
@@ -8171,51 +8299,28 @@ function selectDrawerRegister(reg) {
   }
   // The safe holds rolls of coins and bills only -- no loose coins, unlike
   // a register drawer -- so its section is skipped entirely when Safe is
-  // selected, matching exactly what's physically counted.
-  if(_drawerIsSafe) {
-    document.getElementById('drawer-section-coins').innerHTML = '';
-  } else {
-    buildSection('drawer-section-coins', 'Loose Coins', DRAWER_ITEMS.coins);
-  }
-  buildSection('drawer-section-rolls', 'Rolls', DRAWER_ITEMS.rolls);
-  buildSection('drawer-section-bills', 'Bills', DRAWER_ITEMS.bills);
+  // selected, matching exactly what's physically counted. The Coins
+  // accordion stays collapsed by default since it's rarely used; Rolls and
+  // Bills stay open since those are counted every time.
+  document.getElementById('drawer-acc-coins').style.display = _drawerIsSafe ? 'none' : 'block';
+  if(!_drawerIsSafe) buildSection('drawer-section-coins', DRAWER_ITEMS.coins);
+  document.getElementById('drawer-section-coins').style.display = 'none';
+  document.getElementById('drawer-acc-coins-chevron').textContent = '▼';
+  buildSection('drawer-section-rolls', DRAWER_ITEMS.rolls);
+  document.getElementById('drawer-section-rolls').style.display = 'block';
+  document.getElementById('drawer-acc-rolls-chevron').textContent = '▲';
+  buildSection('drawer-section-bills', DRAWER_ITEMS.bills);
+  document.getElementById('drawer-section-bills').style.display = 'block';
+  document.getElementById('drawer-acc-bills-chevron').textContent = '▲';
   recalcDrawerTotal();
+  showDrawerScreen('count-form');
 }
 
 function cancelDrawerCount() {
   _drawerSelectedRegister = null;
   _drawerSelectedType = null;
   _drawerIsSafe = false;
-  document.getElementById('drawer-count-form').style.display = 'none';
-  document.getElementById('drawer-type-picker').style.display = 'flex';
-  document.getElementById('drawer-type-picker-safe').style.display = 'none';
-  document.getElementById('drawer-tipout-row').style.display = 'none';
-  document.getElementById('drawer-tipout-amount').value = 0;
-  document.querySelectorAll('.drawer-reg-btn').forEach(function(b){
-    b.classList.remove('btn-primary'); b.classList.add('btn-secondary');
-  });
-}
-
-function selectDrawerType(type) {
-  _drawerSelectedType = type;
-  document.querySelectorAll('.drawer-type-btn').forEach(function(b){
-    b.classList.toggle('btn-primary', b.getAttribute('data-type') === type);
-    b.classList.toggle('btn-secondary', b.getAttribute('data-type') !== type);
-  });
-  // The POS-expected comparison only makes sense at a handoff point -- a
-  // Shift Change or Closer count, where the POS has an actual running total
-  // to check against. An Opener has nothing to compare yet, and a Spot
-  // Check is informational only, same reasoning as the existing pull line.
-  var showPos = (type === 'shift_change' || type === 'closer');
-  document.getElementById('drawer-pos-row').style.display = showPos ? 'flex' : 'none';
-  document.getElementById('drawer-pos-variance-line').style.display = showPos ? 'block' : 'none';
-  // Same reasoning as the POS row above: the bartender's cash tip-out only
-  // actually happens at a handoff (Shift Change/Closer), not at Opener or
-  // a Spot Check, so the field only appears then -- and only for the Bar.
-  var showTipout = showPos && _drawerSelectedRegister === 'Bar';
-  document.getElementById('drawer-tipout-row').style.display = showTipout ? 'flex' : 'none';
-  if(!showTipout) document.getElementById('drawer-tipout-amount').value = 0;
-  recalcDrawerTotal();
+  showDrawerScreen('home');
 }
 
 // The Bar is the only register with a two-step close: the bartender gets
@@ -8313,10 +8418,7 @@ function recalcDrawerTotal() {
 }
 
 function saveDrawerCount() {
-  if(!_drawerSelectedRegister) { alert('Select a register first.'); return; }
-  if(!_drawerSelectedType) { alert(_drawerIsSafe ? 'Select AM Safe Count or PM Safe Count first.' : 'Select Opener, Shift Change, Closer, or Spot Check first.'); return; }
-  var dateVal = document.getElementById('drawer-count-date').value;
-  if(!dateVal) { alert('Please set the count date.'); return; }
+  if(!_drawerSelectedRegister || !_drawerSelectedType) { alert('Something went wrong -- please tap the register again.'); showDrawerScreen('home'); return; }
   var cashierName = document.getElementById('drawer-cashier-name').value.trim();
   if(!cashierName) { alert(_drawerIsSafe ? 'Enter which manager counted the safe before saving.' : 'Enter who was on this drawer before saving.'); return; }
   var breakdown = {};
@@ -8332,15 +8434,10 @@ function saveDrawerCount() {
   breakdown.tipout = Math.round(tipOut * 100) / 100;
   var adjusted = total - tipOut;
   var openingAmt = parseFloat(document.getElementById('drawer-opening-amount').value) || 0;
-  // Spot checks are informational only — verifying what's in the drawer,
-  // never a handoff — so there's no pull amount to compute or act on.
-  // Everywhere else, the pull is figured from the tip-out-adjusted amount
-  // (see getDrawerTipOut above), not the raw count.
-  var pull = (_drawerSelectedType === 'spot_check') ? null : (adjusted - openingAmt);
+  var pull = (adjusted - openingAmt);
   // POS expected/variance only applies at a handoff point (Shift Change or
-  // Closer), and only when an amount was actually entered -- an Opener has
-  // nothing from the POS to check yet. Also compared against the adjusted
-  // amount for the same tip-out reason.
+  // Close), and only when an amount was actually entered. Compared against
+  // the tip-out-adjusted amount for the same reason as the pull above.
   var posExpected = null, posVariance = null;
   if(_drawerSelectedType === 'shift_change' || _drawerSelectedType === 'closer') {
     var posEl = document.getElementById('drawer-pos-expected');
@@ -8353,14 +8450,14 @@ function saveDrawerCount() {
   var entry = {
     register: _drawerSelectedRegister,
     count_type: _drawerSelectedType,
-    count_date: dateVal,
+    count_date: getBusinessDate(),
     cashier_name: cashierName,
     counted_by: getCurrentUser(),
     counted_at: new Date().toISOString(),
     counts_json: JSON.stringify(breakdown),
     total: Math.round(total * 100) / 100,
     starting_balance: Math.round(openingAmt * 100) / 100,
-    pull_amount: pull != null ? Math.round(pull * 100) / 100 : null,
+    pull_amount: Math.round(pull * 100) / 100,
     pos_expected: posExpected != null ? Math.round(posExpected * 100) / 100 : null,
     pos_variance: posVariance != null ? Math.round(posVariance * 100) / 100 : null
   };
@@ -8370,125 +8467,172 @@ function saveDrawerCount() {
     body: JSON.stringify([entry])
   }).then(function(r){
     if(!r.ok) throw new Error('Save failed');
-    alert(_drawerSelectedRegister + ' count saved.');
-    cancelDrawerCount();
-    loadRecentDrawerCounts();
+    showDrawerScreen('home');
   }).catch(function(e){ alert('Failed to save: ' + e.message); });
 }
 
-function renderDrawerCountRows(rows, list) {
-  if(!rows || !rows.length) {
-    list.innerHTML = '<div style="color:#aaa;font-size:13px;">No counts found.</div>';
-    return;
-  }
-  var byDate = {};
-  var dateOrder = [];
-  rows.forEach(function(r){
-    if(!byDate[r.count_date]) { byDate[r.count_date] = []; dateOrder.push(r.count_date); }
-    byDate[r.count_date].push(r);
+// ---------------------------------------------------------------------------
+// HISTORY — a calendar you tap into: day -> register -> the Open/Shift
+// Change(s)/Close sequence -> the exact denomination breakdown of any one
+// of those counts. Replaces the old flat search list.
+// ---------------------------------------------------------------------------
+var _histMonthOffset = 0;
+var _histDayRows = {};
+var _histSelectedRegEntries = [];
+
+function showDrawerHistory() {
+  _histMonthOffset = 0;
+  showDrawerScreenRaw('history');
+  renderDrawerHistoryCalendar();
+}
+// showDrawerScreen() always refreshes the home cards, which isn't wanted
+// when navigating within History -- this variant just swaps visibility.
+function showDrawerScreenRaw(name) {
+  ['home','type-choice','history','history-day','history-register','history-entry'].forEach(function(s){
+    var el = document.getElementById('drawer-'+s+'-screen');
+    if(el) el.style.display = (s===name) ? 'block' : 'none';
   });
-  var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  var html = '';
-  dateOrder.forEach(function(d){
-    var dt = new Date(d + 'T12:00:00');
-    html += '<div style="font-size:12px;font-weight:700;color:#666;margin:10px 0 4px;">'+months[dt.getMonth()]+' '+dt.getDate()+', '+dt.getFullYear()+'</div>';
-    byDate[d].sort(function(a,b){ return a.register.localeCompare(b.register, undefined, {numeric:true}) || new Date(a.counted_at)-new Date(b.counted_at); }).forEach(function(r){
-      var TYPE_LABELS = {opener:'Opener', shift_change:'Shift Change', closer:'Closer', spot_check:'Spot Check', am:'AM Safe Count', pm:'PM Safe Count'};
-      var typeLabel = TYPE_LABELS[r.count_type] || 'Opener';
-      var isSpotCheck = r.count_type === 'spot_check';
-      var isShort = !isSpotCheck && r.pull_amount < -0.005;
-      var pullLabel = isSpotCheck ? 'Counted $'+Number(r.total).toFixed(2)
-        : (Math.abs(r.pull_amount) < 0.005 ? 'Even' : (isShort ? 'SHORT $'+Math.abs(r.pull_amount).toFixed(2) : 'Pull $'+r.pull_amount.toFixed(2)));
-      var t = new Date(r.counted_at);
-      var timeStr = ((t.getHours()%12)||12) + ':' + String(t.getMinutes()).padStart(2,'0') + (t.getHours()>=12?'PM':'AM');
-      var openedNote = (!isSpotCheck && r.starting_balance != null && Math.abs(r.starting_balance - DRAWER_STARTING_BALANCE) > 0.005) ? ' &middot; Opened $'+Number(r.starting_balance).toFixed(2) : '';
-      var tipoutNote = '';
-      try {
-        var parsedBreakdown = r.counts_json ? JSON.parse(r.counts_json) : null;
-        if(parsedBreakdown && parsedBreakdown.tipout > 0) {
-          tipoutNote = ' &middot; Tip-out $'+Number(parsedBreakdown.tipout).toFixed(2);
-        }
-      } catch(e) {}
-      // POS variance is the separate "did this drawer match what the POS's
-      // own transaction total says it should" check -- distinct from the
-      // pull line above, and only present on Shift Change/Closer counts
-      // where a POS figure was actually entered.
-      var posHtml = '';
-      var isPosShort = false;
-      if(r.pos_expected != null && r.pos_variance != null) {
-        isPosShort = r.pos_variance < -0.005;
-        var posLabel = Math.abs(r.pos_variance) < 0.005 ? 'POS: Even'
-          : (isPosShort ? 'POS: SHORT $'+Math.abs(r.pos_variance).toFixed(2) : 'POS: OVER $'+r.pos_variance.toFixed(2));
-        posHtml = '<div style="font-size:12px;font-weight:700;color:'+(isPosShort?'#c8102e':(Math.abs(r.pos_variance)<0.005?'#1a7a3c':'#8a6d00'))+';margin-top:2px;">'+posLabel+' (expected $'+Number(r.pos_expected).toFixed(2)+')</div>';
-      }
-      var rowFlagged = isShort || isPosShort;
-      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 10px;border:1px solid '+(rowFlagged?'#f3c2c9':'#eee')+';background:'+(rowFlagged?'#fff5f6':'#fff')+';border-radius:8px;margin-bottom:6px;">'
-        + '<div><div style="font-size:13px;font-weight:700;color:#222;">'+r.register+' — '+typeLabel+(r.cashier_name?' — '+r.cashier_name:'')+'</div>'
-        + '<div style="font-size:11px;color:#888;">Counted by '+(r.counted_by||'—')+' &middot; '+timeStr+' &middot; Total $'+Number(r.total).toFixed(2)+openedNote+tipoutNote+'</div></div>'
-        + '<div style="text-align:right;"><div style="font-size:13px;font-weight:700;color:'+(isSpotCheck?'#666':(isShort?'#c8102e':'#1a7a3c'))+';">'+pullLabel+'</div>'+posHtml+'</div>'
+  document.getElementById('drawer-count-form').style.display = 'none';
+}
+
+function changeDrawerHistMonth(delta) {
+  _histMonthOffset += delta;
+  renderDrawerHistoryCalendar();
+}
+
+async function renderDrawerHistoryCalendar() {
+  var wrap = document.getElementById('drawer-cal-wrap');
+  wrap.innerHTML = '<div style="text-align:center;padding:30px;color:#aaa;font-size:13px;">Loading…</div>';
+  var today = new Date(); today.setHours(0,0,0,0);
+  var targetMonth = new Date(today.getFullYear(), today.getMonth() + _histMonthOffset, 1);
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  var daysInMonth = new Date(targetMonth.getFullYear(), targetMonth.getMonth()+1, 0).getDate();
+  var firstDow = targetMonth.getDay();
+  var rangeStart = targetMonth.getFullYear()+'-'+String(targetMonth.getMonth()+1).padStart(2,'0')+'-01';
+  var rangeEnd = targetMonth.getFullYear()+'-'+String(targetMonth.getMonth()+1).padStart(2,'0')+'-'+String(daysInMonth).padStart(2,'0');
+  var dataByDate = {};
+  try {
+    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_drawer_counts?count_date=gte.'+rangeStart+'&count_date=lte.'+rangeEnd+'&select=count_date,register,count_type', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    });
+    var rows = r.ok ? await r.json() : [];
+    rows.forEach(function(row){
+      if(!dataByDate[row.count_date]) dataByDate[row.count_date] = {};
+      if(!dataByDate[row.count_date][row.register]) dataByDate[row.count_date][row.register] = [];
+      dataByDate[row.count_date][row.register].push(row.count_type);
+    });
+  } catch(e) { /* leave empty — every day just shows as no-data */ }
+  var html = '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">'
+    + '<button class="btn btn-secondary" style="padding:6px 10px;font-size:18px;line-height:1;" onclick="changeDrawerHistMonth(-1)">‹</button>'
+    + '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:18px;letter-spacing:0.08em;">'+monthNames[targetMonth.getMonth()]+' '+targetMonth.getFullYear()+'</div>'
+    + '<button class="btn btn-secondary" style="padding:6px 10px;font-size:18px;line-height:1;" onclick="changeDrawerHistMonth(1)">›</button>'
+    + '</div>';
+  html += '<div style="display:flex;gap:10px;margin-bottom:12px;font-size:11px;color:#888;flex-wrap:wrap;">'
+    + '<span>🟢 Fully closed</span><span>🟡 Still open</span><span>⚪ No data</span></div>';
+  html += '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:4px;">';
+  ['S','M','T','W','T','F','S'].forEach(function(d){ html += '<div style="text-align:center;font-size:10px;font-weight:700;color:#888;">'+d+'</div>'; });
+  html += '</div><div style="display:grid;grid-template-columns:repeat(7,1fr);gap:4px;">';
+  for(var i=0;i<firstDow;i++) html += '<div></div>';
+  var businessToday = getBusinessDate();
+  for(var day=1; day<=daysInMonth; day++) {
+    var dateStr = targetMonth.getFullYear()+'-'+String(targetMonth.getMonth()+1).padStart(2,'0')+'-'+String(day).padStart(2,'0');
+    var dayData = dataByDate[dateStr];
+    var bg='#fafaf9', color='#bbb';
+    if(dayData) {
+      // Not hardcoded to exactly 3 registers -- older nights used different
+      // register names (e.g. "Cashier 1"/"Cashier 2" before the redesign),
+      // so this just checks that everything touched that day got a Close,
+      // whatever it was called.
+      var regsSeen = Object.keys(dayData);
+      var allClosed = regsSeen.length > 0 && regsSeen.every(function(reg){ return dayData[reg].indexOf('closer') !== -1; });
+      if(allClosed) { bg='#eafaf1'; color='#27AE60'; } else { bg='#fff8e6'; color='#C98A00'; }
+    }
+    var isToday = dateStr === businessToday;
+    html += '<div onclick="'+(dayData ? ("viewDrawerHistoryDay('"+dateStr+"')") : '')+'" style="aspect-ratio:1;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:'+(dayData?'700':'400')+';background:'+bg+';color:'+color+';cursor:'+(dayData?'pointer':'default')+';'+(isToday?'outline:2px solid #E31010;':'')+'">'+day+'</div>';
+  }
+  html += '</div>';
+  wrap.innerHTML = html;
+}
+
+async function viewDrawerHistoryDay(dateStr) {
+  showDrawerScreenRaw('history-day');
+  document.getElementById('drawer-history-day-title').textContent = formatDrawerDateLabel(dateStr);
+  var el = document.getElementById('drawer-history-day-content');
+  el.innerHTML = '<div style="text-align:center;padding:30px;color:#aaa;font-size:13px;">Loading…</div>';
+  try {
+    var r = await fetch(SUPABASE_URL + '/rest/v1/darien_drawer_counts?count_date=eq.'+dateStr+'&order=register.asc,counted_at.asc', {
+      headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
+    });
+    var rows = r.ok ? await r.json() : [];
+    var byReg = {};
+    rows.forEach(function(row){ if(!byReg[row.register]) byReg[row.register]=[]; byReg[row.register].push(row); });
+    _histDayRows = byReg;
+    var regsPresent = Object.keys(byReg);
+    if(!regsPresent.length) { el.innerHTML = '<div style="color:#aaa;font-size:13px;">No counts for this day.</div>'; return; }
+    el.innerHTML = regsPresent.map(function(reg){
+      var entries = byReg[reg];
+      var last = entries[entries.length-1];
+      var closed = last.count_type === 'closer';
+      return '<div class="btn btn-secondary" style="width:100%;text-align:left;margin-bottom:10px;padding:14px;cursor:pointer;display:block;" onclick="viewDrawerHistoryRegister(\''+reg+'\')">'
+        + '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:16px;letter-spacing:0.05em;">'+reg+'</div>'
+        + '<div style="font-size:12px;color:'+(closed?'#1a7a3c':'#8a6d00')+';margin-top:2px;">'+entries.length+' count(s) · '+(closed?'Closed $'+Number(last.total).toFixed(2):'Not yet closed')+'</div>'
         + '</div>';
+    }).join('');
+  } catch(e) { el.innerHTML = '<div style="color:#c8102e;font-size:13px;">Failed to load: '+e.message+'</div>'; }
+}
+
+function viewDrawerHistoryRegister(reg) {
+  showDrawerScreenRaw('history-register');
+  document.getElementById('drawer-history-register-title').textContent = reg;
+  var entries = _histDayRows[reg] || [];
+  _histSelectedRegEntries = entries;
+  var typeLabels = {opener:'OPEN', shift_change:'SHIFT CHANGE', closer:'CLOSE'};
+  var el = document.getElementById('drawer-history-register-content');
+  el.innerHTML = entries.map(function(e, idx){
+    var isShort = e.pull_amount != null && e.pull_amount < -0.005;
+    return '<div class="btn btn-secondary" style="width:100%;text-align:left;margin-bottom:8px;padding:12px 14px;cursor:pointer;display:block;" onclick="viewDrawerHistoryEntry('+idx+')">'
+      + '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:13.5px;"><span>'+(typeLabels[e.count_type]||e.count_type)+'</span><span>$'+Number(e.total).toFixed(2)+'</span></div>'
+      + '<div style="font-size:11.5px;color:#888;margin-top:2px;">'+fmtDrawerTime(e.counted_at)+' · '+(e.cashier_name||'—')+(isShort?' · <span style="color:#c8102e;font-weight:700;">SHORT $'+Math.abs(e.pull_amount).toFixed(2)+'</span>':'')+'</div>'
+      + '</div>';
+  }).join('');
+}
+
+function viewDrawerHistoryEntry(idx) {
+  var e = _histSelectedRegEntries[idx];
+  showDrawerScreenRaw('history-entry');
+  document.getElementById('drawer-history-entry-title').textContent = e.register;
+  var el = document.getElementById('drawer-history-entry-content');
+  var breakdown = {};
+  try { breakdown = e.counts_json ? JSON.parse(e.counts_json) : {}; } catch(ex) {}
+  var rowsHtml = '';
+  ['coins','rolls','bills'].forEach(function(sec){
+    if(!breakdown[sec]) return;
+    DRAWER_ITEMS[sec].forEach(function(it){
+      var qty = breakdown[sec][it.id] || 0;
+      if(qty === 0) return;
+      rowsHtml += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #f0f0f0;font-size:13px;"><span>'+it.label+'</span><span>×'+qty+' = $'+(qty*it.value).toFixed(2)+'</span></div>';
     });
   });
-  list.innerHTML = html;
+  if(!rowsHtml) rowsHtml = '<div style="color:#aaa;font-size:13px;">No breakdown recorded.</div>';
+  var extra = '';
+  if(breakdown.tipout) extra += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #ddd;margin-top:6px;font-size:13px;color:#888;"><span>Tip-out</span><span>– $'+Number(breakdown.tipout).toFixed(2)+'</span></div>';
+  if(e.pos_expected != null) extra += '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#888;"><span>POS expected</span><span>$'+Number(e.pos_expected).toFixed(2)+'</span></div>';
+  el.innerHTML = '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);padding:14px;">'+rowsHtml+extra+'</div>';
 }
 
-function loadRecentDrawerCounts() {
-  var list = document.getElementById('drawer-recent-list');
-  fetch(SUPABASE_URL + '/rest/v1/darien_drawer_counts?order=count_date.desc,counted_at.desc&limit=75', {
-    headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
-  }).then(function(r){ return r.json(); }).then(function(rows){
-    renderDrawerCountRows(rows, list);
-  }).catch(function(){ list.innerHTML = '<div style="color:#c8102e;font-size:13px;">Failed to load recent counts.</div>'; });
-}
-
-// Search across all saved counts — by name (cashier or manager), register, date range,
-// and/or shorts-only. This is the reconciliation tool: pull up everything one person
-// has ever counted, or every shortage in a date range, to actually trace a discrepancy
-// to a person instead of just "the register was off."
-function searchDrawerCounts() {
-  var list = document.getElementById('drawer-recent-list');
-  list.innerHTML = '<div style="color:#aaa;font-size:13px;">Searching...</div>';
-  var nameVal = document.getElementById('drawer-search-name').value.trim();
-  var regVal = document.getElementById('drawer-search-register').value;
-  var fromVal = document.getElementById('drawer-search-from').value;
-  var toVal = document.getElementById('drawer-search-to').value;
-  var shortsOnly = document.getElementById('drawer-search-shorts-only').checked;
-
-  var params = ['order=count_date.desc,counted_at.desc', 'limit=500'];
-  if(regVal) params.push('register=eq.' + encodeURIComponent(regVal));
-  if(fromVal) params.push('count_date=gte.' + fromVal);
-  if(toVal) params.push('count_date=lte.' + toVal);
-  if(shortsOnly) params.push('or=(pull_amount.lt.-0.005,pos_variance.lt.-0.005)');
-  // Name can match either whoever counted it (manager) or whoever was on the drawer (cashier)
-  if(nameVal) {
-    var esc = nameVal.replace(/,/g, '');
-    params.push('or=(cashier_name.ilike.*' + encodeURIComponent(esc) + '*,counted_by.ilike.*' + encodeURIComponent(esc) + '*)');
-  }
-
-  fetch(SUPABASE_URL + '/rest/v1/darien_drawer_counts?' + params.join('&'), {
-    headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
-  }).then(function(r){ return r.json(); }).then(function(rows){
-    renderDrawerCountRows(rows, list);
-  }).catch(function(){ list.innerHTML = '<div style="color:#c8102e;font-size:13px;">Search failed.</div>'; });
-}
-
-function clearDrawerSearch() {
-  document.getElementById('drawer-search-name').value = '';
-  document.getElementById('drawer-search-register').value = '';
-  document.getElementById('drawer-search-from').value = '';
-  document.getElementById('drawer-search-to').value = '';
-  document.getElementById('drawer-search-shorts-only').checked = false;
-  loadRecentDrawerCounts();
-}
-
-function printDrawerCounts() {
-  var todayStr = (function(){ var n=new Date(); return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0'); })();
-  fetch(SUPABASE_URL + '/rest/v1/darien_drawer_counts?count_date=eq.' + todayStr + '&order=register.asc', {
+// "Print Everything" -- the end-of-day report covering Cashier + Bar + Safe
+// in one PDF, grouped by register with each one's full Open/Shift Change/
+// Close sequence in order. Reuses the exact same PDF builder that used to
+// power the old "Print Tonight's Counts" button -- it already does exactly
+// this when given the right rows, grouped by register and sorted by time.
+function printEverythingToday() {
+  var businessDate = getBusinessDate();
+  fetch(SUPABASE_URL + '/rest/v1/darien_drawer_counts?count_date=eq.' + businessDate + '&order=register.asc,counted_at.asc', {
     headers: {'apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY}
   }).then(function(r){ return r.json(); }).then(function(rows){
     if(!rows || !rows.length) { alert('No drawer counts logged for today yet.'); return; }
-    var blob = buildDrawerCountsPDF(todayStr, rows);
-    deliverPDF(blob, 'Darien-DrawerCounts-' + todayStr + '.pdf');
+    var blob = buildDrawerCountsPDF(businessDate, rows);
+    deliverPDF(blob, 'Darien-DrawerCounts-' + businessDate + '.pdf');
   }).catch(function(e){ alert('Failed to load counts: ' + e.message); });
 }
 
