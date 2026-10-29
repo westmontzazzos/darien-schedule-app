@@ -8124,11 +8124,10 @@ function selectDrawerRegister(reg) {
   document.getElementById('drawer-pos-expected').value = '';
   document.getElementById('drawer-pos-row').style.display = 'none';
   document.getElementById('drawer-pos-variance-line').style.display = 'none';
-  // Only the Bar register has a bartender to pay a cash tip-out to before
-  // the station closes -- that cash leaves the drawer with them, so it has
-  // to come out of the count before comparing against Speedline or figuring
-  // the actual pull. No other register has this two-step close.
-  document.getElementById('drawer-tipout-row').style.display = (reg === 'Bar') ? 'flex' : 'none';
+  // The tip-out row's visibility is handled in selectDrawerType -- it only
+  // ever shows at Shift Change/Closer on the Bar, never right when a
+  // register is first picked, before a type is chosen.
+  document.getElementById('drawer-tipout-row').style.display = 'none';
   document.getElementById('drawer-tipout-amount').value = 0;
   document.getElementById('drawer-cashier-name').value = '';
   var dateInput = document.getElementById('drawer-count-date');
@@ -8186,6 +8185,12 @@ function selectDrawerType(type) {
   var showPos = (type === 'shift_change' || type === 'closer');
   document.getElementById('drawer-pos-row').style.display = showPos ? 'flex' : 'none';
   document.getElementById('drawer-pos-variance-line').style.display = showPos ? 'block' : 'none';
+  // Same reasoning as the POS row above: the bartender's cash tip-out only
+  // actually happens at a handoff (Shift Change/Closer), not at Opener or
+  // a Spot Check, so the field only appears then -- and only for the Bar.
+  var showTipout = showPos && _drawerSelectedRegister === 'Bar';
+  document.getElementById('drawer-tipout-row').style.display = showTipout ? 'flex' : 'none';
+  if(!showTipout) document.getElementById('drawer-tipout-amount').value = 0;
   recalcDrawerTotal();
 }
 
