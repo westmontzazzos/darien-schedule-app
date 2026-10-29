@@ -4746,6 +4746,10 @@ document.addEventListener("DOMContentLoaded",function(){
       <label style="font-size:12px;color:#666;font-weight:700;">What does the POS say the drawer should be at?</label>
       <input type="number" inputmode="decimal" step="0.01" id="drawer-pos-expected" oninput="recalcDrawerTotal()" style="width:90px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;text-align:right;">
     </div>
+    <div id="drawer-tipout-row" style="display:none;align-items:center;gap:10px;margin-bottom:14px;">
+      <label style="font-size:12px;color:#666;font-weight:700;">Bartender tip-out (cash paid out)?</label>
+      <input type="number" inputmode="decimal" step="0.01" id="drawer-tipout-amount" value="0" oninput="recalcDrawerTotal()" style="width:90px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;text-align:right;">
+    </div>
 
     <div id="drawer-section-coins"></div>
     <div id="drawer-section-rolls" style="margin-top:16px;"></div>
@@ -4754,6 +4758,7 @@ document.addEventListener("DOMContentLoaded",function(){
     <div id="drawer-total-box" style="margin-top:18px;border-radius:10px;padding:14px;background:#f7f7f5;text-align:center;">
       <div style="font-size:11px;color:#888;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;">Total in Drawer</div>
       <div id="drawer-total-amount" style="font-family:'Bebas Neue',sans-serif;font-size:34px;color:#222;">$0.00</div>
+      <div id="drawer-tipout-line" style="display:none;font-size:12px;color:#888;margin-top:2px;">—</div>
       <div id="drawer-pull-line" style="font-size:15px;font-weight:700;margin-top:4px;">—</div>
       <div id="drawer-pos-variance-line" style="display:none;font-size:15px;font-weight:700;margin-top:6px;padding-top:6px;border-top:1px solid #e0ded9;">—</div>
     </div>
@@ -8119,6 +8124,12 @@ function selectDrawerRegister(reg) {
   document.getElementById('drawer-pos-expected').value = '';
   document.getElementById('drawer-pos-row').style.display = 'none';
   document.getElementById('drawer-pos-variance-line').style.display = 'none';
+  // Only the Bar register has a bartender to pay a cash tip-out to before
+  // the station closes -- that cash leaves the drawer with them, so it has
+  // to come out of the count before comparing against Speedline or figuring
+  // the actual pull. No other register has this two-step close.
+  document.getElementById('drawer-tipout-row').style.display = (reg === 'Bar') ? 'flex' : 'none';
+  document.getElementById('drawer-tipout-amount').value = 0;
   document.getElementById('drawer-cashier-name').value = '';
   var dateInput = document.getElementById('drawer-count-date');
   if(!dateInput.value) {
@@ -8155,6 +8166,8 @@ function cancelDrawerCount() {
   document.getElementById('drawer-count-form').style.display = 'none';
   document.getElementById('drawer-type-picker').style.display = 'flex';
   document.getElementById('drawer-type-picker-safe').style.display = 'none';
+  document.getElementById('drawer-tipout-row').style.display = 'none';
+  document.getElementById('drawer-tipout-amount').value = 0;
   document.querySelectorAll('.drawer-reg-btn').forEach(function(b){
     b.classList.remove('btn-primary'); b.classList.add('btn-secondary');
   });
@@ -8176,6 +8189,18 @@ function selectDrawerType(type) {
   recalcDrawerTotal();
 }
 
+// The Bar is the only register with a two-step close: the bartender gets
+// paid their cash tip-out from the drawer BEFORE the station itself closes
+// out. That cash physically leaves with them, so it has to come out of the
+// raw count before comparing against Speedline or figuring the real pull --
+// otherwise every bar count looks exactly tip-out-amount "over" for no
+// reason. Returns 0 for every register except Bar.
+function getDrawerTipOut() {
+  if(_drawerSelectedRegister !== 'Bar') return 0;
+  var el = document.getElementById('drawer-tipout-amount');
+  return el ? (parseFloat(el.value) || 0) : 0;
+}
+
 function recalcDrawerTotal() {
   var total = 0;
   (_drawerIsSafe ? ['rolls','bills'] : ['coins','rolls','bills']).forEach(function(sec){
@@ -8186,6 +8211,15 @@ function recalcDrawerTotal() {
     });
   });
   document.getElementById('drawer-total-amount').textContent = '$' + total.toFixed(2);
+  var tipOut = getDrawerTipOut();
+  var adjusted = total - tipOut;
+  var tipoutLine = document.getElementById('drawer-tipout-line');
+  if(tipOut > 0) {
+    tipoutLine.style.display = 'block';
+    tipoutLine.textContent = '– $' + tipOut.toFixed(2) + ' tip-out → Adjusted: $' + adjusted.toFixed(2);
+  } else {
+    tipoutLine.style.display = 'none';
+  }
   var pullLine = document.getElementById('drawer-pull-line');
   if(_drawerSelectedType === 'spot_check') {
     pullLine.textContent = 'Spot check only — counted for reference, no pull';
@@ -8194,7 +8228,7 @@ function recalcDrawerTotal() {
   }
   var openingEl = document.getElementById('drawer-opening-amount');
   var openingAmt = openingEl ? (parseFloat(openingEl.value) || 0) : DRAWER_STARTING_BALANCE;
-  var diff = total - openingAmt;
+  var diff = adjusted - openingAmt;
   if(_drawerIsSafe) {
     if(Math.abs(diff) < 0.005) {
       pullLine.textContent = '✅ At $' + SAFE_TARGET_BALANCE.toFixed(2) + ' — good';
@@ -8222,7 +8256,8 @@ function recalcDrawerTotal() {
   // the pull line is "how much cash to physically remove," this is "did the
   // actual drawer match what the POS's own transaction total says it
   // should have." Only meaningful at a handoff (Shift Change/Closer), and
-  // only once a POS figure has actually been entered.
+  // only once a POS figure has actually been entered. Compared against the
+  // tip-out-adjusted amount for the same reason as the pull line above.
   var posLine = document.getElementById('drawer-pos-variance-line');
   if(posLine && (_drawerSelectedType === 'shift_change' || _drawerSelectedType === 'closer')) {
     var posEl = document.getElementById('drawer-pos-expected');
@@ -8232,7 +8267,7 @@ function recalcDrawerTotal() {
       posLine.style.color = '#888';
     } else {
       var posExpected = parseFloat(posVal) || 0;
-      var posDiff = total - posExpected;
+      var posDiff = adjusted - posExpected;
       if(Math.abs(posDiff) < 0.005) {
         posLine.textContent = 'POS check: EVEN';
         posLine.style.color = '#1a7a3c';
@@ -8264,20 +8299,26 @@ function saveDrawerCount() {
     });
   });
   var total = recalcDrawerTotal();
+  var tipOut = getDrawerTipOut();
+  breakdown.tipout = Math.round(tipOut * 100) / 100;
+  var adjusted = total - tipOut;
   var openingAmt = parseFloat(document.getElementById('drawer-opening-amount').value) || 0;
   // Spot checks are informational only — verifying what's in the drawer,
   // never a handoff — so there's no pull amount to compute or act on.
-  var pull = (_drawerSelectedType === 'spot_check') ? null : (total - openingAmt);
+  // Everywhere else, the pull is figured from the tip-out-adjusted amount
+  // (see getDrawerTipOut above), not the raw count.
+  var pull = (_drawerSelectedType === 'spot_check') ? null : (adjusted - openingAmt);
   // POS expected/variance only applies at a handoff point (Shift Change or
   // Closer), and only when an amount was actually entered -- an Opener has
-  // nothing from the POS to check yet.
+  // nothing from the POS to check yet. Also compared against the adjusted
+  // amount for the same tip-out reason.
   var posExpected = null, posVariance = null;
   if(_drawerSelectedType === 'shift_change' || _drawerSelectedType === 'closer') {
     var posEl = document.getElementById('drawer-pos-expected');
     var posVal = posEl ? posEl.value.trim() : '';
     if(posVal !== '') {
       posExpected = parseFloat(posVal) || 0;
-      posVariance = total - posExpected;
+      posVariance = adjusted - posExpected;
     }
   }
   var entry = {
@@ -8332,6 +8373,13 @@ function renderDrawerCountRows(rows, list) {
       var t = new Date(r.counted_at);
       var timeStr = ((t.getHours()%12)||12) + ':' + String(t.getMinutes()).padStart(2,'0') + (t.getHours()>=12?'PM':'AM');
       var openedNote = (!isSpotCheck && r.starting_balance != null && Math.abs(r.starting_balance - DRAWER_STARTING_BALANCE) > 0.005) ? ' &middot; Opened $'+Number(r.starting_balance).toFixed(2) : '';
+      var tipoutNote = '';
+      try {
+        var parsedBreakdown = r.counts_json ? JSON.parse(r.counts_json) : null;
+        if(parsedBreakdown && parsedBreakdown.tipout > 0) {
+          tipoutNote = ' &middot; Tip-out $'+Number(parsedBreakdown.tipout).toFixed(2);
+        }
+      } catch(e) {}
       // POS variance is the separate "did this drawer match what the POS's
       // own transaction total says it should" check -- distinct from the
       // pull line above, and only present on Shift Change/Closer counts
@@ -8347,7 +8395,7 @@ function renderDrawerCountRows(rows, list) {
       var rowFlagged = isShort || isPosShort;
       html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;padding:8px 10px;border:1px solid '+(rowFlagged?'#f3c2c9':'#eee')+';background:'+(rowFlagged?'#fff5f6':'#fff')+';border-radius:8px;margin-bottom:6px;">'
         + '<div><div style="font-size:13px;font-weight:700;color:#222;">'+r.register+' — '+typeLabel+(r.cashier_name?' — '+r.cashier_name:'')+'</div>'
-        + '<div style="font-size:11px;color:#888;">Counted by '+(r.counted_by||'—')+' &middot; '+timeStr+' &middot; Total $'+Number(r.total).toFixed(2)+openedNote+'</div></div>'
+        + '<div style="font-size:11px;color:#888;">Counted by '+(r.counted_by||'—')+' &middot; '+timeStr+' &middot; Total $'+Number(r.total).toFixed(2)+openedNote+tipoutNote+'</div></div>'
         + '<div style="text-align:right;"><div style="font-size:13px;font-weight:700;color:'+(isSpotCheck?'#666':(isShort?'#c8102e':'#1a7a3c'))+';">'+pullLabel+'</div>'+posHtml+'</div>'
         + '</div>';
     });
