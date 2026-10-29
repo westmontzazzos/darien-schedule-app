@@ -4836,7 +4836,31 @@ document.addEventListener("DOMContentLoaded",function(){
   <div style="padding:0 16px 24px;">
     <button class="btn btn-secondary" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;" onclick="printPayrollAdjustmentForm()">📋 Payroll Adjustment <span style="color:var(--gray-400);">🖨</span></button>
     <button class="btn btn-secondary" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;" onclick="printFryerMaintenanceForm()">🍟 Fryer Maintenance <span style="color:var(--gray-400);">🖨</span></button>
-    <button class="btn btn-secondary" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;" onclick="printManagerClosingForm()">📝 Manager Closing Form <span style="color:var(--gray-400);">🖨</span></button>
+    <button class="btn btn-secondary" style="width:100%;text-align:left;display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;" onclick="openMCFModal()">📝 Manager Closing Form <span style="color:var(--gray-400);">🖨</span></button>
+  </div>
+</div>
+
+<!-- MANAGER CLOSING FORM MODAL — print blank, or scan a Day Report to pre-fill
+     the Cash and CC (Visa+MasterCard+AMEX+Discover) lines before printing. -->
+<div id="mcf-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,0.65);align-items:center;justify-content:center;">
+  <div style="background:#fff;border-radius:14px;width:92%;max-width:420px;max-height:85vh;overflow-y:auto;">
+    <div style="background:var(--red);padding:14px 16px;display:flex;justify-content:space-between;align-items:center;">
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:19px;letter-spacing:0.06em;color:#fff;">Manager Closing Form</div>
+      <button onclick="closeMCFModal()" style="background:none;border:none;color:#fff;font-size:22px;cursor:pointer;line-height:1;">×</button>
+    </div>
+    <div style="padding:16px;">
+      <button class="btn btn-secondary" style="width:100%;margin-bottom:10px;" onclick="closeMCFModal();printManagerClosingForm();">🖨 Print Blank Form</button>
+      <div style="font-size:11px;color:#999;text-align:center;margin:4px 0 12px;">— or —</div>
+      <input type="file" id="mcf-scan-file" accept="image/*" style="display:none" onchange="previewMCFScanImage()">
+      <div id="mcf-scan-preview" style="display:none;margin-bottom:10px;">
+        <img id="mcf-scan-img" style="width:100%;border-radius:8px;border:1px solid #eee;">
+      </div>
+      <button class="btn btn-secondary" style="width:100%;margin-bottom:10px;" onclick="document.getElementById('mcf-scan-file').click()">📷 Scan Day Report (Cash + Cards)</button>
+      <div id="mcf-scan-status" style="font-size:13px;color:#888;text-align:center;margin-bottom:10px;"></div>
+      <div id="mcf-scan-result" style="display:none;background:#f7f7f5;border-radius:8px;padding:12px;margin-bottom:12px;font-size:13px;"></div>
+      <button id="mcf-scan-go-btn" class="btn btn-primary" style="width:100%;margin-bottom:10px;display:none;" onclick="runMCFScan()">Extract Totals</button>
+      <button id="mcf-scan-print-btn" class="btn btn-primary" style="width:100%;display:none;" onclick="printScannedManagerClosingForm()">🖨 Print With These Totals</button>
+    </div>
   </div>
 </div>
 
@@ -13493,14 +13517,20 @@ function printFryerMaintenanceForm() {
   printFormHTML('Fryer Maintenance', body);
 }
 
-function printManagerClosingForm() {
-  function totalRow(label) { return '<div class="ptotal-row"><span>'+label+'</span><div class="uline"></div></div>'; }
+function printManagerClosingForm(prefill) {
+  // prefill (optional): {cash: number, cardTotal: number} -- extracted from a
+  // scanned Day Report (see runMCFScan). When present, those two lines print
+  // with the number already filled in instead of a blank line to write on.
+  function totalRow(label, value) {
+    var content = (value != null) ? '<b>$'+Number(value).toFixed(2)+'</b>' : '';
+    return '<div class="ptotal-row"><span>'+label+'</span><div class="uline" style="text-align:right;border-bottom:1px solid #999;">'+content+'</div></div>';
+  }
   function checkRow(label) { return '<div class="pchecklist-row">'+label+' <span>Yes &nbsp;/&nbsp; No</span></div>'; }
   var body = formPageHead('DAILY MANAGER REPORT')
     + '<div class="frow"><div class="ffield"><b>Date</b><div class="uline"></div></div><div class="ffield"><b>Day</b><div class="uline"></div></div><div class="ffield"><b>Manager</b><div class="uline"></div></div></div>'
     + '<div class="psection">Daily Totals</div>'
-    + totalRow('Cash on hand') + totalRow('(-) CC tips') + totalRow('(-) Cash tips') + totalRow('Cash match')
-    + totalRow('Plus / Neg') + totalRow('CC') + totalRow('Checks') + totalRow('Net sales') + totalRow('Labor %') + totalRow('Safe')
+    + totalRow('Cash on hand', prefill ? prefill.cash : null) + totalRow('(-) CC tips') + totalRow('(-) Cash tips') + totalRow('Cash match')
+    + totalRow('Plus / Neg') + totalRow('CC', prefill ? prefill.cardTotal : null) + totalRow('Checks') + totalRow('Net sales') + totalRow('Labor %') + totalRow('Safe')
     + '<div class="psection">Hourly Number</div>'
     + '<div class="phourly"><div>8 PM<div class="uline"></div></div><div>9 PM<div class="uline"></div></div><div>10 PM<div class="uline"></div></div><div>11 PM<div class="uline"></div></div><div>12 AM<div class="uline"></div></div></div>'
     + '<div class="frow" style="margin-top:14px;"><div class="ffield"><b>Notes</b><div class="pnotes"></div></div><div class="ffield"><b>Money Issues</b><div class="pnotes"></div></div></div>'
@@ -13509,6 +13539,85 @@ function printManagerClosingForm() {
     + checkRow('Low inventory?') + checkRow('Server daily clean list?') + checkRow('Freezer pull?')
     + '<div class="pfoot">Printed ' + new Date().toLocaleDateString() + '</div>';
   printFormHTML('Manager Closing Form', body);
+}
+
+// ---------------------------------------------------------------------------
+// MANAGER CLOSING FORM MODAL — scan a Day Report photo, pull Cash + the four
+// credit cards (Visa/MasterCard/AMEX/Discover) off its Tender Summary, total
+// the cards, and print the form with those two lines already filled in.
+// Reuses callVision() exactly as the schedule-photo parsing does.
+// ---------------------------------------------------------------------------
+var _mcfScanImage = null;
+var _mcfScanResult = null;
+function openMCFModal() {
+  document.getElementById('mcf-modal').style.display = 'flex';
+  document.getElementById('mcf-scan-preview').style.display = 'none';
+  document.getElementById('mcf-scan-status').textContent = '';
+  document.getElementById('mcf-scan-result').style.display = 'none';
+  document.getElementById('mcf-scan-go-btn').style.display = 'none';
+  document.getElementById('mcf-scan-print-btn').style.display = 'none';
+  document.getElementById('mcf-scan-file').value = '';
+  _mcfScanImage = null;
+  _mcfScanResult = null;
+}
+function closeMCFModal() {
+  document.getElementById('mcf-modal').style.display = 'none';
+}
+function previewMCFScanImage() {
+  var input = document.getElementById('mcf-scan-file');
+  var file = input.files[0];
+  if(!file) return;
+  var reader = new FileReader();
+  reader.onload = function(e) {
+    _mcfScanImage = e.target.result;
+    document.getElementById('mcf-scan-img').src = e.target.result;
+    document.getElementById('mcf-scan-preview').style.display = 'block';
+    document.getElementById('mcf-scan-status').textContent = '';
+    document.getElementById('mcf-scan-result').style.display = 'none';
+    document.getElementById('mcf-scan-print-btn').style.display = 'none';
+    document.getElementById('mcf-scan-go-btn').style.display = 'block';
+  };
+  reader.readAsDataURL(file);
+}
+async function runMCFScan() {
+  if(!_mcfScanImage) { alert('Choose a photo first.'); return; }
+  var statusEl = document.getElementById('mcf-scan-status');
+  var goBtn = document.getElementById('mcf-scan-go-btn');
+  goBtn.style.display = 'none';
+  statusEl.textContent = '⏳ Reading tender summary...';
+  try {
+    var base64 = _mcfScanImage.split(',')[1];
+    var mediaType = _mcfScanImage.split(';')[0].split(':')[1];
+    var prompt = 'You are extracting the TENDER SUMMARY section from a restaurant day-end POS report photo.\n\nFind these exact line items and their dollar amounts: Cash, Visa, MasterCard, AMEX (also written as American Express), Discover.\n\nReturn ONLY a valid JSON object with this exact structure -- no markdown, no explanation, just raw JSON:\n{"cash": 0.00, "visa": 0.00, "mastercard": 0.00, "amex": 0.00, "discover": 0.00}\n\nRules:\n- Each value is a plain number, no $ sign and no commas\n- If a line item is not visible in the image, use 0 for that value\n- Do NOT include Gift Card, Uber Eats, DoorDash, Checks, or any other tender type -- only these five\n- Read the exact digits as printed; do not round or estimate';
+    var result = await callVision(base64, mediaType, prompt);
+    var cash = Number(result.cash) || 0;
+    var visa = Number(result.visa) || 0;
+    var mc = Number(result.mastercard) || 0;
+    var amex = Number(result.amex) || 0;
+    var disc = Number(result.discover) || 0;
+    var cardTotal = visa + mc + amex + disc;
+    _mcfScanResult = { cash: cash, cardTotal: cardTotal };
+    statusEl.textContent = '';
+    var resultEl = document.getElementById('mcf-scan-result');
+    resultEl.style.display = 'block';
+    resultEl.innerHTML =
+      '<div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span>Cash</span><b>$'+cash.toFixed(2)+'</b></div>'
+      + '<div style="font-size:11px;color:#999;margin:6px 0 2px;">Credit Cards</div>'
+      + '<div style="display:flex;justify-content:space-between;"><span>Visa</span><span>$'+visa.toFixed(2)+'</span></div>'
+      + '<div style="display:flex;justify-content:space-between;"><span>MasterCard</span><span>$'+mc.toFixed(2)+'</span></div>'
+      + '<div style="display:flex;justify-content:space-between;"><span>AMEX</span><span>$'+amex.toFixed(2)+'</span></div>'
+      + '<div style="display:flex;justify-content:space-between;"><span>Discover</span><span>$'+disc.toFixed(2)+'</span></div>'
+      + '<div style="display:flex;justify-content:space-between;margin-top:6px;padding-top:6px;border-top:1px solid #ddd;font-weight:700;"><span>CC Total</span><span>$'+cardTotal.toFixed(2)+'</span></div>';
+    document.getElementById('mcf-scan-print-btn').style.display = 'block';
+  } catch(err) {
+    statusEl.textContent = '❌ Could not read the photo: ' + err.message;
+    goBtn.style.display = 'block';
+  }
+}
+function printScannedManagerClosingForm() {
+  if(!_mcfScanResult) { alert('Scan a Day Report first.'); return; }
+  closeMCFModal();
+  printManagerClosingForm(_mcfScanResult);
 }
 
 function printDomsNoteFromAck(note, user) {
