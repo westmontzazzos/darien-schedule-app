@@ -4726,8 +4726,12 @@ document.addEventListener("DOMContentLoaded",function(){
       <button class="btn btn-secondary drawer-type-btn" data-type="closer" onclick="selectDrawerType('closer')" style="flex:1;min-width:80px;">Closer</button>
       <button class="btn btn-secondary drawer-type-btn" data-type="spot_check" onclick="selectDrawerType('spot_check')" style="flex:1;min-width:80px;">Spot Check</button>
     </div>
+    <div style="display:none;gap:6px;flex-wrap:wrap;margin-bottom:14px;" id="drawer-type-picker-safe">
+      <button class="btn btn-secondary drawer-type-btn" data-type="am" onclick="selectDrawerType('am')" style="flex:1;min-width:80px;">AM Safe Count</button>
+      <button class="btn btn-secondary drawer-type-btn" data-type="pm" onclick="selectDrawerType('pm')" style="flex:1;min-width:80px;">PM Safe Count</button>
+    </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
-      <label style="font-size:12px;color:#666;font-weight:700;">Who was on this drawer?</label>
+      <label id="drawer-who-label" style="font-size:12px;color:#666;font-weight:700;">Who was on this drawer?</label>
       <input type="text" id="drawer-cashier-name" placeholder="Name" style="flex:1;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;">
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
@@ -4735,7 +4739,7 @@ document.addEventListener("DOMContentLoaded",function(){
       <input type="date" id="drawer-count-date" style="border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;">
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-      <label style="font-size:12px;color:#666;font-weight:700;">What did the register open at?</label>
+      <label id="drawer-opening-label" style="font-size:12px;color:#666;font-weight:700;">What did the register open at?</label>
       <input type="number" inputmode="decimal" step="0.01" id="drawer-opening-amount" value="250" oninput="recalcDrawerTotal()" style="width:90px;border:1px solid #ddd;border-radius:8px;padding:6px 10px;font-size:13px;text-align:right;">
     </div>
     <div id="drawer-pos-row" style="display:none;align-items:center;gap:10px;margin-bottom:14px;">
@@ -4773,6 +4777,7 @@ document.addEventListener("DOMContentLoaded",function(){
         <option value="Cashier 1">Cashier 1</option>
         <option value="Cashier 2">Cashier 2</option>
         <option value="Bar">Bar</option>
+        <option value="Safe">Safe</option>
       </select>
     </div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -8054,8 +8059,13 @@ async function reopenMessage() {
 // (darien_drawer_counts table), with a $250 starting balance used to compute
 // the nightly pull (or flag a shortage). Ported from Westmont's drawer feature.
 // ---------------------------------------------------------------------------
-var DRAWER_REGISTERS = ['Cashier 1','Cashier 2','Bar'];
+var DRAWER_REGISTERS = ['Cashier 1','Cashier 2','Bar','Safe'];
 var DRAWER_STARTING_BALANCE = 250;
+// The safe has no per-day "opening balance" to key off of like a register
+// does -- it has a fixed target it needs to be at: rolls of coins + bills,
+// counted AM and PM, by a manager rather than whoever's on the register.
+var SAFE_TARGET_BALANCE = 525;
+var _drawerIsSafe = false;
 var DRAWER_ITEMS = {
   coins: [
     {id:'penny',   label:'Penny',   value:0.01},
@@ -8092,15 +8102,20 @@ function renderDrawerTab() {
 function selectDrawerRegister(reg) {
   _drawerSelectedRegister = reg;
   _drawerSelectedType = null;
+  _drawerIsSafe = (reg === 'Safe');
   document.querySelectorAll('.drawer-type-btn').forEach(function(b){
     b.classList.remove('btn-primary'); b.classList.add('btn-secondary');
   });
+  document.getElementById('drawer-type-picker').style.display = _drawerIsSafe ? 'none' : 'flex';
+  document.getElementById('drawer-type-picker-safe').style.display = _drawerIsSafe ? 'flex' : 'none';
+  document.getElementById('drawer-who-label').textContent = _drawerIsSafe ? 'Which manager counted the safe?' : 'Who was on this drawer?';
+  document.getElementById('drawer-opening-label').textContent = _drawerIsSafe ? 'Safe target amount' : 'What did the register open at?';
   document.querySelectorAll('.drawer-reg-btn').forEach(function(b){
     b.classList.toggle('btn-primary', b.getAttribute('data-reg') === reg);
     b.classList.toggle('btn-secondary', b.getAttribute('data-reg') !== reg);
   });
   document.getElementById('drawer-count-form').style.display = 'block';
-  document.getElementById('drawer-opening-amount').value = DRAWER_STARTING_BALANCE;
+  document.getElementById('drawer-opening-amount').value = _drawerIsSafe ? SAFE_TARGET_BALANCE : DRAWER_STARTING_BALANCE;
   document.getElementById('drawer-pos-expected').value = '';
   document.getElementById('drawer-pos-row').style.display = 'none';
   document.getElementById('drawer-pos-variance-line').style.display = 'none';
@@ -8120,16 +8135,26 @@ function selectDrawerRegister(reg) {
     });
     document.getElementById(containerId).innerHTML = html;
   }
-  buildSection('drawer-section-coins', 'Loose Coins', DRAWER_ITEMS.coins);
-  buildSection('drawer-section-rolls', 'Rolls',       DRAWER_ITEMS.rolls);
-  buildSection('drawer-section-bills', 'Bills',        DRAWER_ITEMS.bills);
+  // The safe holds rolls of coins and bills only -- no loose coins, unlike
+  // a register drawer -- so its section is skipped entirely when Safe is
+  // selected, matching exactly what's physically counted.
+  if(_drawerIsSafe) {
+    document.getElementById('drawer-section-coins').innerHTML = '';
+  } else {
+    buildSection('drawer-section-coins', 'Loose Coins', DRAWER_ITEMS.coins);
+  }
+  buildSection('drawer-section-rolls', 'Rolls', DRAWER_ITEMS.rolls);
+  buildSection('drawer-section-bills', 'Bills', DRAWER_ITEMS.bills);
   recalcDrawerTotal();
 }
 
 function cancelDrawerCount() {
   _drawerSelectedRegister = null;
   _drawerSelectedType = null;
+  _drawerIsSafe = false;
   document.getElementById('drawer-count-form').style.display = 'none';
+  document.getElementById('drawer-type-picker').style.display = 'flex';
+  document.getElementById('drawer-type-picker-safe').style.display = 'none';
   document.querySelectorAll('.drawer-reg-btn').forEach(function(b){
     b.classList.remove('btn-primary'); b.classList.add('btn-secondary');
   });
@@ -8153,7 +8178,7 @@ function selectDrawerType(type) {
 
 function recalcDrawerTotal() {
   var total = 0;
-  ['coins','rolls','bills'].forEach(function(sec){
+  (_drawerIsSafe ? ['rolls','bills'] : ['coins','rolls','bills']).forEach(function(sec){
     DRAWER_ITEMS[sec].forEach(function(it){
       var el = document.getElementById('drawer-qty-'+it.id);
       var qty = el ? (parseInt(el.value, 10) || 0) : 0;
@@ -8170,6 +8195,19 @@ function recalcDrawerTotal() {
   var openingEl = document.getElementById('drawer-opening-amount');
   var openingAmt = openingEl ? (parseFloat(openingEl.value) || 0) : DRAWER_STARTING_BALANCE;
   var diff = total - openingAmt;
+  if(_drawerIsSafe) {
+    if(Math.abs(diff) < 0.005) {
+      pullLine.textContent = '✅ At $' + SAFE_TARGET_BALANCE.toFixed(2) + ' — good';
+      pullLine.style.color = '#1a7a3c';
+    } else if(diff > 0) {
+      pullLine.textContent = 'OVER by $' + diff.toFixed(2) + ' — remove to reach $' + SAFE_TARGET_BALANCE.toFixed(2);
+      pullLine.style.color = '#8a6d00';
+    } else {
+      pullLine.textContent = '⚠️ SHORT $' + Math.abs(diff).toFixed(2) + ' — add to reach $' + SAFE_TARGET_BALANCE.toFixed(2);
+      pullLine.style.color = '#c8102e';
+    }
+    return total;
+  }
   if(Math.abs(diff) < 0.005) {
     pullLine.textContent = 'Even — no pull needed';
     pullLine.style.color = '#666';
@@ -8212,13 +8250,13 @@ function recalcDrawerTotal() {
 
 function saveDrawerCount() {
   if(!_drawerSelectedRegister) { alert('Select a register first.'); return; }
-  if(!_drawerSelectedType) { alert('Select Opener, Shift Change, Closer, or Spot Check first.'); return; }
+  if(!_drawerSelectedType) { alert(_drawerIsSafe ? 'Select AM Safe Count or PM Safe Count first.' : 'Select Opener, Shift Change, Closer, or Spot Check first.'); return; }
   var dateVal = document.getElementById('drawer-count-date').value;
   if(!dateVal) { alert('Please set the count date.'); return; }
   var cashierName = document.getElementById('drawer-cashier-name').value.trim();
-  if(!cashierName) { alert('Enter who was on this drawer before saving.'); return; }
+  if(!cashierName) { alert(_drawerIsSafe ? 'Enter which manager counted the safe before saving.' : 'Enter who was on this drawer before saving.'); return; }
   var breakdown = {};
-  ['coins','rolls','bills'].forEach(function(sec){
+  (_drawerIsSafe ? ['rolls','bills'] : ['coins','rolls','bills']).forEach(function(sec){
     breakdown[sec] = {};
     DRAWER_ITEMS[sec].forEach(function(it){
       var el = document.getElementById('drawer-qty-'+it.id);
@@ -8285,7 +8323,7 @@ function renderDrawerCountRows(rows, list) {
     var dt = new Date(d + 'T12:00:00');
     html += '<div style="font-size:12px;font-weight:700;color:#666;margin:10px 0 4px;">'+months[dt.getMonth()]+' '+dt.getDate()+', '+dt.getFullYear()+'</div>';
     byDate[d].sort(function(a,b){ return a.register.localeCompare(b.register, undefined, {numeric:true}) || new Date(a.counted_at)-new Date(b.counted_at); }).forEach(function(r){
-      var TYPE_LABELS = {opener:'Opener', shift_change:'Shift Change', closer:'Closer', spot_check:'Spot Check'};
+      var TYPE_LABELS = {opener:'Opener', shift_change:'Shift Change', closer:'Closer', spot_check:'Spot Check', am:'AM Safe Count', pm:'PM Safe Count'};
       var typeLabel = TYPE_LABELS[r.count_type] || 'Opener';
       var isSpotCheck = r.count_type === 'spot_check';
       var isShort = !isSpotCheck && r.pull_amount < -0.005;
