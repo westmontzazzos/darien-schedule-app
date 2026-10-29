@@ -8659,7 +8659,7 @@ function buildDrawerCountsPDF(dateStr, rows) {
   var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var dt = new Date(dateStr + 'T12:00:00');
   var dateLabel = months[dt.getMonth()]+' '+dt.getDate()+', '+dt.getFullYear();
-  var CN=M+4, TY=M+58, CC=M+122, CB=M+235, CT=M+330, CR=PW-M-4;
+  var CN=M+4, TY=M+58, CC=M+122, CB=M+235, CT=M+330, CL=PW-M-92, CR=PW-M-4;
   function ensurePage(pg){
     while(pages.length<=pg)pages.push('');
     if(!headed[pg]){headed[pg]=true;
@@ -8672,7 +8672,8 @@ function buildDrawerCountsPDF(dateStr, rows) {
       text(pg,CC,46,'CASHIER',7,true,[0.5,0.5,0.5]);
       text(pg,CB,46,'COUNTED BY / TIME',7,true,[0.5,0.5,0.5]);
       text(pg,CT,46,'TOTAL',7,true,[0.5,0.5,0.5]);
-      rtext(pg,CR,46,'PULL / SHORT',7,true,[0.5,0.5,0.5]);
+      rtext(pg,CL,46,'+ / -',7,true,[0.5,0.5,0.5]);
+      rtext(pg,CR,46,'DRAWER NET',7,true,[0.5,0.5,0.5]);
       line(pg,M,50,PW-M,50,[0.8,0.8,0.8],0.5);
     }
   }
@@ -8681,6 +8682,17 @@ function buildDrawerCountsPDF(dateStr, rows) {
   function pb(need){ if(y+need>bot){ p+=1; ensurePage(p); y=58; } }
   var PDF_TYPES={opener:'OPEN',shift_change:'SHIFT CHANGE',closer:'CLOSE',spot_check:'SPOT CHECK',am:'AM COUNT',pm:'PM COUNT'};
   var totalAll=0, totalPull=0, shortCount=0, posShortCount=0;
+  // Each line shows its own plus/minus against the drawer's opening amount.
+  // The far-right column adds a drawer's lines together (printed once, on that
+  // drawer's last line), and the bar at the bottom adds the drawers together.
+  // Spot checks are counted-only and never part of any total.
+  var drawerNet={}, drawerLast={};
+  rows.forEach(function(r, idx){
+    drawerLast[r.register]=idx;
+    if(r.count_type!=='spot_check') drawerNet[r.register]=(drawerNet[r.register]||0)+Number(r.pull_amount||0);
+  });
+  function sm(v){ var a=Math.abs(v); return a<0.005 ? 'Even' : (v>0?'+':'-')+'$'+a.toFixed(2); }
+  function sc(v){ return Math.abs(v)<0.005 ? [0.4,0.4,0.4] : (v>0 ? [0.1,0.47,0.24] : [0.79,0.06,0.06]); }
   rows.forEach(function(r, idx){
     var hasPos = r.pos_expected != null && r.pos_variance != null;
     var rowH = rH + (hasPos ? posExtraH : 0);
@@ -8695,8 +8707,9 @@ function buildDrawerCountsPDF(dateStr, rows) {
     text(p,CB,y+14,(r.counted_by||'—')+' / '+timeStr,8.5,false,[0.4,0.4,0.4]);
     text(p,CT,y+14,'$'+Number(r.total).toFixed(2),9.5,false,[0,0,0]);
     var isSpot = r.count_type === 'spot_check';
-    var pullStr = isSpot ? 'Counted only' : Math.abs(r.pull_amount) < 0.005 ? 'Even' : (isShort ? 'SHORT $'+Math.abs(r.pull_amount).toFixed(2) : 'Pull $'+Number(r.pull_amount).toFixed(2));
-    rtext(p,CR,y+14,pullStr, 9.5, true, isSpot ? [0.4,0.4,0.4] : (isShort ? [0.79,0.06,0.06] : [0.1,0.47,0.24]));
+    var lineVal = Number(r.pull_amount||0);
+    rtext(p,CL,y+14, isSpot ? 'Counted only' : sm(lineVal), 9.5, true, isSpot ? [0.4,0.4,0.4] : sc(lineVal));
+    if(drawerLast[r.register]===idx) rtext(p,CR,y+14, sm(drawerNet[r.register]||0), 10, true, sc(drawerNet[r.register]||0));
     // POS check is a separate line below the main row, only present when a
     // POS figure was actually entered for this count (Shift Change/Closer).
     var isPosShort = false;
@@ -8717,9 +8730,10 @@ function buildDrawerCountsPDF(dateStr, rows) {
   pb(26);
   y += 4;
   rect(p,M,y,PW-2*M,20,[0.12,0.12,0.12]);
-  text(p,M+8,y+14,'TOTAL COUNTED: $'+totalAll.toFixed(2)+'   |   NET PULL: $'+totalPull.toFixed(2)+(shortCount?'   |   '+shortCount+' REGISTER(S) SHORT':'')+(posShortCount?'   |   '+posShortCount+' POS SHORTAGE(S)':''),9,true,[1,1,1]);
+  var eod = 0; Object.keys(drawerNet).forEach(function(k){ eod += drawerNet[k]; });
+  text(p,M+8,y+14,'END OF DAY TOTAL: '+sm(eod)+(posShortCount?'   |   '+posShortCount+' POS SHORTAGE(S)':''),9,true,[1,1,1]);
   y += 30;
-  text(p,M,y+9,'Pull/short is calculated against each register\'s recorded opening amount for that night. Opening manager: verify each register above against the physical drawer.',7.5,false,[0.55,0.55,0.55]);
+  text(p,M,y+9,'Each line is that count compared to the drawer\'s opening amount (Safe: $525 target). Drawer Net adds up a drawer\'s lines. Spot checks are not included.',7.5,false,[0.55,0.55,0.55]);
   var objs=[];function addObj(s){objs.push(s);return objs.length;}
   var fN=addObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>');
   var fB=addObj('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>');
