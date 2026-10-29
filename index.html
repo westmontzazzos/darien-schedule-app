@@ -4735,6 +4735,7 @@ document.addEventListener("DOMContentLoaded",function(){
         <button class="btn btn-primary" style="flex:1;" onclick="chooseDrawerType('shift_change')">Shift Change</button>
         <button class="btn btn-secondary" style="flex:1;background:#0D0D0D;color:#fff;border:none;" onclick="chooseDrawerType('closer')">Close</button>
       </div>
+      <button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="chooseDrawerType('spot_check')">Spot Check <span style="color:#999;font-weight:400;">— just count &amp; record</span></button>
     </div>
   </div>
 
@@ -4750,7 +4751,7 @@ document.addEventListener("DOMContentLoaded",function(){
         <label id="drawer-who-label" style="color:#666;font-weight:600;font-size:12.5px;">Who was on this drawer?</label>
         <input type="text" id="drawer-cashier-name" placeholder="Name" style="border:1px solid #ddd;border-radius:7px;padding:5px 9px;font-size:13px;width:140px;">
       </div>
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
+      <div id="drawer-opening-row" style="display:flex;align-items:center;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0f0f0;font-size:13px;">
         <label id="drawer-opening-label" style="color:#666;font-weight:600;font-size:12.5px;">Register opened at</label>
         <input type="number" inputmode="decimal" step="0.01" id="drawer-opening-amount" value="250" oninput="recalcDrawerTotal()" style="border:1px solid #ddd;border-radius:7px;padding:5px 9px;font-size:13px;width:90px;text-align:right;">
       </div>
@@ -8211,7 +8212,8 @@ async function refreshDrawerHome() {
 }
 
 function buildDrawerRegCard(name) {
-  var entries = _drawerHomeData[name] || [];
+  // Spot checks don't count as a step (see tapDrawerRegister).
+  var entries = (_drawerHomeData[name] || []).filter(function(e){ return e.count_type !== 'spot_check'; });
   var pillClass='notstarted', pillText='Not Started', statusText='Not started today', statusColor='#888';
   var pillStyles = {notstarted:'background:#f0efed;color:#666;', inprogress:'background:#fff3b0;color:#6b5600;', closed:'background:#d4f0dd;color:#1a7a3c;'};
   if(entries.length) {
@@ -8239,7 +8241,10 @@ function buildDrawerRegCard(name) {
 async function tapDrawerRegister(name) {
   _drawerSelectedRegister = name;
   _drawerIsSafe = (name === 'Safe');
-  var entries = _drawerHomeData[name] || [];
+  // Spot checks are just counted and recorded -- they never advance the
+  // Open -> Shift Change -> Close sequence, so they're ignored when working
+  // out which step this drawer is on.
+  var entries = (_drawerHomeData[name] || []).filter(function(e){ return e.count_type !== 'spot_check'; });
   if(entries.length === 0) {
     beginDrawerCount('opener');
     return;
@@ -8267,13 +8272,16 @@ function chooseDrawerType(type) {
 
 function beginDrawerCount(type) {
   _drawerSelectedType = type;
-  var typeLabels = {opener:'OPEN', shift_change:'SHIFT CHANGE', closer:'CLOSE'};
+  var typeLabels = {opener:'OPEN', shift_change:'SHIFT CHANGE', closer:'CLOSE', spot_check:'SPOT CHECK', am:'AM SAFE COUNT', pm:'PM SAFE COUNT'};
   document.getElementById('drawer-count-form-title').textContent = _drawerSelectedRegister + ' — ' + (typeLabels[type] || type.toUpperCase());
   document.getElementById('drawer-count-form-date').textContent = formatDrawerDateLabel(getBusinessDate());
   document.getElementById('drawer-who-label').textContent = _drawerIsSafe ? 'Which manager counted the safe?' : 'Who was on this drawer?';
   document.getElementById('drawer-opening-label').textContent = _drawerIsSafe ? 'Safe target amount' : 'Register opened at';
   document.getElementById('drawer-opening-amount').value = _drawerIsSafe ? SAFE_TARGET_BALANCE : DRAWER_STARTING_BALANCE;
   document.getElementById('drawer-cashier-name').value = '';
+  // A Spot Check is just a count to record -- nothing to compare against the
+  // opening amount, no POS entry, no tip-out, no pull.
+  document.getElementById('drawer-opening-row').style.display = (type === 'spot_check') ? 'none' : 'flex';
   // The POS-expected comparison only makes sense at a handoff point -- a
   // Shift Change or Close, where the POS has an actual running total to
   // check against. An Open has nothing to compare yet.
@@ -8434,7 +8442,7 @@ function saveDrawerCount() {
   breakdown.tipout = Math.round(tipOut * 100) / 100;
   var adjusted = total - tipOut;
   var openingAmt = parseFloat(document.getElementById('drawer-opening-amount').value) || 0;
-  var pull = (adjusted - openingAmt);
+  var pull = (_drawerSelectedType === 'spot_check') ? null : (adjusted - openingAmt);
   // POS expected/variance only applies at a handoff point (Shift Change or
   // Close), and only when an amount was actually entered. Compared against
   // the tip-out-adjusted amount for the same reason as the pull above.
@@ -8457,7 +8465,7 @@ function saveDrawerCount() {
     counts_json: JSON.stringify(breakdown),
     total: Math.round(total * 100) / 100,
     starting_balance: Math.round(openingAmt * 100) / 100,
-    pull_amount: Math.round(pull * 100) / 100,
+    pull_amount: pull != null ? Math.round(pull * 100) / 100 : null,
     pos_expected: posExpected != null ? Math.round(posExpected * 100) / 100 : null,
     pos_variance: posVariance != null ? Math.round(posVariance * 100) / 100 : null
   };
@@ -8571,8 +8579,9 @@ async function viewDrawerHistoryDay(dateStr) {
     if(!regsPresent.length) { el.innerHTML = '<div style="color:#aaa;font-size:13px;">No counts for this day.</div>'; return; }
     el.innerHTML = regsPresent.map(function(reg){
       var entries = byReg[reg];
-      var last = entries[entries.length-1];
-      var closed = last.count_type === 'closer';
+      var closedEntries = entries.filter(function(e){ return e.count_type === 'closer'; });
+      var last = closedEntries.length ? closedEntries[closedEntries.length-1] : entries[entries.length-1];
+      var closed = closedEntries.length > 0;
       return '<div class="btn btn-secondary" style="width:100%;text-align:left;margin-bottom:10px;padding:14px;cursor:pointer;display:block;" onclick="viewDrawerHistoryRegister(\''+reg+'\')">'
         + '<div style="font-family:\'Bebas Neue\',sans-serif;font-size:16px;letter-spacing:0.05em;">'+reg+'</div>'
         + '<div style="font-size:12px;color:'+(closed?'#1a7a3c':'#8a6d00')+';margin-top:2px;">'+entries.length+' count(s) · '+(closed?'Closed $'+Number(last.total).toFixed(2):'Not yet closed')+'</div>'
@@ -8586,7 +8595,7 @@ function viewDrawerHistoryRegister(reg) {
   document.getElementById('drawer-history-register-title').textContent = reg;
   var entries = _histDayRows[reg] || [];
   _histSelectedRegEntries = entries;
-  var typeLabels = {opener:'OPEN', shift_change:'SHIFT CHANGE', closer:'CLOSE'};
+  var typeLabels = {opener:'OPEN', shift_change:'SHIFT CHANGE', closer:'CLOSE', spot_check:'SPOT CHECK', am:'AM SAFE COUNT', pm:'PM SAFE COUNT'};
   var el = document.getElementById('drawer-history-register-content');
   el.innerHTML = entries.map(function(e, idx){
     var isShort = e.pull_amount != null && e.pull_amount < -0.005;
@@ -8650,7 +8659,7 @@ function buildDrawerCountsPDF(dateStr, rows) {
   var months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   var dt = new Date(dateStr + 'T12:00:00');
   var dateLabel = months[dt.getMonth()]+' '+dt.getDate()+', '+dt.getFullYear();
-  var CN=M+4, CC=M+95, CB=M+230, CT=M+330, CR=PW-M-4;
+  var CN=M+4, TY=M+58, CC=M+122, CB=M+235, CT=M+330, CR=PW-M-4;
   function ensurePage(pg){
     while(pages.length<=pg)pages.push('');
     if(!headed[pg]){headed[pg]=true;
@@ -8659,6 +8668,7 @@ function buildDrawerCountsPDF(dateStr, rows) {
       rtext(pg,PW-M,19,dateLabel+' -- CONFIDENTIAL',9,false,[1,0.85,0.85]);
       rect(pg,M,36,PW-2*M,13,[0.94,0.93,0.91]);
       text(pg,CN,46,'REGISTER',7,true,[0.5,0.5,0.5]);
+      text(pg,TY,46,'TYPE',7,true,[0.5,0.5,0.5]);
       text(pg,CC,46,'CASHIER',7,true,[0.5,0.5,0.5]);
       text(pg,CB,46,'COUNTED BY / TIME',7,true,[0.5,0.5,0.5]);
       text(pg,CT,46,'TOTAL',7,true,[0.5,0.5,0.5]);
@@ -8669,6 +8679,7 @@ function buildDrawerCountsPDF(dateStr, rows) {
   ensurePage(0);
   var p=0, y=58, bot=PH-M, rH=22, posExtraH=12;
   function pb(need){ if(y+need>bot){ p+=1; ensurePage(p); y=58; } }
+  var PDF_TYPES={opener:'OPEN',shift_change:'SHIFT CHANGE',closer:'CLOSE',spot_check:'SPOT CHECK',am:'AM COUNT',pm:'PM COUNT'};
   var totalAll=0, totalPull=0, shortCount=0, posShortCount=0;
   rows.forEach(function(r, idx){
     var hasPos = r.pos_expected != null && r.pos_variance != null;
@@ -8679,11 +8690,13 @@ function buildDrawerCountsPDF(dateStr, rows) {
     var t = new Date(r.counted_at);
     var timeStr = ((t.getHours()%12)||12)+':'+String(t.getMinutes()).padStart(2,'0')+(t.getHours()>=12?'PM':'AM');
     text(p,CN,y+14,r.register,9.5,true,[0,0,0]);
+    text(p,TY,y+14,PDF_TYPES[r.count_type]||'',7.5,true,[0.35,0.35,0.35]);
     text(p,CC,y+14,r.cashier_name||'—',8.5,false,[0.3,0.3,0.3]);
     text(p,CB,y+14,(r.counted_by||'—')+' / '+timeStr,8.5,false,[0.4,0.4,0.4]);
     text(p,CT,y+14,'$'+Number(r.total).toFixed(2),9.5,false,[0,0,0]);
-    var pullStr = Math.abs(r.pull_amount) < 0.005 ? 'Even' : (isShort ? 'SHORT $'+Math.abs(r.pull_amount).toFixed(2) : 'Pull $'+Number(r.pull_amount).toFixed(2));
-    rtext(p,CR,y+14,pullStr, 9.5, true, isShort ? [0.79,0.06,0.06] : [0.1,0.47,0.24]);
+    var isSpot = r.count_type === 'spot_check';
+    var pullStr = isSpot ? 'Counted only' : Math.abs(r.pull_amount) < 0.005 ? 'Even' : (isShort ? 'SHORT $'+Math.abs(r.pull_amount).toFixed(2) : 'Pull $'+Number(r.pull_amount).toFixed(2));
+    rtext(p,CR,y+14,pullStr, 9.5, true, isSpot ? [0.4,0.4,0.4] : (isShort ? [0.79,0.06,0.06] : [0.1,0.47,0.24]));
     // POS check is a separate line below the main row, only present when a
     // POS figure was actually entered for this count (Shift Change/Closer).
     var isPosShort = false;
@@ -8694,8 +8707,10 @@ function buildDrawerCountsPDF(dateStr, rows) {
       if(isPosShort) posShortCount++;
     }
     line(p,M,y+rowH-1,PW-M,y+rowH-1,[0.92,0.92,0.92],0.3);
-    totalAll += Number(r.total);
-    totalPull += Number(r.pull_amount);
+    if(!isSpot) {
+      totalAll += Number(r.total);
+      totalPull += Number(r.pull_amount);
+    }
     if(isShort) shortCount++;
     y += rowH;
   });
