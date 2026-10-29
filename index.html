@@ -4732,11 +4732,11 @@ document.addEventListener("DOMContentLoaded",function(){
       <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.05em;margin-bottom:4px;" id="drawer-type-choice-title">—</div>
       <div style="font-size:12.5px;color:#888;margin-bottom:16px;">Already opened today — what is this count?</div>
       <div style="display:flex;gap:10px;">
-        <button class="btn btn-primary" style="flex:1;" onclick="chooseDrawerType('shift_change')">Shift Change</button>
+        <button id="drawer-choice-shift-btn" class="btn btn-primary" style="flex:1;" onclick="chooseDrawerType('shift_change')">Shift Change</button>
         <button class="btn btn-secondary" style="flex:1;background:#0D0D0D;color:#fff;border:none;" onclick="chooseDrawerType('closer')">Close</button>
       </div>
       <button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="seeDrawerCounts()">See Counts <span style="color:#999;font-weight:400;">&mdash; today's counts for this drawer</span></button>
-      <button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="chooseDrawerType('spot_check')">Spot Check <span style="color:#999;font-weight:400;">— just count &amp; record</span></button>
+      <button id="drawer-choice-spot-btn" class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="chooseDrawerType('spot_check')">Spot Check <span style="color:#999;font-weight:400;">— just count &amp; record</span></button>
     </div>
   </div>
 
@@ -8227,7 +8227,7 @@ function buildDrawerRegCard(name) {
       pillClass='inprogress'; pillText = (name==='Safe') ? 'Awaiting Close' : 'In Progress';
       var openTimeStr = fmtDrawerTime(entries[0].counted_at);
       statusText = (name === 'Safe')
-        ? ('Opened ' + openTimeStr + ' — tap to close')
+        ? ('Opened ' + openTimeStr + ' — tap to close or see counts')
         : ('Opened ' + openTimeStr + ' · ' + (entries.length - 1) + ' shift change(s) so far');
       statusColor = '#8a6d00';
     }
@@ -8257,14 +8257,12 @@ async function tapDrawerRegister(name) {
     beginDrawerCount('closer');
     return;
   }
-  if(_drawerIsSafe) {
-    // Safe only ever has Open then Close -- the second tap is automatically
-    // the Close, no choice to make.
-    beginDrawerCount('closer');
-  } else {
-    document.getElementById('drawer-type-choice-title').textContent = name;
-    showDrawerScreen('type-choice');
-  }
+  document.getElementById('drawer-type-choice-title').textContent = name;
+  // The Safe only ever has an Open and a Close -- no Shift Change, no Spot
+  // Check -- so it gets just Close and See Counts.
+  document.getElementById('drawer-choice-shift-btn').style.display = _drawerIsSafe ? 'none' : '';
+  document.getElementById('drawer-choice-spot-btn').style.display = _drawerIsSafe ? 'none' : '';
+  showDrawerScreen('type-choice');
 }
 
 function chooseDrawerType(type) {
