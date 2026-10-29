@@ -8278,13 +8278,18 @@ function beginDrawerCount(type) {
   document.getElementById('drawer-opening-label').textContent = _drawerIsSafe ? 'Safe target amount' : 'Register opened at';
   document.getElementById('drawer-opening-amount').value = _drawerIsSafe ? SAFE_TARGET_BALANCE : DRAWER_STARTING_BALANCE;
   document.getElementById('drawer-cashier-name').value = '';
+  // The Safe's target is always $525 -- shown for reference, never editable.
+  var _openEl = document.getElementById('drawer-opening-amount');
+  _openEl.readOnly = _drawerIsSafe;
+  _openEl.style.background = _drawerIsSafe ? '#f3f2ef' : '';
   // A Spot Check is just a count to record -- nothing to compare against the
   // opening amount, no POS entry, no tip-out, no pull.
   document.getElementById('drawer-opening-row').style.display = (type === 'spot_check') ? 'none' : 'flex';
   // The POS-expected comparison only makes sense at a handoff point -- a
   // Shift Change or Close, where the POS has an actual running total to
   // check against. An Open has nothing to compare yet.
-  var showPos = (type === 'shift_change' || type === 'closer');
+  // The POS tracks register cash, not the safe, so the Safe never has a POS entry.
+  var showPos = (type === 'shift_change' || type === 'closer') && !_drawerIsSafe;
   document.getElementById('drawer-pos-row').style.display = showPos ? 'flex' : 'none';
   document.getElementById('drawer-pos-expected').value = '';
   document.getElementById('drawer-pos-variance-line').style.display = 'none';
@@ -8440,13 +8445,13 @@ function saveDrawerCount() {
   var tipOut = getDrawerTipOut();
   breakdown.tipout = Math.round(tipOut * 100) / 100;
   var adjusted = total - tipOut;
-  var openingAmt = parseFloat(document.getElementById('drawer-opening-amount').value) || 0;
+  var openingAmt = _drawerIsSafe ? SAFE_TARGET_BALANCE : (parseFloat(document.getElementById('drawer-opening-amount').value) || 0);
   var pull = (_drawerSelectedType === 'spot_check') ? null : (adjusted - openingAmt);
   // POS expected/variance only applies at a handoff point (Shift Change or
   // Close), and only when an amount was actually entered. Compared against
   // the tip-out-adjusted amount for the same reason as the pull above.
   var posExpected = null, posVariance = null;
-  if(_drawerSelectedType === 'shift_change' || _drawerSelectedType === 'closer') {
+  if((_drawerSelectedType === 'shift_change' || _drawerSelectedType === 'closer') && !_drawerIsSafe) {
     var posEl = document.getElementById('drawer-pos-expected');
     var posVal = posEl ? posEl.value.trim() : '';
     if(posVal !== '') {
