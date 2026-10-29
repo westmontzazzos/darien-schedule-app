@@ -4735,6 +4735,7 @@ document.addEventListener("DOMContentLoaded",function(){
         <button class="btn btn-primary" style="flex:1;" onclick="chooseDrawerType('shift_change')">Shift Change</button>
         <button class="btn btn-secondary" style="flex:1;background:#0D0D0D;color:#fff;border:none;" onclick="chooseDrawerType('closer')">Close</button>
       </div>
+      <button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="seeDrawerCounts()">See Counts <span style="color:#999;font-weight:400;">&mdash; today's counts for this drawer</span></button>
       <button class="btn btn-secondary" style="width:100%;margin-top:10px;font-size:13px;" onclick="chooseDrawerType('spot_check')">Spot Check <span style="color:#999;font-weight:400;">— just count &amp; record</span></button>
     </div>
   </div>
@@ -4816,7 +4817,7 @@ document.addEventListener("DOMContentLoaded",function(){
 
   <!-- HISTORY: one register's Open/Shift Change(s)/Close sequence for that day -->
   <div id="drawer-history-register-screen" style="display:none;">
-    <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="showDrawerScreen('history-day')">‹ Back</button>
+    <button class="btn btn-secondary" style="margin-bottom:12px;" onclick="backFromDrawerRegister()">‹ Back</button>
     <div style="font-family:'Bebas Neue',sans-serif;font-size:18px;letter-spacing:0.06em;margin-bottom:12px;" id="drawer-history-register-title">—</div>
     <div id="drawer-history-register-content"></div>
   </div>
@@ -8488,7 +8489,25 @@ var _histMonthOffset = 0;
 var _histDayRows = {};
 var _histSelectedRegEntries = [];
 
+// "See Counts" on the Shift Change / Close screen: shows today's counts for
+// that drawer (Open, Shift Changes, Spot Checks...), each tappable for the
+// full denomination breakdown. Reuses the History screens; Back returns to
+// the Shift Change / Close screen instead of the calendar.
+var _seeCountsFromChoice = false;
+function seeDrawerCounts() {
+  var name = _drawerSelectedRegister;
+  _histDayRows = {};
+  _histDayRows[name] = _drawerHomeData[name] || [];
+  _seeCountsFromChoice = true;
+  viewDrawerHistoryRegister(name);
+}
+function backFromDrawerRegister() {
+  if(_seeCountsFromChoice) { _seeCountsFromChoice = false; showDrawerScreen('type-choice'); }
+  else showDrawerScreen('history-day');
+}
+
 function showDrawerHistory() {
+  _seeCountsFromChoice = false;
   _histMonthOffset = 0;
   showDrawerScreenRaw('history');
   renderDrawerHistoryCalendar();
@@ -8563,6 +8582,7 @@ async function renderDrawerHistoryCalendar() {
 }
 
 async function viewDrawerHistoryDay(dateStr) {
+  _seeCountsFromChoice = false;
   showDrawerScreenRaw('history-day');
   document.getElementById('drawer-history-day-title').textContent = formatDrawerDateLabel(dateStr);
   var el = document.getElementById('drawer-history-day-content');
@@ -8609,7 +8629,7 @@ function viewDrawerHistoryRegister(reg) {
 function viewDrawerHistoryEntry(idx) {
   var e = _histSelectedRegEntries[idx];
   showDrawerScreenRaw('history-entry');
-  document.getElementById('drawer-history-entry-title').textContent = e.register;
+  document.getElementById('drawer-history-entry-title').textContent = e.register + ' \u2014 ' + ({opener:'OPEN',shift_change:'SHIFT CHANGE',closer:'CLOSE',spot_check:'SPOT CHECK',am:'AM SAFE COUNT',pm:'PM SAFE COUNT'}[e.count_type] || '') + ' \u00b7 ' + fmtDrawerTime(e.counted_at);
   var el = document.getElementById('drawer-history-entry-content');
   var breakdown = {};
   try { breakdown = e.counts_json ? JSON.parse(e.counts_json) : {}; } catch(ex) {}
@@ -8626,7 +8646,8 @@ function viewDrawerHistoryEntry(idx) {
   var extra = '';
   if(breakdown.tipout) extra += '<div style="display:flex;justify-content:space-between;padding:6px 0;border-top:1px solid #ddd;margin-top:6px;font-size:13px;color:#888;"><span>Tip-out</span><span>– $'+Number(breakdown.tipout).toFixed(2)+'</span></div>';
   if(e.pos_expected != null) extra += '<div style="display:flex;justify-content:space-between;padding:6px 0;font-size:13px;color:#888;"><span>POS expected</span><span>$'+Number(e.pos_expected).toFixed(2)+'</span></div>';
-  el.innerHTML = '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);padding:14px;">'+rowsHtml+extra+'</div>';
+  var totalRow = '<div style="display:flex;justify-content:space-between;padding:10px 0 2px;margin-top:6px;border-top:2px solid #0D0D0D;font-size:15px;font-weight:700;"><span>Total counted</span><span>$'+Number(e.total).toFixed(2)+'</span></div>';
+  el.innerHTML = '<div style="background:#fff;border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,0.08);padding:14px;">'+rowsHtml+totalRow+extra+'</div>';
 }
 
 // "Print Everything" -- the end-of-day report covering every drawer counted
