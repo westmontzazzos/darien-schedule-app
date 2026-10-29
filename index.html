@@ -5869,7 +5869,7 @@ function submitTimeOffRequest() {
 
 function showTab(tab, btn) {
   currentTab = tab;
-  ['runsheets','schedule','private','hitlist','update','rules','drawer','timeoff'].forEach(t => {
+  ['runsheets','schedule','private','hitlist','update','rules','drawer','timeoff','forms'].forEach(t => {
     document.getElementById('tab-'+t).style.display = t===tab ? 'block' : 'none';
   });
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
