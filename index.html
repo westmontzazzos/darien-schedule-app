@@ -5506,6 +5506,7 @@ const DEFAULT_ROSTER = {
 // DOM'S NOTES
 const MANAGERS = {
   'Brett': [null,null,null,null,null,null,null],
+  'Steve': [null,null,null,null,null,null,null],
   'Lisa B': [null,null,null,null,null,null,null],
   'Mike B': [null,null,null,null,null,null,null],
 };
@@ -7383,7 +7384,7 @@ function printWageRoster() {
   function subRow(lbl,ann){pb(rH+2);rect(p,M,y,PW-2*M,rH,[0.93,0.93,0.91]);text(p,M+4,y+10,lbl+' Subtotal',8,true,[0.35,0.35,0.35]);rtext(p,CA,y+10,'~$'+Math.round(ann).toLocaleString()+' / yr',8.5,true);y+=rH+3;}
   var sections=[
     {l:'Owners',r:[['Lisa B',true,40000],['Mike B',true,100000]]},
-    {l:'Managers',r:[['Brett',true,40000]]},
+    {l:'Managers',r:[['Brett',true,40000],['Steve',true,60000]]},
     {l:'Pizza',r:[['Francisco',false,21],['Luis B',false,20],['Juan',false,19.5],['Victor',false,20.5],['Junior',false,17.5],['Valente',false,21],['Luis',false,18],['Arturo',false,21],['Laura Z',false,20],['Gustavo',false,20]]},
     {l:'Kitchen',r:[['Javier',false,19],['Jesus',false,21],['Broccoli',false,18],['Arturo',false,21],['Laura Z',false,20],['Gustavo',false,20]]},
     {l:'Dish',r:[['Gabe',false,17.5],['Lorenzo',false,16.5]]},
@@ -7858,7 +7859,7 @@ function getCurrentUser() {
 // its own row sharing one thread_id, so the whole exchange logs together
 // in the Schedule Log. Recipients are Darien's real sign-in identities so
 // a message addressed to someone actually reaches them on next load.
-var MSG_MANAGERS = ['Mike B','Brett','Ely','Dom','Lisa B'];
+var MSG_MANAGERS = ['Mike B','Brett','Steve','Ely','Dom','Lisa B'];
 var MSG_MANAGER_LABELS = {'Mike B':'Mike'};
 var _selectedMsgRecipients = [];
 var _pendingMsgAction = null;
@@ -9629,7 +9630,8 @@ function renderPrivate() {
   var SAL=[
     {n:'Lisa B',s:40000,role:'Owner'},
     {n:'Mike B',s:100000,role:'Owner'},
-    {n:'Brett',s:40000,role:'Manager'}
+    {n:'Brett',s:40000,role:'Manager'},
+    {n:'Steve',s:60000,role:'Manager'}
   ];
   // Salaried additions from Manage Roster were saved correctly to the
   // database this whole time, but nothing ever read them back in here --
@@ -10420,7 +10422,7 @@ const RATES = {
   'Danielle':9,'Mary':9,'Natalie':15,'Presley':15,'Tia':15,'Emilie':15,'Ellianna':15,'Keegan':15,'Julia':9,'Molly':15,'Lea':9
 };
 // Salaried staff — global for the same reason as RATES above.
-const SALARIED_EMPLOYEES = {'Brett':1,'Mike B':1,'Lisa B':1};
+const SALARIED_EMPLOYEES = {'Brett':1,'Steve':1,'Mike B':1,'Lisa B':1};
 
 function renderHitList() {
   var el = document.getElementById('hitlist-content');
@@ -10474,6 +10476,7 @@ function renderHitList() {
   fohAll.forEach(function(sec){
     Object.entries(sec.d).forEach(function(entry){
       var name=entry[0], days=entry[1];
+      if(SALARIED_EMPLOYEES[name]) return; // salaried: no hourly cost in any role
       var sh = parseFOHHours(days[di], di, sec.role);
       if(!sh) return;
       if(sh.flag) fohFlags.push({name:name, role:sec.role, msg:sh.flagMsg});
@@ -10528,6 +10531,7 @@ function renderHitList() {
   fohAll.forEach(function(sec){
     Object.entries(sec.d).forEach(function(entry){
       var name=entry[0], daysArr=entry[1];
+      if(SALARIED_EMPLOYEES[name]) return; // salaried: no hourly payroll-tax add-on in any role
       var sh = parseFOHHours(daysArr[di], di, sec.role);
       if(sh && !seenActive[name]){ seenActive[name]=true; activeHourlyCount++; }
     });
@@ -10537,7 +10541,7 @@ function renderHitList() {
 
   // Prorated daily salaried burden (wages + employer taxes, spread over 365 days)
   var SAL_DAILY = (function(){
-    var SAL_LIST = [40000,100000,40000]; // Lisa B, Mike B, Brett
+    var SAL_LIST = [40000,100000,40000,60000]; // Lisa B, Mike B, Brett, Steve
     var total = 0;
     SAL_LIST.forEach(function(s){ total += (s*(1+HM_SS+HM_MED)+42+431)/365; });
     return total;
@@ -10575,6 +10579,7 @@ function renderHitList() {
       fohAll.forEach(function(sec){
         Object.entries(sec.d).forEach(function(entry){
           var name=entry[0], daysArr=entry[1];
+          if(SALARIED_EMPLOYEES[name]) return; // salaried: no hourly cost in any role
           var sh = parseFOHHours(daysArr[d], d, sec.role);
           if(!sh) return;
           if(!dayActive[name]){ dayActive[name]=true; }
@@ -10704,6 +10709,7 @@ function renderHitList() {
     [{d:BUS},{d:DISH}].forEach(function(sec){
       Object.entries(sec.d).forEach(function(entry){
         var name=entry[0], days=entry[1];
+        if(SALARIED_EMPLOYEES[name]) return; // salaried: no hourly cost in any role
         var rate=RATES[name]||9;
         var sh=parseBOHHours(days[di],di);
         if(!sh) return;
@@ -10718,6 +10724,7 @@ function renderHitList() {
     [{d:SERVERS,lbl:'Servers',rate:9,role:'servers'},{d:BARTENDERS,lbl:'Bartenders',rate:9,role:'bartenders'},{d:CASHIERS,lbl:'Cashiers',rate:15,role:'cashiers'},{d:HOSTS,lbl:'Hosts',rate:15,role:'hosts'}].forEach(function(sec){
       Object.entries(sec.d).forEach(function(entry){
         var name=entry[0], days=entry[1];
+        if(SALARIED_EMPLOYEES[name]) return; // salaried: no hourly cost in any role
         var sh=parseFOHHours(days[di],di,sec.role);
         if(!sh) return;
         var hrs=deptHrs(sh);
@@ -10752,6 +10759,7 @@ function renderHitList() {
       [{d:SERVERS,lbl:'Servers',role:'servers'},{d:BARTENDERS,lbl:'Bartenders',role:'bartenders'},{d:CASHIERS,lbl:'Cashiers',role:'cashiers'},{d:HOSTS,lbl:'Hosts',role:'hosts'}].forEach(function(sec){
         Object.entries(sec.d).forEach(function(entry){
           var name=entry[0], days=entry[1];
+          if(SALARIED_EMPLOYEES[name]) return; // salaried: not part of the hourly overage picture
           var sh=parseFOHHours(days[di],di,sec.role);
           if(!sh) return;
           if(h >= Math.ceil(sh.st) && h < sh.en) workers.push({n:name, dept:sec.lbl});
@@ -10861,6 +10869,7 @@ function renderHitList() {
     [{d:SERVERS,lbl:'Servers',rate:9,role:'servers'},{d:BARTENDERS,lbl:'Bartenders',rate:9,role:'bartenders'},{d:CASHIERS,lbl:'Cashiers',rate:15,role:'cashiers'},{d:HOSTS,lbl:'Hosts',rate:15,role:'hosts'}].forEach(function(sec){
       Object.entries(sec.d).forEach(function(entry){
         var name=entry[0], days=entry[1];
+        if(SALARIED_EMPLOYEES[name]) return; // salaried: no hourly cost in any role
         var sh=parseFOHHours(days[di],di,sec.role);
         if(!sh) return;
         var hrs=deptHrs(sh), cost=hrs*sec.rate;
@@ -13259,6 +13268,7 @@ function handleLockIconTap() {
     <div style="display:flex;flex-direction:column;gap:10px;">
       <button onclick="setIdentity('Mike B')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Mike</button>
       <button onclick="setIdentity('Brett')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Brett</button>
+      <button onclick="setIdentity('Steve')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Steve</button>
       <button onclick="setIdentity('Ely')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Ely</button>
       <button onclick="setIdentity('Dom')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Dom</button>
       <button onclick="setIdentity('Lisa B')" style="padding:14px;border:2px solid #e0e0e0;border-radius:10px;background:#fff;font-size:16px;font-weight:600;cursor:pointer;">Lisa</button>
