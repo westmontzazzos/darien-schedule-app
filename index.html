@@ -4760,7 +4760,7 @@ document.addEventListener("DOMContentLoaded",function(){
         <input type="number" inputmode="decimal" step="0.01" id="drawer-pos-expected" oninput="recalcDrawerTotal()" style="border:1px solid #ddd;border-radius:7px;padding:5px 9px;font-size:13px;width:90px;text-align:right;">
       </div>
       <div id="drawer-tipout-row" style="display:none;align-items:center;justify-content:space-between;padding:7px 0;font-size:13px;">
-        <label style="color:#666;font-weight:600;font-size:12.5px;">Bartender tip-out</label>
+        <label style="color:#666;font-weight:600;font-size:12.5px;">Bartender tip-out (already pulled)</label>
         <input type="number" inputmode="decimal" step="0.01" id="drawer-tipout-amount" value="0" oninput="recalcDrawerTotal()" style="border:1px solid #ddd;border-radius:7px;padding:5px 9px;font-size:13px;width:90px;text-align:right;">
       </div>
     </div>
@@ -8292,7 +8292,7 @@ function beginDrawerCount(type) {
   document.getElementById('drawer-pos-variance-line').style.display = 'none';
   // Same reasoning as the POS row: the bartender's cash tip-out only
   // actually happens at a handoff, not at Open -- and only for the Bar.
-  var showTipout = showPos && _drawerSelectedRegister === 'Bar';
+  var showTipout = false; // no tip-out box: the payout is already out of the drawer when it's counted
   document.getElementById('drawer-tipout-row').style.display = showTipout ? 'flex' : 'none';
   document.getElementById('drawer-tipout-amount').value = 0;
   document.getElementById('drawer-tipout-line').style.display = 'none';
@@ -8339,9 +8339,11 @@ function cancelDrawerCount() {
 // otherwise every bar count looks exactly tip-out-amount "over" for no
 // reason. Returns 0 for every register except Bar.
 function getDrawerTipOut() {
-  if(_drawerSelectedRegister !== 'Bar') return 0;
-  var el = document.getElementById('drawer-tipout-amount');
-  return el ? (parseFloat(el.value) || 0) : 0;
+  // Ely pulls the bartender's payout out of the drawer BEFORE counting, so the
+  // count is already net of it and the POS figure already reflects it. Taking
+  // it off again double-counted it (Friday's Bar shift change: pull showed
+  // -$55.40 instead of +$61.60). The tip-out is therefore never subtracted.
+  return 0;
 }
 
 function recalcDrawerTotal() {
@@ -8355,11 +8357,14 @@ function recalcDrawerTotal() {
   });
   document.getElementById('drawer-total-amount').textContent = '$' + total.toFixed(2);
   var tipOut = getDrawerTipOut();
-  var adjusted = total - tipOut;
+  // The bartender is paid out BEFORE the drawer is counted, so the tip-out is
+  // already gone from what was counted. It is recorded for the paperwork but
+  // never subtracted -- subtracting it again made every Bar count look short.
+  var adjusted = total;
   var tipoutLine = document.getElementById('drawer-tipout-line');
   if(tipOut > 0) {
     tipoutLine.style.display = 'block';
-    tipoutLine.textContent = '– $' + tipOut.toFixed(2) + ' tip-out → Adjusted: $' + adjusted.toFixed(2);
+    tipoutLine.textContent = 'Tip-out $' + tipOut.toFixed(2) + ' (already pulled before counting)';
   } else {
     tipoutLine.style.display = 'none';
   }
@@ -8443,7 +8448,7 @@ function saveDrawerCount() {
   var total = recalcDrawerTotal();
   var tipOut = getDrawerTipOut();
   breakdown.tipout = Math.round(tipOut * 100) / 100;
-  var adjusted = total - tipOut;
+  var adjusted = total; // tip-out was already pulled before counting -- not subtracted
   var openingAmt = parseFloat(document.getElementById('drawer-opening-amount').value) || 0;
   var pull = (_drawerSelectedType === 'spot_check') ? null : (adjusted - openingAmt);
   // POS expected/variance only applies at a handoff point (Shift Change or
