@@ -8400,7 +8400,9 @@ function recalcDrawerTotal() {
   // actual drawer match what the POS's own transaction total says it
   // should have." Only meaningful at a handoff (Shift Change/Closer), and
   // only once a POS figure has actually been entered. Compared against the
-  // tip-out-adjusted amount for the same reason as the pull line above.
+  // count as counted -- the bartender's tip-out is still in the drawer at that
+  // point (you count first, then pay her), so it must NOT come off here. The
+  // tip-out only affects the pull line above.
   var posLine = document.getElementById('drawer-pos-variance-line');
   if(posLine && (_drawerSelectedType === 'shift_change' || _drawerSelectedType === 'closer')) {
     var posEl = document.getElementById('drawer-pos-expected');
@@ -8410,7 +8412,7 @@ function recalcDrawerTotal() {
       posLine.style.color = '#888';
     } else {
       var posExpected = parseFloat(posVal) || 0;
-      var posDiff = adjusted - posExpected;
+      var posDiff = total - posExpected;
       if(Math.abs(posDiff) < 0.005) {
         posLine.textContent = 'POS check: EVEN';
         posLine.style.color = '#1a7a3c';
@@ -8446,14 +8448,15 @@ function saveDrawerCount() {
   var pull = (_drawerSelectedType === 'spot_check') ? null : (adjusted - openingAmt);
   // POS expected/variance only applies at a handoff point (Shift Change or
   // Close), and only when an amount was actually entered. Compared against
-  // the tip-out-adjusted amount for the same reason as the pull above.
+  // the count as counted (the tip-out is still in the drawer when you count);
+  // only the pull above subtracts the tip-out.
   var posExpected = null, posVariance = null;
   if(_drawerSelectedType === 'shift_change' || _drawerSelectedType === 'closer') {
     var posEl = document.getElementById('drawer-pos-expected');
     var posVal = posEl ? posEl.value.trim() : '';
     if(posVal !== '') {
       posExpected = parseFloat(posVal) || 0;
-      posVariance = adjusted - posExpected;
+      posVariance = total - posExpected;
     }
   }
   var entry = {
