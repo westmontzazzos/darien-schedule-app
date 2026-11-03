@@ -13749,20 +13749,34 @@ function printFormHTML(docTitle, bodyHtml) {
 }
 
 function printPayrollAdjustmentForm() {
-  var body = formPageHead('PAYROLL ADJUSTMENT')
+  // Same fonts and look as before; now with a writing line beside each reason, ruled lines
+  // for Additional Information, and the layout stretched to fill the whole page.
+  var reasons = ['Add hours to check','Take hours out of check','Misc. deduction from check','Misc. addition to check','Forgot to clock in/out','Forgot to clock on/off break','Raise (per Dom/Mike)'];
+  var rows = reasons.map(function(r){ return '<div class="pc-row"><div class="pc-box"></div><div class="pc-label">'+r+'</div><div class="pc-fill"></div></div>'; }).join('');
+  var lines = ''; for(var i=0;i<8;i++) lines += '<div class="pc-line"></div>';
+  var css = '<style>'
+    + 'body{max-width:none;}'
+    + '@media print{body{padding:8mm;}}'
+    + '.pc{display:flex;flex-direction:column;height:9.3in;page-break-inside:avoid;}'
+    + '.pc .frow{margin-bottom:18px;}'
+    + '.pc .ffield{font-size:12px;}'
+    + '.pc .ffield b{font-size:11px;}'
+    + '.pc .ffield .uline{height:30px;border-bottom:1px solid #555;}'
+    + '.pc .psection{margin:24px 0 4px;font-size:16px;}'
+    + '.pc-row{display:flex;align-items:flex-end;gap:12px;height:50px;}'
+    + '.pc-box{width:15px;height:15px;border:1.5px solid #222;flex-shrink:0;margin-bottom:4px;}'
+    + '.pc-label{font-size:13.5px;white-space:nowrap;margin-bottom:2px;}'
+    + '.pc-fill{flex:1;border-bottom:1px solid #555;margin-bottom:5px;}'
+    + '.pc-lines{flex:1;display:flex;flex-direction:column;justify-content:space-between;padding-top:24px;padding-bottom:6px;}'
+    + '.pc-line{border-bottom:1px solid #555;height:1px;}'
+    + '</style>';
+  var body = css + '<div class="pc">' + formPageHead('PAYROLL ADJUSTMENT')
     + '<div class="frow"><div class="ffield"><b>Store</b><div class="uline"></div></div><div class="ffield"><b>Date of Occurrence</b><div class="uline"></div></div></div>'
     + '<div class="frow"><div class="ffield"><b>Employee Name</b><div class="uline"></div></div></div>'
-    + '<div class="psection">Reason</div>'
-    + '<div class="pcheck"><div class="pbox"></div>Add hours to check</div>'
-    + '<div class="pcheck"><div class="pbox"></div>Take hours out of check</div>'
-    + '<div class="pcheck"><div class="pbox"></div>Misc. deduction from check</div>'
-    + '<div class="pcheck"><div class="pbox"></div>Misc. addition to check</div>'
-    + '<div class="pcheck"><div class="pbox"></div>Forgot to clock in/out</div>'
-    + '<div class="pcheck"><div class="pbox"></div>Forgot to clock on/off break</div>'
-    + '<div class="pcheck"><div class="pbox"></div>Raise (per Dom/Mike)</div>'
+    + '<div class="psection">Reason</div>' + rows
     + '<div class="psection">Additional Information</div>'
-    + '<div class="pnotes"></div>'
-    + '<div class="pfoot">Printed ' + new Date().toLocaleDateString() + '</div>';
+    + '<div class="pc-lines">' + lines + '</div>'
+    + '<div class="pfoot">Printed ' + new Date().toLocaleDateString() + '</div></div>';
   printFormHTML('Payroll Adjustment', body);
 }
 
