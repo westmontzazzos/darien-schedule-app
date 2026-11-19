@@ -10084,6 +10084,7 @@ function sectionHasContent(sectionData) {
 // raw stored data, without touching the live in-memory section objects.
 // Internal reference only — never appears on anything printed.
 function computeWeekDailyLaborCost(bohObj, fohObj, cshObj, drvObj) {
+  syncRatesFromRoster();
   var daily = [0,0,0,0,0,0,0];
   function addBOHStyle(sectionObj) {
     if(!sectionObj) return;
@@ -10431,7 +10432,72 @@ const RATES = {
 // Salaried staff — global for the same reason as RATES above.
 const SALARIED_EMPLOYEES = {'Brett':1,'Steve':1,'Mike B':1,'Lisa B':1};
 
+// ---------------------------------------------------------------------------
+// The Heat Map / labor projections price people from RATES, a hardcoded list that is
+// out of date (it still holds old names and rates, and had NO entry for most of the
+// current kitchen staff, who then fell back to $9/hr). The Private tab prices people
+// from the real roster (DEFAULT_ROSTER + people added in Manage Roster + role/rate
+// overrides). This keeps RATES in step with that roster, using the same rules the
+// Private tab uses, so both screens now agree on what each person is paid.
+// ---------------------------------------------------------------------------
+function syncRatesFromRoster() {
+  try {
+    var customs = (typeof CUSTOM_ROSTER !== 'undefined' && CUSTOM_ROSTER) ? CUSTOM_ROSTER : [];
+    var roleOv = (typeof ROLE_OVERRIDES !== 'undefined' && ROLE_OVERRIDES) ? ROLE_OVERRIDES : {};
+    var rateOv = (typeof ROLE_RATE_OVERRIDES !== 'undefined' && ROLE_RATE_OVERRIDES) ? ROLE_RATE_OVERRIDES : {};
+    var flatRates = {}, salaryOv = {};
+    ((typeof CUSTOM_ROSTER_RATES !== 'undefined' && CUSTOM_ROSTER_RATES) ? CUSTOM_ROSTER_RATES : []).forEach(function(r){
+      if(r.annual_salary != null) salaryOv[r.original_name] = r.annual_salary;
+      else if(r.rate != null) flatRates[r.original_name] = r.rate;
+    });
+    var names = {};
+    Object.keys(DEFAULT_ROSTER).forEach(function(n){ names[n] = true; });
+    customs.forEach(function(p){ if(!p.is_salaried) names[p.name] = true; });
+    Object.keys(names).forEach(function(name){
+      var defaultRoles = DEFAULT_ROSTER[name];
+      var customEntry = customs.find(function(x){ return x.name === name && !x.is_salaried; });
+      var labels;
+      if(roleOv[name]) labels = roleOv[name];
+      else if(defaultRoles) labels = defaultRoles.map(function(r){ return r.role; });
+      else if(customEntry) { try { labels = JSON.parse(customEntry.roles_json || '[]'); } catch(e) { labels = []; } }
+      else labels = [];
+      var rate = null, firstRate = null;
+      labels.forEach(function(label){
+        var map = CUSTOM_ROLE_MAP[label]; if(!map) return;
+        var defForRole = defaultRoles && defaultRoles.find(function(r){ return r.role === label; });
+        var ov = rateOv[name] && rateOv[name][label];
+        var r = (ov != null) ? ov : (defForRole ? defForRole.rate : (customEntry ? customEntry.rate : 9));
+        if(firstRate === null) firstRate = r;
+        if(rate === null && map.type === 'b') rate = r;   // the rate for their back-of-house role
+      });
+      if(rate === null) rate = firstRate;
+      if(flatRates[name] != null) rate = flatRates[name];
+      if(rate != null) RATES[name] = rate;
+    });
+    // People added as Salaried in Manage Roster (e.g. Ely) are salaried, not hourly.
+    customs.forEach(function(p){ if(p.is_salaried) SALARIED_EMPLOYEES[p.name] = 1; });
+    window._salaryOverrides = salaryOv;
+  } catch(e) { console.log('syncRatesFromRoster failed:', e.message); }
+}
+// Annual salaries of everyone salaried: the four built in, plus anyone added as Salaried in
+// Manage Roster (not removed), with any salary change from Edit applied -- the same people
+// and amounts the Private tab pays.
+function hmSalaryList() {
+  var base = [{n:'Lisa B',s:40000},{n:'Mike B',s:100000},{n:'Brett',s:40000},{n:'Steve',s:60000}];
+  try {
+    var removed = {}; ((typeof CUSTOM_ROSTER_REMOVED !== 'undefined' && CUSTOM_ROSTER_REMOVED) ? CUSTOM_ROSTER_REMOVED : []).forEach(function(r){ removed[r.name] = true; });
+    ((typeof CUSTOM_ROSTER !== 'undefined' && CUSTOM_ROSTER) ? CUSTOM_ROSTER : []).forEach(function(p){
+      if(p.is_salaried && !removed[p.name] && p.annual_salary) base.push({n:p.name, s:p.annual_salary});
+    });
+    syncRatesFromRoster();
+    var ov = window._salaryOverrides || {};
+    base.forEach(function(x){ if(ov[x.n] != null) x.s = ov[x.n]; });
+  } catch(e) {}
+  return base.map(function(x){ return x.s; });
+}
+
 function renderHitList() {
+  syncRatesFromRoster();
   var el = document.getElementById('hitlist-content');
   var HOURS = [10,11,12,13,14,15,16,17,18,19,20,21,22];
   var HOUR_LABELS = ['10AM','11AM','12PM','1PM','2PM','3PM','4PM','5PM','6PM','7PM','8PM','9PM','10PM'];
@@ -10548,7 +10614,7 @@ function renderHitList() {
 
   // Prorated daily salaried burden (wages + employer taxes, spread over 365 days)
   var SAL_DAILY = (function(){
-    var SAL_LIST = [40000,100000,40000,60000]; // Lisa B, Mike B, Brett, Steve
+    var SAL_LIST = hmSalaryList(); // every salaried person, from the same roster the Private tab pays
     var total = 0;
     SAL_LIST.forEach(function(s){ total += (s*(1+HM_SS+HM_MED)+42+431)/365; });
     return total;
