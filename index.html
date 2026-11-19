@@ -9890,7 +9890,10 @@ function renderPrivate() {
   // this check never knew about them. Built from the same SAL array that
   // actually pays them, so it can never drift out of sync again.
   var SAL_NAMES = {};
-  SAL.forEach(function(s){ SAL_NAMES[s.n] = 1; });
+  // A salaried person renamed on the wage roster (e.g. Mike B shown as "Mike") is still
+  // scheduled under their real name, so match on BOTH -- otherwise they get flagged here
+  // as "not in wage roster" even though they are paid.
+  SAL.forEach(function(s){ SAL_NAMES[s.n] = 1; if(s._origName) SAL_NAMES[s._origName] = 1; });
   var unmatched = [];
   [
     {d:MANAGERS,label:'Managers',type:'b'},{d:PIZZA,label:'Pizza',type:'b'},
