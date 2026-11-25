@@ -205,7 +205,14 @@ body {
 .rs-table {
   width: 100%;
   border-collapse: collapse;
+  /* Fixed column widths so Name / In / Out line up the same in EVERY section of the run sheet
+     (before, each section's table sized its own columns to its own text and they didn't match). */
+  table-layout: fixed;
 }
+.rs-table th:nth-child(1), .rs-table td:nth-child(1) { width: 46%; }
+.rs-table th:nth-child(2), .rs-table td:nth-child(2) { width: 27%; }
+.rs-table th:nth-child(3), .rs-table td:nth-child(3) { width: 27%; }
+.rs-table td { overflow-wrap: anywhere; }
 .rs-table th {
   padding: 5px 10px;
   font-size: 10px;
