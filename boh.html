@@ -723,6 +723,7 @@ $('signOut').addEventListener('click', function(e){ e.preventDefault(); if(isDir
 
 /* ---- sign in ---- */
 function openApp(){
+  try{ if(navigator.storage && navigator.storage.persist) navigator.storage.persist(); }catch(e){}   // ask the phone to keep the sign-in, so the PIN is entered once and not again
   $('pinGate').hidden = true; $('nameGate').hidden = true;
   ['topbar','sheet','foot'].forEach(function(id){ $(id).hidden = false; });
   $('who').textContent = localStorage.getItem('boh_name') || '';
