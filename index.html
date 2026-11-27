@@ -5597,10 +5597,8 @@ function getBOHSection(sectionData, di) {
     // (which still uses parseBOH directly) is unaffected.
     if(parsed && !(parsed.freeText && String(parsed.a).trim().toLowerCase()==='off')) result.push({n:name, a:parsed.a, p:parsed.p});
   });
-  result.sort((a,b)=>{
-    const toM=s=>{const m=s.match(/(\d+)(?::(\d+))?(AM|PM)/i);if(!m)return 9999;let h=parseInt(m[1]),mn=parseInt(m[2]||0);if(m[3].toUpperCase()==='PM'&&h!==12)h+=12;return h*60+mn;};
-    return toM(a.a)-toM(b.a);
-  });
+  // Alphabetical by name, like every other schedule list (this used to be ordered by start time).
+  result.sort((a,b)=>alphaCmp(a.n,b.n));
   return result;
 }
 
@@ -5700,10 +5698,8 @@ function getFOHSection(sectionData, di) {
     const pm=end==='C'?'C':(end?(fmtFOH(end,di,false,true) || String(end).trim()):'');
     result.push({n:name,a:am,p:pm});
   });
-  result.sort((a,b)=>{
-    const toM=s=>{const m=s.match(/(\d+)(?::(\d+))?(AM|PM)/i);if(!m)return 9999;let h=parseInt(m[1]),mn=parseInt(m[2]||0);if(m[3].toUpperCase()==='PM'&&h!==12)h+=12;return h*60+mn;};
-    return toM(a.a)-toM(b.a);
-  });
+  // Alphabetical by name, like every other schedule list (this used to be ordered by start time).
+  result.sort((a,b)=>alphaCmp(a.n,b.n));
   return result;
 }
 
@@ -5723,6 +5719,35 @@ function getOpenerCloserBg(rawVal) {
   return '';
 }
 
+// ONE time format everywhere a shift is shown, printed, or typed: START-END, with no spaces,
+// e.g.  4PM-C   9AM-3PM   4:30PM-C.  If there is no end time (or the end is set automatically
+// by a rule) only the start shows:  4PM.  Free-text notes (OFF, KITCHEN, OFC/PM...) are left as written.
+function joinShift(a, p) {
+  a = String(a == null ? '' : a).trim(); p = String(p == null ? '' : p).trim();
+  return p ? (a + '-' + p) : a;
+}
+function shiftText(kind, raw, di) {
+  if(raw === null || raw === undefined || raw === '') return '';
+  if(kind === 'foh') {                       // servers, bartenders, hosts, cashiers: stored as [start, end]
+    var e = Array.isArray(raw) ? raw : String(raw).split('-');
+    if(e[0] === null || e[0] === undefined || String(e[0]).trim() === '') return '';
+    var am = fmtFOH(e[0], di, false, false) || String(e[0]).trim();
+    var end = (e.length > 1 && e[1] != null) ? String(e[1]).trim() : '';
+    // a lone "p"/"a"/"am"/"pm" in the end slot is just a leftover AM/PM marker, not an end time
+    var pm = (end === '' || /^(a|p|am|pm)$/i.test(end)) ? '' : (end.toUpperCase() === 'C' ? 'C' : (fmtFOH(end, di, false, true) || end));
+    return joinShift(am, pm);
+  }
+  if(kind === 'drv') {                       // drivers: one text cell
+    var t = parseHour(String(raw));
+    if(!t) return String(raw);
+    return t.isSlash ? t.display : t.close ? (t.display + '-C') : t.hasExplicitEnd ? (t.display + '-' + t.end) : t.display;
+  }
+  var pb = parseBOH(raw, di);                // back of house: one text cell
+  if(!pb) return String(raw);
+  return joinShift(pb.a, pb.p);
+}
+// Names are always listed alphabetically (case-insensitive, numbers in natural order).
+function alphaCmp(a, b) { return String(a).localeCompare(String(b), undefined, {sensitivity:'base', numeric:true}); }
 function schedSort(entries, typ) {
   // Sort entries alphabetically by name (case-insensitive, natural number order)
   return entries.sort(function(a, b) {
@@ -5760,7 +5785,7 @@ function getDriversForDay(di) {
       res.push({name, am: String(raw).trim(), pm: '', startH: 9999});
     }
   });
-  res.sort((a,b) => a.startH - b.startH);
+  res.sort((a,b) => alphaCmp(a.name,b.name));   // alphabetical, like every other list
   return res;
 }
 let currentTab = 'runsheets';
@@ -7709,14 +7734,11 @@ function renderSchedule() {
         html+=`<tr><td>${name}</td>`;
         days.forEach((raw,di)=>{
           if(window._schedEditMode){
-            html+=`<td><input class="sched-inline-input" data-section="DRIVERS" data-name="${name}" data-di="${di}" value="${raw||''}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(raw)}"></td>`;
+            html+=`<td><input class="sched-inline-input" data-section="DRIVERS" data-name="${name}" data-di="${di}" value="${shiftText('drv',raw,di)}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(raw)}"></td>`;
             return;
           }
           if(!raw){html+='<td></td>';return;}
-          const t=parseHour(String(raw));
-          if(!t){html+=`<td>${raw}</td>`;return;} // doesn't parse as a time — show exactly what was entered
-          const d=t.isSlash?t.display:t.close?`${t.display}-C`:t.hasExplicitEnd?`${t.display}–${t.end}`:t.display;
-          html+=`<td>${d}</td>`;
+          html+=`<td>${shiftText('drv',raw,di)}</td>`;
         });
         html+='</tr>';
       });
@@ -7727,14 +7749,12 @@ function renderSchedule() {
         html+=`<tr><td>${name}</td>`;
         days.forEach((e,di)=>{
           if(window._schedEditMode){
-            var rawVal = e ? (Array.isArray(e) ? e.join('-') : e) : '';
+            var rawVal = shiftText('foh', e, di);
             html+=`<td><input class="sched-inline-input" data-section="${l}" data-name="${name}" data-di="${di}" value="${rawVal}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(rawVal)}"></td>`;
             return;
           }
           if(!e){html+='<td></td>';return;}
-          const am=fmtFOH(e[0],di,false,false) || String(e[0]).trim();
-          const pm=e[1]==='C'?'C':(e[1]?(fmtFOH(e[1],di,false,true)||String(e[1]).trim()):'');
-          html+=`<td>${pm?am+' – '+pm:am}</td>`;
+          html+=`<td>${shiftText('foh',e,di)}</td>`;
         });
         html+='</tr>';
       });
@@ -7745,14 +7765,12 @@ function renderSchedule() {
       html+=`<tr><td>${name}</td>`;
       days.forEach((e,di)=>{
         if(window._schedEditMode){
-          var rawVal = e ? (Array.isArray(e) ? e.join('-') : e) : '';
+          var rawVal = shiftText('foh', e, di);
           html+=`<td><input class="sched-inline-input" data-section="CASHIERS" data-name="${name}" data-di="${di}" value="${rawVal}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(rawVal)}"></td>`;
           return;
         }
         if(!e){html+='<td></td>';return;}
-        const am=fmtFOH(e[0],di,false,false) || String(e[0]).trim();
-        const pm=e[1]==='C'?'C':(e[1]?(fmtFOH(e[1],di,false,true)||String(e[1]).trim()):'');
-        html+=`<td>${pm?am+' – '+pm:am}</td>`;
+        html+=`<td>${shiftText('foh',e,di)}</td>`;
       });
       html+='</tr>';
     });
@@ -7770,7 +7788,7 @@ function renderSchedule() {
             var curRole = (UTILITY_ROLE[name] && UTILITY_ROLE[name][di]) || '';
             if(window._schedEditMode){
               html+=`<td style="white-space:nowrap;">`
-                + `<input class="sched-inline-input" data-section="UTILITY" data-name="${name}" data-di="${di}" value="${raw||''}" style="width:52px;font-size:11px;padding:2px 3px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(raw)}">`
+                + `<input class="sched-inline-input" data-section="UTILITY" data-name="${name}" data-di="${di}" value="${shiftText('boh',raw,di)}" style="width:52px;font-size:11px;padding:2px 3px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(raw)}">`
                 + `<select class="sched-inline-input" data-section="UTILITY_ROLE" data-name="${name}" data-di="${di}" style="width:34px;font-size:11px;padding:2px 1px;border:1px solid #ddd;border-radius:4px;margin-left:2px;">`
                 + `<option value=""${curRole?'':' selected'}>-</option>`
                 + `<option value="P"${curRole==='P'?' selected':''}>P</option>`
@@ -7781,16 +7799,16 @@ function renderSchedule() {
             const p=parseBOH(raw,di);
             if(!p){html+='<td></td>';return;}
             var roleTag = curRole ? ` <span style="font-weight:700;color:var(--red);">(${curRole})</span>` : '';
-            html+=`<td>${p.p?p.a+' – '+p.p:p.a}${roleTag}</td>`;
+            html+=`<td>${joinShift(p.a,p.p)}${roleTag}</td>`;
             return;
           }
           if(window._schedEditMode){
-            html+=`<td><input class="sched-inline-input" data-section="${l}" data-name="${name}" data-di="${di}" value="${raw||''}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(raw)}"></td>`;
+            html+=`<td><input class="sched-inline-input" data-section="${l}" data-name="${name}" data-di="${di}" value="${shiftText('boh',raw,di)}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(raw)}"></td>`;
             return;
           }
           const p=parseBOH(raw,di);
           if(!p){html+='<td></td>';return;}
-          html+=`<td>${p.p?p.a+' – '+p.p:p.a}</td>`;
+          html+=`<td>${joinShift(p.a,p.p)}</td>`;
         });
         html+='</tr>';
       });
@@ -11547,6 +11565,35 @@ function cleanNames(obj, sectionType) {
 }
 
 // Parses schedule data from a week record into the global data objects
+// Old front-of-house entries like ["4","p"] / ["9","a"] keep an AM/PM marker in the END slot. That is not
+// an end time, and it made the shift unreadable to the hours/labor math (so those shifts showed on the
+// schedule but were never counted). Fold the marker into the start -- "4" + "p" becomes "4PM" -- so the
+// shift shows as 4PM and counts correctly.
+function cleanLegacyFohMarkers() {
+  [SERVERS, BARTENDERS, HOSTS, CASHIERS].forEach(function(sec){
+    Object.keys(sec).forEach(function(name){
+      var days = sec[name]; if(!Array.isArray(days)) return;
+      days.forEach(function(e, di){
+        // Some old saves stored the raw typed text ("4pm", "11am-7pm") instead of a [start, end] pair,
+        // which the schedule can show but the hours math cannot read. Turn it back into a proper pair.
+        if(typeof e === 'string') {
+          var raw = e.trim();
+          if(raw === '') { days[di] = null; return; }
+          if(/[-\/]c$/i.test(raw)) { var cp = raw.split(/[-\/]c$/i); e = days[di] = [cp[0].trim(), 'C']; }
+          else if(raw.indexOf('-') > -1) { var dp = raw.split('-'); e = days[di] = [dp[0].trim(), (dp[1] || '').trim() || null]; }
+          else { e = days[di] = [raw, null]; }
+        }
+        if(!Array.isArray(e) || e.length < 2 || e[1] == null) return;
+        var m = String(e[1]).trim().toLowerCase();
+        if(!/^(a|p|am|pm)$/.test(m)) return;
+        var st = String(e[0] == null ? '' : e[0]).trim();
+        if(st === '') { days[di] = null; return; }
+        if(!/(am|pm)/i.test(st) && /^\d{1,2}(:\d\d)?$/.test(st)) st = st + (m.charAt(0) === 'p' ? 'PM' : 'AM');
+        days[di] = [st, null];
+      });
+    });
+  });
+}
 function parseWeekData(week) {
   try {
     var boh = week.boh_data ? JSON.parse(week.boh_data) : {};
@@ -11584,6 +11631,7 @@ function parseWeekData(week) {
     Object.keys(CASHIERS).forEach(k => delete CASHIERS[k]);     if(csh)            Object.assign(CASHIERS, csh);
     Object.keys(HOSTS).forEach(k => delete HOSTS[k]);           if(foh.HOSTS)      Object.assign(HOSTS, foh.HOSTS);
     Object.keys(DRIVERS).forEach(k => delete DRIVERS[k]);       if(drv)            Object.assign(DRIVERS, drv);
+    cleanLegacyFohMarkers();
     // Every week's Supabase data replaces these section objects wholesale
     // (clear then reassign, above) -- so anyone added via the Private tab's
     // Manage Roster panel needs to be re-seeded as an empty row in their
@@ -14198,14 +14246,15 @@ function printSchedSection(range) {
     sections.forEach(function(sec){
       var secName = sec[0], secData = sec[1];
       var secRows = '';
-      Object.entries(secData).forEach(function(e){
+      schedSort(Object.entries(secData),'print').forEach(function(e){
         var name = e[0], days = e[1];
         var hasShift = daysToShow.some(function(di){ return days[di] && days[di] !== 'x' && days[di] !== 'X'; });
         if(!hasShift) return;
         secRows += '<tr><td>'+name+'</td>' + daysToShow.map(function(di){
           var val = days[di];
           if(!val || val === 'x' || val === 'X') return '<td style="color:#ccc;">-</td>';
-          return '<td>'+fmtTimeForPrint(val)+'</td>';
+          var kind = (secName === 'Drivers') ? 'drv' : (/^(Servers|Bartenders|Hosts|Cashiers)$/.test(secName) ? 'foh' : 'boh');
+          return '<td>'+shiftText(kind, val, di)+'</td>';
         }).join('') + '</tr>';
       });
       if(secRows) rows += '<tr><td colspan="'+(daysToShow.length+1)+'" style="background:#FFD700!important;background-color:#FFD700!important;color:#000!important;font-weight:700;padding:6px 10px;">'+secName+'</td></tr>' + secRows;
