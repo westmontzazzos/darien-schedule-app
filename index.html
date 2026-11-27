@@ -271,6 +271,60 @@ body {
 .sub-btn:hover { border-color: var(--red); color: var(--red); }
 .sub-btn.active { background: var(--red); color: var(--white); border-color: var(--red); }
 
+/* ── EXCEL-STYLE FULL-SCREEN SCHEDULE VIEW (screen only) ── */
+#sheet-view{ --z:1; --dcpx:62; --rn-w:calc(22px*var(--z)); --nm-w:calc(64px*var(--z)); --dc-w:calc(var(--dcpx)*1px*var(--z)); --fs:calc(10.5px*var(--z)); --lt-h:calc(16px*var(--z)); --rh:calc(20px*var(--z));
+  position:fixed; inset:0; z-index:100002; background:#fff; display:none; overscroll-behavior:contain; }
+#sheet-topbar{ position:absolute; top:env(safe-area-inset-top,0px); left:env(safe-area-inset-left,0px); right:env(safe-area-inset-right,0px); height:32px; background:#111; display:flex; align-items:center; padding:0 6px; z-index:5; }
+#sheet-tabs{ display:flex; gap:6px; margin-left:8px; flex:1 1 auto; min-width:0; overflow-x:auto; scrollbar-width:none; }
+#sheet-tabs::-webkit-scrollbar{ display:none; }
+#sheet-tabs button{ flex:none; height:26px; padding:0 12px; font:700 12px Arial,Helvetica,sans-serif; border:1px solid #555; border-radius:6px; background:#222; color:#ddd; white-space:nowrap; -webkit-appearance:none; cursor:pointer; }
+#sheet-tabs button.on{ background:#fff; color:#111; border-color:#fff; }
+#sheet-close-btn{ flex:none; width:40px; height:26px; padding:0; font:700 15px Arial,Helvetica,sans-serif; line-height:1; border:none; border-radius:6px; background:#c8102e; color:#fff; -webkit-appearance:none; cursor:pointer; }
+@media (orientation:landscape) and (max-height:500px){ #sheet-topbar{ height:26px; } #sheet-close-btn{ width:36px; height:22px; font-size:13px; } #sheet-tabs button{ height:22px; font-size:11px; padding:0 10px; } #sheet-scroll{ top:calc(env(safe-area-inset-top,0px) + 26px) !important; } }
+#sheet-scroll{ position:absolute; top:calc(env(safe-area-inset-top,0px) + 32px); left:env(safe-area-inset-left,0px); right:env(safe-area-inset-right,0px); bottom:env(safe-area-inset-bottom,0px);
+  overflow:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; touch-action:pan-x pan-y; background:#fff; }
+.xl-table{ border-collapse:separate; border-spacing:0; table-layout:fixed; width:calc(var(--rn-w) + var(--nm-w) + 7*var(--dc-w)); font:var(--fs)/1.15 Arial,Helvetica,sans-serif; color:#000; background:#fff; }
+.xl-table th,.xl-table td{ box-sizing:border-box; height:var(--rh); padding:0 calc(3px*var(--z)); border-right:1px solid #2b2b2b; border-bottom:1px solid #2b2b2b; white-space:nowrap; overflow:hidden; text-align:center; vertical-align:middle; font-weight:400; font-size:calc(var(--fs)*var(--k,1)); }
+.xl-table .xl-rn{ position:sticky; left:0; z-index:3; width:var(--rn-w); min-width:var(--rn-w); background:#e6e6e6; color:#444; text-align:center; padding:0; font-size:calc(9px*var(--z)); border-left:1px solid #2b2b2b; }
+.xl-table .xl-nm{ position:sticky; left:var(--rn-w); z-index:3; width:var(--nm-w); min-width:var(--nm-w); text-align:left; font-weight:700; background:#fff; }
+.xl-table thead th{ position:sticky; z-index:4; }
+.xl-table .xl-letters th{ top:0; height:var(--lt-h); background:#e6e6e6; color:#444; font-size:calc(9px*var(--z)); border-top:1px solid #2b2b2b; }
+.xl-table .xl-head th{ top:var(--lt-h); height:calc(var(--rh)*1.8); background:#fff; font-weight:700; line-height:1.15; white-space:normal; padding-top:calc(2px*var(--z)); padding-bottom:calc(2px*var(--z)); }
+.xl-table .xl-head th.xl-nm{ cursor:pointer; color:#c8102e; }
+.xl-table .xl-head th.xl-rn{ z-index:6; background:#e6e6e6; font-weight:400; }
+.xl-table .xl-head th.xl-nm{ z-index:6; }
+.xl-table .xl-letters th.xl-rn{ z-index:6; }
+.xl-table .xl-head .xl-ev{ font-weight:700; color:#c8102e; font-size:calc(8px*var(--z)) !important; line-height:1.1; letter-spacing:0 !important; margin-top:calc(1px*var(--z)) !important; white-space:normal; }
+.xl-table tr.xl-bar td{ background:#4472C4; color:#fff; font-weight:700; text-align:left; letter-spacing:0.04em; }
+.xl-table td .tob,.xl-table td div{ font-size:calc(8px*var(--z)*var(--k,1)) !important; }
+.xl-table .xl-nm div{ font-size:calc(7px*var(--z)*var(--k,1)) !important; line-height:1.05 !important; margin-top:0 !important; white-space:nowrap; }
+.xl-table .xl-letters th:nth-child(2){ position:sticky; left:var(--rn-w); z-index:6; }
+.xl-table tr.xl-bar td .xl-barlbl{ position:sticky; left:calc(var(--rn-w) + 6px*var(--z)); display:inline-block; }
+@media print { #sheet-view{ display:none !important; } }
+/* Excel view restyled to match the app: same fonts, black header, red section bars, light row lines, pill tabs. Shift highlights are untouched. */
+#sheet-view{ --rn-w:0px; --lt-h:0px; background:var(--off-white); }
+#sheet-scroll{ background:var(--off-white); }
+#sheet-topbar{ background:var(--off-white); border-bottom:1px solid var(--gray-200); }
+#sheet-close-btn{ background:var(--red); font-family:'DM Sans',sans-serif; }
+#sheet-tabs button{ font:600 12px 'DM Sans',sans-serif; background:var(--white); color:var(--gray-600); border:1px solid var(--gray-200); border-radius:999px; }
+#sheet-tabs button.on{ background:var(--red); color:var(--white); border-color:var(--red); }
+.xl-table{ font-family:'DM Sans',sans-serif; color:var(--gray-800); background:var(--white); }
+.xl-table th,.xl-table td{ border-right:none; border-bottom:1px solid var(--gray-100); }
+.xl-table .xl-letters, .xl-table .xl-rn{ display:none; }
+.xl-table .xl-nm{ background:var(--gray-50); font-weight:500; }
+.xl-table .xl-head th{ background:var(--black); color:var(--white); font-weight:600; letter-spacing:0.04em; border-bottom:none; }
+.xl-table .xl-head th.xl-nm{ background:var(--black); color:var(--white); text-align:left; cursor:default; }
+.xl-table .xl-head .xl-ev{ color:var(--red); }
+.xl-table tr.xl-bar td{ background:var(--red); color:var(--white); font-size:calc(9px*var(--z)); letter-spacing:0.1em; text-transform:uppercase; border-bottom:none; }
+.xl-table tr.xl-bar td .xl-barlbl{ left:calc(6px*var(--z)); }
+#sheet-edit-btn, #sheet-save-btn, #sheet-cancel-btn{ flex:none; height:26px; margin-left:6px; padding:0 12px; font:600 12px 'DM Sans',Arial,sans-serif; border:1px solid var(--gray-200); border-radius:999px; background:var(--white); color:var(--gray-600); -webkit-appearance:none; cursor:pointer; }
+#sheet-save-btn{ background:var(--red); border-color:var(--red); color:var(--white); }
+@media (orientation:landscape) and (max-height:500px){ #sheet-edit-btn, #sheet-save-btn, #sheet-cancel-btn{ height:22px; font-size:11px; padding:0 10px; } }
+.xl-table input.xl-in{ width:100%; box-sizing:border-box; margin:0; padding:0; border:none; border-radius:0; background:transparent; color:inherit; font:inherit; text-align:center; text-transform:uppercase; outline:none; -webkit-appearance:none; }
+.xl-table input.xl-in:focus{ outline:2px solid var(--red); outline-offset:-2px; background:rgba(255,255,255,0.75); }
+/* the PIN prompt must sit above the Excel view (tapping Edit inside it asks for the PIN) */
+#pin-modal{ z-index:100003; }
+
 .sched-wrap { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 180px); border-radius: var(--radius); box-shadow: var(--shadow); }
 .sched-table {
   width: 100%;
@@ -4675,11 +4729,15 @@ document.addEventListener("DOMContentLoaded",function(){
     <button class="btn btn-secondary" style="flex:none;padding:6px 12px;font-size:13px;" onclick="backToScheduleCalendar()">🗓 Calendar</button>
     <button id="sched-edit-btn" class="btn btn-secondary" style="flex:none;padding:6px 12px;font-size:13px;" onclick="toggleSchedEditMode()">✏️ Edit</button>
   </div>
+  <div id="sched-edit-tools" style="display:none;margin-bottom:8px;">
+    <button class="btn btn-secondary" style="width:100%;padding:9px 12px;font-size:14px;color:var(--red);border:2px solid var(--red);background:#fff;" onclick="openAddPersonModal()">➕ Add Person</button>
+  </div>
   <div class="sub-nav" id="sched-sub-nav">
     <button class="sub-btn sub-btn-view active" onclick="switchSched('drivers',this)">Drivers</button>
     <button class="sub-btn sub-btn-view" onclick="switchSched('foh',this)">FOH</button>
     <button class="sub-btn sub-btn-view" onclick="switchSched('cashiers',this)">Cashiers</button>
     <button class="sub-btn sub-btn-view" onclick="switchSched('boh',this)">BOH</button>
+    <button class="sub-btn" onclick="openSheetView()">▦ Excel</button>
     <button class="sub-btn" onclick="showSchedPrintMenu(this)">🖨 Print</button>
     <button class="sub-btn" onclick="copyWeekToNext()">📋 Copy to Next Week</button>
     <button class="sub-btn" onclick="openSendMessageModal()">✉️ Send Message</button>
@@ -4697,11 +4755,43 @@ document.addEventListener("DOMContentLoaded",function(){
     <div style="flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:2px solid var(--red);">
       <div style="font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:0.06em;color:var(--black);" id="desktop-edit-week-label">Week</div>
       <div style="display:flex;gap:10px;">
+        <button class="btn btn-secondary" style="color:var(--red);border:2px solid var(--red);" onclick="openAddPersonModal()">➕ Add Person</button>
         <button class="btn btn-secondary" onclick="closeDesktopEditMode(false)">Cancel</button>
         <button class="btn btn-primary" style="background:var(--red);" onclick="closeDesktopEditMode(true)">💾 Save Schedule</button>
       </div>
     </div>
     <div id="desktop-edit-body" style="flex:1;overflow-y:auto;padding:16px 20px;"></div>
+  </div>
+
+  <!-- Add Person (Edit mode): someone already on the roster, or a new hire with a rate / salary -->
+  <div id="add-person-modal" style="display:none;position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,0.55);align-items:flex-end;justify-content:center;">
+    <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:18px 18px calc(24px + env(safe-area-inset-bottom, 0px));max-height:90vh;overflow-y:auto;box-sizing:border-box;">
+      <div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 14px;"></div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.06em;color:var(--black);margin-bottom:10px;">ADD PERSON TO THIS SCHEDULE</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px;">
+        <button id="addp-mode-roster" class="btn btn-primary" style="flex:1;" onclick="setAddPersonMode('roster')">On our roster</button>
+        <button id="addp-mode-new" class="btn btn-secondary" style="flex:1;" onclick="setAddPersonMode('new')">New hire</button>
+      </div>
+      <label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#777;margin-bottom:4px;">Put them in</label>
+      <select id="addp-section" onchange="addPersonRefreshPeople()" style="width:100%;font-size:16px;padding:10px;border:1px solid #ccc;border-radius:8px;margin-bottom:12px;background:#fff;"></select>
+      <div id="addp-roster-box">
+        <label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#777;margin-bottom:4px;">Who</label>
+        <select id="addp-person" style="width:100%;font-size:16px;padding:10px;border:1px solid #ccc;border-radius:8px;margin-bottom:12px;background:#fff;"></select>
+      </div>
+      <div id="addp-new-box" style="display:none;">
+        <label style="display:block;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#777;margin-bottom:4px;">Name</label>
+        <input id="addp-name" type="text" autocomplete="off" style="width:100%;box-sizing:border-box;font-size:16px;padding:10px;border:1px solid #ccc;border-radius:8px;margin-bottom:12px;">
+        <div id="addp-rate-row">
+          <label id="addp-rate-label" style="display:block;font-size:11px;font-weight:700;letter-spacing:0.07em;text-transform:uppercase;color:#777;margin-bottom:4px;">Hourly rate ($)</label>
+          <input id="addp-rate" type="number" inputmode="decimal" step="0.25" style="width:100%;box-sizing:border-box;font-size:16px;padding:10px;border:1px solid #ccc;border-radius:8px;margin-bottom:6px;">
+        </div>
+        <div id="addp-new-note" style="font-size:12px;color:#777;margin-bottom:12px;"></div>
+      </div>
+      <div style="display:flex;gap:10px;margin-top:6px;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="closeAddPersonModal()">Cancel</button>
+        <button id="addp-confirm" class="btn btn-primary" style="flex:1;background:var(--red);" onclick="confirmAddPerson()">Add</button>
+      </div>
+    </div>
   </div>
 
   <!-- Schedule Log Modal -->
@@ -7587,6 +7677,8 @@ async function toggleSchedEditMode() {
       window._editorUnlocked = true;
     }
     window._schedEditMode = true;
+    snapshotLaborBaseline();
+    syncAddPersonUI();
     var editBtn = document.getElementById('sched-edit-btn');
     if(editBtn) { editBtn.textContent = '💾 Save Schedule'; editBtn.style.background = 'var(--red)'; editBtn.style.color = '#fff'; editBtn.style.borderColor = 'var(--red)'; }
     renderSchedule();
@@ -7623,6 +7715,8 @@ async function closeDesktopEditMode(shouldSave) {
     await saveSchedInlineEdits();
   } else {
     window._schedEditMode = false;
+    window._laborBaseline = null;
+    syncAddPersonUI();
     var editBtn = document.getElementById('sched-edit-btn');
     if(editBtn) { editBtn.textContent = '✏️ Edit'; editBtn.style.background = ''; editBtn.style.color = ''; editBtn.style.borderColor = ''; }
     renderSchedule();
@@ -7631,7 +7725,8 @@ async function closeDesktopEditMode(shouldSave) {
   modal.style.display = 'none';
 }
 
-async function saveSchedInlineEdits() {
+// Reads every typed edit box into the in-memory schedule (nothing is saved to the database here).
+function syncInlineEditsToMemory() {
   // Collect all input values and write back to section objects. FOH
   // sections (Servers/Bartenders/Cashiers/Hosts) store each day as a real
   // [start, end] array -- storing the raw typed string directly here was
@@ -7669,6 +7764,14 @@ async function saveSchedInlineEdits() {
       secObj[name][di] = val || null;
     }
   });
+}
+
+async function saveSchedInlineEdits() {
+  syncInlineEditsToMemory();
+  var _laborBefore = window._laborBaseline || null;
+  var _laborAfter = null;
+  try { _laborAfter = dailyLaborNow(); } catch(e) {}
+  if(!_laborBefore) _laborBefore = _laborAfter;
   // Save to Supabase — PATCH the existing row by week_start. Never delete/recreate
   // the row: that would wipe out bouncer_data and anything else not listed below.
   var weekStart = allWeeks && allWeeks[currentWeekIdx] ? allWeeks[currentWeekIdx].week_start : null;
@@ -7699,8 +7802,442 @@ async function saveSchedInlineEdits() {
     var editBtn = document.getElementById('sched-edit-btn');
     if(editBtn) { editBtn.textContent = '✏️ Edit'; editBtn.style.background = ''; editBtn.style.color = ''; editBtn.style.borderColor = ''; }
     renderSchedule();
-    alert('Schedule saved.');
+    syncAddPersonUI();
+    window._laborBaseline = null;
+    var _lm = laborChangeMessage(_laborBefore, _laborAfter);
+    alert('Schedule saved.' + (_lm ? '\n\n' + _lm : ''));
   } catch(e) { alert('Save failed: ' + e.message + '\n\nYour changes were NOT saved. Please try again.'); }
+}
+
+
+// ---------------------------------------------------------------------------
+// Edit mode: add a person, remove a row, and the labor-cost alert on Save
+// (same tools the Westmont app has, wired to Darien's own roster tables).
+// ---------------------------------------------------------------------------
+var LABOR_DAILY_TARGET = 2800;   // the same daily target the Heat Map uses
+var ADD_PERSON_SECTIONS = [
+  {label:'Managers',   arr:'MANAGERS',   role:'Manager'},
+  {label:'Pizza',      arr:'PIZZA',      role:'Pizza'},
+  {label:'Kitchen',    arr:'KITCHEN',    role:'Kitchen'},
+  {label:'Prep',       arr:'PREP',       role:'Prep'},
+  {label:'Bus',        arr:'BUS',        role:'Bus'},
+  {label:'Dish',       arr:'DISH',       role:'Dish'},
+  {label:'Utility',    arr:'UTILITY',    role:'Utility'},
+  {label:'Servers',    arr:'SERVERS',    role:'Server'},
+  {label:'Bartenders', arr:'BARTENDERS', role:'Bartender'},
+  {label:'Cashiers',   arr:'CASHIERS',   role:'Cashier'},
+  {label:'Hosts',      arr:'HOSTS',      role:'Host'},
+  {label:'Drivers',    arr:'DRIVERS',    role:'Driver'}
+];
+var _addPersonMode = 'roster';
+function syncAddPersonUI() {
+  var row = document.getElementById('sched-edit-tools');
+  if(row) row.style.display = window._schedEditMode ? 'block' : 'none';
+}
+function setAddPersonMode(mode) {
+  _addPersonMode = mode;
+  document.getElementById('addp-roster-box').style.display = (mode === 'roster') ? 'block' : 'none';
+  document.getElementById('addp-new-box').style.display = (mode === 'new') ? 'block' : 'none';
+  document.getElementById('addp-mode-roster').className = 'btn ' + (mode === 'roster' ? 'btn-primary' : 'btn-secondary');
+  document.getElementById('addp-mode-new').className = 'btn ' + (mode === 'new' ? 'btn-primary' : 'btn-secondary');
+  addPersonRefreshPeople();
+}
+// Everyone who could be added to a section: the whole roster (built-in, added in Manage Roster, and
+// anyone already on some section this week), minus people removed from the roster and anyone already there.
+function addPersonCandidates(s) {
+  var obj = SECTION_ARRAYS[s.arr] || {};
+  var names = {};
+  var removed = {};
+  (typeof CUSTOM_ROSTER_REMOVED !== 'undefined' ? CUSTOM_ROSTER_REMOVED : []).forEach(function(r){ removed[r.name] = true; });
+  if(s.role === 'Manager') {                 // managers are the salaried people
+    ['Lisa B','Mike B','Brett','Steve'].forEach(function(n){ names[n] = 1; });
+    (CUSTOM_ROSTER || []).forEach(function(p){ if(p.is_salaried) names[p.name] = 1; });
+  } else {
+    Object.keys(SECTION_ARRAYS).forEach(function(k){ Object.keys(SECTION_ARRAYS[k]).forEach(function(n){ names[n] = 1; }); });
+    Object.keys(DEFAULT_ROSTER).forEach(function(n){ names[n] = 1; });
+    (CUSTOM_ROSTER || []).forEach(function(p){ if(!p.is_salaried) names[p.name] = 1; });
+    Object.keys(SALARIED_EMPLOYEES).forEach(function(n){ delete names[n]; });   // salaried people are added under Managers
+  }
+  return Object.keys(names).filter(function(n){ return !obj[n] && !removed[n]; }).sort(alphaCmp);
+}
+function addPersonRefreshPeople() {
+  var s = ADD_PERSON_SECTIONS[+document.getElementById('addp-section').value];
+  var list = addPersonCandidates(s);
+  document.getElementById('addp-person').innerHTML = list.length
+    ? list.map(function(n){ return '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>'; }).join('')
+    : '<option value="">(everyone is already in ' + s.label + ')</option>';
+  var mgr = (s.role === 'Manager');
+  document.getElementById('addp-rate-row').style.display = (s.role === 'Driver') ? 'none' : 'block';
+  document.getElementById('addp-rate-label').textContent = mgr ? 'Annual salary ($)' : 'Hourly rate ($)';
+  document.getElementById('addp-rate').step = mgr ? '1000' : '0.25';
+  document.getElementById('addp-new-note').textContent = mgr
+    ? "They're added to the roster as a salaried manager at this salary. Remove them any time in Manage Roster."
+    : "They're added to the wage roster at this rate, so their hours count in labor cost. Remove them any time in Manage Roster.";
+}
+function openAddPersonModal() {
+  var sel = document.getElementById('addp-section');
+  sel.innerHTML = ADD_PERSON_SECTIONS.map(function(s, i){ return '<option value="' + i + '">' + s.label + '</option>'; }).join('');
+  var want = currentSchedView === 'foh' ? 'Servers' : currentSchedView === 'drivers' ? 'Drivers' : currentSchedView === 'cashiers' ? 'Cashiers' : 'Pizza';
+  sel.value = String(ADD_PERSON_SECTIONS.findIndex(function(x){ return x.label === want; }));
+  document.getElementById('addp-name').value = ''; document.getElementById('addp-rate').value = '';
+  setAddPersonMode('roster');
+  document.getElementById('add-person-modal').style.display = 'flex';
+}
+function closeAddPersonModal() { document.getElementById('add-person-modal').style.display = 'none'; }
+// Redraw the editable schedule (also inside the full-screen editor if that is what is open).
+function refreshEditView() {
+  renderSchedule();
+  var m = document.getElementById('desktop-edit-modal');
+  if(m && m.style.display === 'flex') { document.getElementById('desktop-edit-body').innerHTML = ''; openDesktopEditMode(); }
+}
+async function confirmAddPerson() {
+  var s = ADD_PERSON_SECTIONS[+document.getElementById('addp-section').value];
+  var obj = SECTION_ARRAYS[s.arr];
+  var blank = function(){ return [null,null,null,null,null,null,null]; };
+  var btn = document.getElementById('addp-confirm');
+  syncInlineEditsToMemory();   // keep everything already typed in this edit session
+  if(_addPersonMode === 'roster') {
+    var who = document.getElementById('addp-person').value;
+    if(!who) { alert('Pick who to add.'); return; }
+    if(!obj[who]) obj[who] = blank();
+  } else {
+    var name = document.getElementById('addp-name').value.trim();
+    var rate = parseFloat(document.getElementById('addp-rate').value);
+    if(!name) { alert('Enter a name.'); return; }
+    var lower = name.toLowerCase(), taken = false;
+    Object.keys(SECTION_ARRAYS).forEach(function(k){ Object.keys(SECTION_ARRAYS[k]).forEach(function(n){ if(n.toLowerCase() === lower) taken = true; }); });
+    Object.keys(DEFAULT_ROSTER).forEach(function(n){ if(n.toLowerCase() === lower) taken = true; });
+    (CUSTOM_ROSTER || []).forEach(function(p){ if(p.name.toLowerCase() === lower) taken = true; });
+    ['Lisa B','Mike B','Brett','Steve'].forEach(function(n){ if(n.toLowerCase() === lower) taken = true; });
+    if(taken) { alert(name + ' is already on the roster. Switch to "On our roster" and pick them from the list.'); return; }
+    var isDriver = s.role === 'Driver', isMgr = s.role === 'Manager';
+    if(isMgr && (!rate || rate <= 0)) { alert('Enter their annual salary.'); return; }
+    if(!isDriver && !isMgr && (!rate || rate <= 0)) { alert('Enter an hourly rate so their hours count in labor cost.'); return; }
+    if(isDriver) rate = 0;
+    var entry = isMgr
+      ? {name: name, is_salaried: true, role_label: 'Manager', annual_salary: rate, added_by: getCurrentUser(), added_at: new Date().toISOString()}
+      : {name: name, is_salaried: false, roles_json: JSON.stringify([s.role]), rate: rate, added_by: getCurrentUser(), added_at: new Date().toISOString()};
+    if(btn) { btn.disabled = true; btn.textContent = 'Adding...'; }
+    try {
+      var r = await fetch(SUPABASE_URL + '/rest/v1/darien_roster_additions', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','apikey':SUPABASE_KEY,'Authorization':'Bearer '+SUPABASE_KEY,'Prefer':'return=representation'},
+        body: JSON.stringify([entry])
+      });
+      if(!r.ok) throw new Error('HTTP ' + r.status + ': ' + (await r.text()));
+      var rows = await r.json();
+      CUSTOM_ROSTER.push((rows && rows[0]) || entry);
+      seedCustomRosterIntoSections();
+      if(!obj[name]) obj[name] = blank();
+    } catch(e) {
+      alert('Could not add ' + name + ': ' + e.message);
+      if(btn) { btn.disabled = false; btn.textContent = 'Add'; }
+      return;
+    }
+    if(btn) { btn.disabled = false; btn.textContent = 'Add'; }
+  }
+  closeAddPersonModal();
+  refreshEditView();
+}
+
+// ---- Remove someone's row from the schedule (Edit mode, the red x by their name) ----
+function delRowBtn(sec, name) {
+  if(!window._schedEditMode) return '';
+  return '<button type="button" class="sched-del-row" data-sec="' + sec + '" data-name="' + String(name).replace(/"/g, '&quot;') + '" onclick="deleteSchedRow(this)" title="Remove from this schedule" style="float:right;margin-left:6px;border:none;background:none;color:#c8102e;font-size:16px;line-height:1;padding:0 2px;cursor:pointer;">✕</button>';
+}
+async function deleteSchedRow(btn) {
+  var sec = btn.getAttribute('data-sec'), name = btn.getAttribute('data-name');
+  var obj = SECTION_ARRAYS[sec];
+  if(!obj || !obj[name]) return;
+  syncInlineEditsToMemory();   // keep everything already typed in this edit session
+  var meta = ADD_PERSON_SECTIONS.find(function(x){ return x.arr === sec; });
+  var label = meta ? meta.label : sec;
+  var hasShifts = (obj[name] || []).some(function(d){ return d && (Array.isArray(d) ? (d[0] || d[1]) : String(d).trim() !== ''); });
+  if(!confirm('Remove ' + name + ' from ' + label + ' on this schedule?' + (hasShifts ? '\n\nTheir shifts in ' + label + ' this week are deleted when you Save.' : ''))) return;
+  delete obj[name];
+  if(sec === 'UTILITY' && UTILITY_ROLE[name]) delete UTILITY_ROLE[name];
+  // People added through the roster are put back as an empty row every time the app loads, unless they leave the roster too.
+  var add = (CUSTOM_ROSTER || []).find(function(p){ return p.name === name && p.id; });
+  if(add && confirm(name + " was added through the roster, so they'd keep coming back as an empty row.\n\nRemove them from the roster too? Their past pay history is unaffected.")) {
+    try {
+      var r = await fetch(SUPABASE_URL + '/rest/v1/darien_roster_additions?id=eq.' + add.id, {method: 'DELETE', headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}});
+      if(!r.ok) throw new Error('HTTP ' + r.status);
+      CUSTOM_ROSTER = CUSTOM_ROSTER.filter(function(p){ return p.id !== add.id; });
+    } catch(e) { alert('Removed from the schedule, but could not remove ' + name + ' from the roster: ' + e.message); }
+  }
+  refreshEditView();
+}
+
+// ---- Labor cost alert: what a schedule edit does to each day's projected labor cost ----
+// The "before" number is taken when Edit mode STARTS, so anything synced mid-session (for example when a
+// person is added) still counts as a change when you Save. Same numbers as under each date on the calendar.
+function snapshotLaborBaseline() { try { window._laborBaseline = dailyLaborNow(); } catch(e) { window._laborBaseline = null; } }
+function dailyLaborNow() {
+  return computeWeekDailyLaborCost(
+    {MANAGERS: MANAGERS, PIZZA: PIZZA, KITCHEN: KITCHEN, PREP: PREP, BUS: BUS, DISH: DISH, UTILITY: UTILITY},
+    {SERVERS: SERVERS, BARTENDERS: BARTENDERS, HOSTS: HOSTS}, CASHIERS, DRIVERS);
+}
+function laborChangeMessage(before, after) {
+  if(!before || !after) return '';
+  var D = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], lines = [], over = false;
+  var fmt = function(v){ return '$' + Math.round(v).toLocaleString('en-US'); };
+  for(var i = 0; i < 7; i++) {
+    var d = after[i] - before[i];
+    if(Math.abs(d) < 1) continue;
+    var line = D[i] + ': ' + fmt(before[i]) + ' \u2192 ' + fmt(after[i]) + ' (' + (d > 0 ? '+' : '-') + fmt(Math.abs(d)) + ')';
+    if(after[i] > LABOR_DAILY_TARGET) { line += ' \u2014 OVER the ' + fmt(LABOR_DAILY_TARGET) + ' target'; over = true; }
+    lines.push(line);
+  }
+  if(!lines.length) return '';
+  var tb = before.reduce(function(a, b){ return a + b; }, 0), ta = after.reduce(function(a, b){ return a + b; }, 0);
+  return 'LABOR COST CHANGED' + (over ? ' \u2014 A DAY IS OVER TARGET' : '') + '\n' + lines.join('\n') + '\nWeek total: ' + fmt(tb) + ' \u2192 ' + fmt(ta);
+}
+
+// ══ EXCEL-STYLE FULL-SCREEN SCHEDULE VIEW ══════════════════════════════
+// Screen only. Builds one continuous sheet (Drivers, Front of House, Back of
+// House) edge to edge, with row numbers, column letters, and frozen day
+// headers + name column, so it can be pinched, dragged and rotated. The cell
+// text comes from renderSchedule() itself (same names, formats, visibility
+// rules, time-off badges) -- nothing here touches any print code.
+var _sheetZoom = 1, _sheetUserZoomed = false;
+var SHEET_BASE_W = 0 + 64 + 7*62;   // (no row-number col) + name col + 7 day cols at zoom 1
+
+function buildSheetHtml(editMode) {
+  var el = document.getElementById('schedule-content');
+  var savedView = currentSchedView, savedEdit = window._schedEditMode;
+  window._schedEditMode = false;
+  var headCells = null, groups = [];
+  if(editMode) {
+    // headers come from the normal (read-only) render so the event boxes don't get pulled into the sheet
+    currentSchedView = 'boh'; renderSchedule();
+    var _t0 = el.querySelector('table');
+    if(_t0) headCells = Array.prototype.map.call(_t0.querySelectorAll('thead th'), function(th){ return th.innerHTML; });
+    window._schedEditMode = true;   // the groups below are rendered with their edit inputs
+  }
+  [['drivers','Drivers'],['foh','Front of House'],['cashiers','Cashiers'],['boh','Back of House']].forEach(function(g) {
+    currentSchedView = g[0];
+    renderSchedule();
+    var t = el.querySelector('table');
+    if(!t) return;
+    if(!headCells) headCells = Array.prototype.map.call(t.querySelectorAll('thead th'), function(th){ return th.innerHTML; });
+    var rows = [], rn = 1;   // row 1 is the day-header row (each tab numbers its own rows)
+    function bar(label) { rn++; rows.push('<tr class="xl-bar"><th class="xl-rn">'+rn+'</th><td colspan="8"><span class="xl-barlbl">'+label+'</span></td></tr>'); }
+    Array.prototype.forEach.call(t.querySelectorAll('tbody tr'), function(tr) {
+      if(tr.classList.contains('sched-sec-hdr')) { bar(tr.textContent.trim()); return; }
+      if(editMode && !tr.querySelector('input.sched-inline-input')) return;   // notes rows etc. are not part of the sheet
+      var cells = tr.children;
+      if(!cells.length) return;
+      rn++;
+      var _nmEl = cells[0].cloneNode(true);
+      Array.prototype.forEach.call(_nmEl.querySelectorAll('.sched-del-row'), function(b){ b.parentNode.removeChild(b); });
+      var h = '<tr><th class="xl-rn">'+rn+'</th><th class="xl-nm">'+_nmEl.innerHTML+'</th>';
+      for(var i=1; i<cells.length && i<=7; i++) {
+        var _inp = editMode ? cells[i].querySelector('input.sched-inline-input') : null;
+        if(_inp) {
+          // the very same kind of input the Edit screen uses (same class + section/name/day), so Save reads it unchanged
+          var _c = _inp.cloneNode(true);
+          _c.removeAttribute('placeholder'); _c.removeAttribute('style');   // the Edit screen's own sizing would override the sheet's
+          _c.setAttribute('class', 'sched-inline-input xl-in');
+          var _bgE = getOpenerCloserBg((_inp.value || '').replace(/[–—]/g,'-').replace(/\s+/g,''));
+          h += '<td'+(_bgE ? ' style="'+_bgE+'"' : '')+'>'+_c.outerHTML+'</td>';
+          continue;
+        }
+        var txt = (cells[i].textContent || '').trim().split('\n')[0];
+        var bg = getOpenerCloserBg(txt.replace(/[–—]/g,'-').replace(/\s+/g,''));
+        h += '<td'+(bg ? ' style="'+bg+'"' : '')+'>'+cells[i].innerHTML.replace(/\s+–\s+/g,'–')+'</td>';
+      }
+      rows.push(h+'</tr>');
+    });
+    groups.push({key: g[0], label: g[1], rows: rows});
+  });
+  currentSchedView = savedView; window._schedEditMode = savedEdit;
+  renderSchedule();   // put the normal grid back exactly as it was
+  window._sheetGroups = groups.map(function(g){ return {key: g.key, label: g.label}; });
+  var letters = ['A','B','C','D','E','F','G','H'];
+  var hc = headCells || ['Name'];
+  var out = '';
+  groups.forEach(function(g, i) {
+    out += '<table class="xl-table" data-grp="'+g.key+'"'+(i ? ' style="display:none"' : '')+'><thead><tr class="xl-letters"><th class="xl-rn"></th>'
+      + letters.map(function(l){ return '<th>'+l+'</th>'; }).join('') + '</tr>'
+      + '<tr class="xl-head"><th class="xl-rn">1</th><th class="xl-nm">Name</th>'
+      + hc.slice(1).map(function(x){ return '<th>'+x.replace(/<div/g,'<div class="xl-ev"')+'</th>'; }).join('') + '</tr></thead><tbody>'
+      + g.rows.join('') + '</tbody></table>';
+  });
+  return out.replace(/\sonclick="[^"]*"/g,'');   // header event links open modals that would sit behind the sheet
+}
+
+// Show one schedule (Drivers / Front of House / Back of House) at a time in the Excel view.
+function sheetShowTab(key) {
+  var sc = document.getElementById('sheet-scroll');
+  if(!sc) return;
+  Array.prototype.forEach.call(sc.querySelectorAll('.xl-table'), function(t){ t.style.display = (t.getAttribute('data-grp') === key) ? '' : 'none'; });
+  Array.prototype.forEach.call(document.querySelectorAll('#sheet-tabs button'), function(b){ b.classList.toggle('on', b.getAttribute('data-grp') === key); });
+  sc.scrollTop = 0; sc.scrollLeft = 0;
+  sheetShrinkToFit();
+}
+
+function sheetFit() {
+  var sc = document.getElementById('sheet-scroll');
+  var avail = sc ? sc.clientWidth : window.innerWidth;
+  var z = avail / SHEET_BASE_W, dc = 62;
+  if(z > 1.15) {            // wide screen (landscape): keep text a comfortable size and widen the day columns instead
+    z = 1.15;
+    dc = (avail / z - 0 - 64) / 7;
+  }
+  z = Math.max(0.5, z);
+  document.getElementById('sheet-view').style.setProperty('--dcpx', dc.toFixed(2));
+  sheetApplyZoom(z);
+  sheetShrinkToFit();
+}
+function sheetApplyZoom(z) {
+  _sheetZoom = Math.max(0.35, Math.min(4, z));
+  document.getElementById('sheet-view').style.setProperty('--z', _sheetZoom.toFixed(4));
+}
+// Like Excel's "shrink to fit": a shift too long for its cell gets slightly smaller text instead of being cut off.
+function sheetShrinkToFit() {
+  var cells = document.querySelectorAll('#sheet-scroll .xl-table tbody td, #sheet-scroll .xl-table tbody th.xl-nm, #sheet-scroll .xl-table .xl-head th');
+  Array.prototype.forEach.call(cells, function(td){ td.style.removeProperty('--k'); });
+  Array.prototype.forEach.call(cells, function(td){
+    if(td.colSpan > 1) return;
+    var inner = td.scrollWidth, box = td.clientWidth;
+    if(inner > box + 1) td.style.setProperty('--k', Math.max(0.55, (box / inner) * 0.96).toFixed(3));
+  });
+}
+function sheetOnResize() {
+  var v = document.getElementById('sheet-view');
+  if(!v || v.style.display === 'none') return;
+  // iPhones report the new screen size a beat late after a turn, so check twice
+  [150, 600].forEach(function(ms){ setTimeout(function(){ if(!_sheetUserZoomed) sheetFit(); }, ms); });   // rotating refits unless you've pinched
+}
+function sheetInitGestures(sc) {
+  var pinch = null, lastTap = 0, tapStart = null;
+  sc.addEventListener('touchstart', function(e) {
+    if(e.touches.length === 2) {
+      var a = e.touches[0], b = e.touches[1], r = sc.getBoundingClientRect();
+      pinch = {d: Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY), z: _sheetZoom,
+               cx: (a.clientX+b.clientX)/2 - r.left, cy: (a.clientY+b.clientY)/2 - r.top, sl: sc.scrollLeft, st: sc.scrollTop};
+      tapStart = null;
+    } else if(e.touches.length === 1) {
+      tapStart = {x: e.touches[0].clientX, y: e.touches[0].clientY, t: Date.now()};
+    }
+  }, {passive:false});
+  sc.addEventListener('touchmove', function(e) {
+    if(pinch && e.touches.length === 2) {
+      e.preventDefault();
+      var a = e.touches[0], b = e.touches[1];
+      var nz = Math.max(0.35, Math.min(4, pinch.z * Math.hypot(a.clientX-b.clientX, a.clientY-b.clientY) / pinch.d));
+      var ratio = nz / pinch.z;
+      sheetApplyZoom(nz);
+      sc.scrollLeft = (pinch.sl + pinch.cx) * ratio - pinch.cx;   // keep the spot under your fingers where it was
+      sc.scrollTop  = (pinch.st + pinch.cy) * ratio - pinch.cy;
+      _sheetUserZoomed = true;
+    } else if(tapStart && e.touches.length === 1) {
+      var m = e.touches[0];
+      if(Math.abs(m.clientX-tapStart.x) > 10 || Math.abs(m.clientY-tapStart.y) > 10) tapStart = null;
+    }
+  }, {passive:false});
+  sc.addEventListener('touchend', function(e) {
+    if(e.touches.length < 2) pinch = null;
+    if(tapStart && e.touches.length === 0 && Date.now() - tapStart.t < 300) {
+      if(Date.now() - lastTap < 350) {   // double-tap = fit the whole week to the screen again
+        _sheetUserZoomed = false; sheetFit(); sc.scrollLeft = 0; sc.scrollTop = 0; lastTap = 0;
+      } else lastTap = Date.now();
+    }
+    tapStart = null;
+  }, {passive:true});
+  ['gesturestart','gesturechange'].forEach(function(n){ sc.addEventListener(n, function(e){ e.preventDefault(); }); });   // iOS Safari's own page pinch
+}
+function openSheetView(editMode, keepKey) {
+  var html = buildSheetHtml(editMode);
+  var v = document.getElementById('sheet-view');
+  if(!v) {
+    v = document.createElement('div');
+    v.id = 'sheet-view';
+    v.innerHTML = '<div id="sheet-topbar"><button id="sheet-close-btn" type="button" onclick="closeSheetView()" aria-label="Close">\u2715</button><div id="sheet-tabs"></div><button id="sheet-edit-btn" type="button" onclick="sheetEnterEdit()">\u270F\uFE0F Edit</button><button id="sheet-save-btn" type="button" onclick="sheetSaveEdit()" style="display:none">Save</button><button id="sheet-cancel-btn" type="button" onclick="sheetCancelEdit()" style="display:none">Cancel</button></div><div id="sheet-scroll"></div>';
+    document.body.appendChild(v);
+    sheetInitGestures(document.getElementById('sheet-scroll'));
+    document.getElementById('sheet-scroll').addEventListener('input', sheetOnCellInput);
+    window.addEventListener('resize', sheetOnResize);
+    window.addEventListener('orientationchange', sheetOnResize);
+  }
+  var sc = document.getElementById('sheet-scroll');
+  sc.innerHTML = html;
+  v.style.display = 'block';
+  _sheetUserZoomed = false;
+  sheetFit();
+  sc.scrollLeft = 0; sc.scrollTop = 0;
+  var tabsEl = document.getElementById('sheet-tabs');
+  if(tabsEl) {
+    var gs = window._sheetGroups || [];
+    tabsEl.innerHTML = gs.map(function(g){ return '<button type="button" data-grp="'+g.key+'" onclick="sheetShowTab(\''+g.key+'\')">'+g.label+'</button>'; }).join('');
+    var startKey = keepKey || (gs.some(function(g){ return g.key === currentSchedView; }) ? currentSchedView : (gs[0] && gs[0].key));
+    if(startKey) sheetShowTab(startKey);
+  }
+}
+// ---- Editing from the Excel view ----
+// The sheet's cells become the same inputs the Edit screen uses, so Save is the Edit screen's own save.
+window._sheetEditing = false;
+var _sheetDirty = false;
+function sheetActiveKey() {
+  var b = document.querySelector('#sheet-tabs button.on');
+  return b ? b.getAttribute('data-grp') : null;
+}
+function sheetSyncButtons() {
+  var ed = !!window._sheetEditing;
+  var e = document.getElementById('sheet-edit-btn'), s = document.getElementById('sheet-save-btn'), c = document.getElementById('sheet-cancel-btn');
+  if(e) e.style.display = ed ? 'none' : '';
+  if(s) s.style.display = ed ? '' : 'none';
+  if(c) c.style.display = ed ? '' : 'none';
+}
+function sheetOnCellInput(ev) {
+  var t = ev.target;
+  if(!t || !t.classList || !t.classList.contains('xl-in')) return;
+  _sheetDirty = true;
+  var td = t.closest('td');
+  if(td) td.style.cssText = getOpenerCloserBg((t.value || '').replace(/[–—]/g,'-').replace(/\s+/g,'')) || '';   // colour follows what you type
+}
+async function sheetEnterEdit() {
+  if(!window._editorUnlocked) {
+    var pin = await askPin('Enter PIN to edit schedule');
+    if(pin !== '1043') { if(pin !== null) alert('Incorrect PIN.'); return; }
+    window._editorUnlocked = true;
+  }
+  var key = sheetActiveKey();
+  openSheetView(true, key);          // rebuild the sheet with editable cells
+  snapshotLaborBaseline();
+  window._schedEditMode = true;      // the Edit screen's own save reads cells while this is on
+  window._sheetEditing = true; _sheetDirty = false;
+  sheetSyncButtons();
+  // open zoomed in so cells are comfortable to tap and the text is 16px+ (which also stops the iPhone zooming the page on focus)
+  var _sc = document.getElementById('sheet-scroll');
+  _sheetUserZoomed = true; sheetApplyZoom(1.55);
+  if(_sc) { _sc.scrollLeft = 0; _sc.scrollTop = 0; }
+}
+function sheetExitEdit(rebuild) {
+  var key = sheetActiveKey();
+  window._sheetEditing = false; _sheetDirty = false;
+  window._schedEditMode = false;
+  sheetSyncButtons();
+  if(rebuild) openSheetView(false, key);
+}
+async function sheetSaveEdit() {
+  var btn = document.getElementById('sheet-save-btn');
+  if(btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
+  await saveSchedInlineEdits();       // the Edit screen's own save (shows its own success / failure message)
+  if(btn) { btn.disabled = false; btn.textContent = 'Save'; }
+  if(window._schedEditMode === false) sheetExitEdit(true);   // it saved: show the sheet again with the saved values
+}
+function sheetCancelEdit() {
+  if(_sheetDirty && !confirm('Discard your unsaved changes?')) return;
+  sheetExitEdit(true);
+}
+function closeSheetView() {
+  if(window._sheetEditing) {
+    if(_sheetDirty && !confirm('Discard your unsaved changes?')) return;
+    sheetExitEdit(false);
+  }
+  var v = document.getElementById('sheet-view');
+  if(v) v.style.display = 'none';
 }
 
 function renderSchedule() {
@@ -7731,7 +8268,7 @@ function renderSchedule() {
     schedSort(Object.entries(DRIVERS),'drv')
       .filter(([n,d])=>d.some(v=>v))
       .forEach(([name,days])=>{
-        html+=`<tr><td>${name}</td>`;
+        html+=`<tr><td>${name}${delRowBtn('DRIVERS',name)}</td>`;
         days.forEach((raw,di)=>{
           if(window._schedEditMode){
             html+=`<td><input class="sched-inline-input" data-section="DRIVERS" data-name="${name}" data-di="${di}" value="${shiftText('drv',raw,di)}" style="width:70px;font-size:11px;padding:2px 4px;border:1px solid #ddd;border-radius:4px;${getOpenerCloserBg(raw)}"></td>`;
@@ -7746,7 +8283,7 @@ function renderSchedule() {
     [{l:'SERVERS',d:SERVERS},{l:'BARTENDERS',d:BARTENDERS},{l:'HOSTS',d:HOSTS}].forEach(({l,d})=>{
       html+=`<tr class="sched-sec-hdr"><td colspan="8">${l}</td></tr>`;
       schedSort(Object.entries(d),'foh').forEach(([name,days])=>{
-        html+=`<tr><td>${name}</td>`;
+        html+=`<tr><td>${name}${delRowBtn(l,name)}</td>`;
         days.forEach((e,di)=>{
           if(window._schedEditMode){
             var rawVal = shiftText('foh', e, di);
@@ -7762,7 +8299,7 @@ function renderSchedule() {
   } else if(currentSchedView==='cashiers') {
     html+=`<tr class="sched-sec-hdr"><td colspan="8">CASHIERS</td></tr>`;
     schedSort(Object.entries(CASHIERS),'foh').forEach(([name,days])=>{
-      html+=`<tr><td>${name}</td>`;
+      html+=`<tr><td>${name}${delRowBtn('CASHIERS',name)}</td>`;
       days.forEach((e,di)=>{
         if(window._schedEditMode){
           var rawVal = shiftText('foh', e, di);
@@ -7778,7 +8315,7 @@ function renderSchedule() {
     [{l:'MANAGERS',d:MANAGERS},{l:'PIZZA',d:PIZZA},{l:'KITCHEN',d:KITCHEN},{l:'PREP',d:PREP},{l:'BUS',d:BUS},{l:'DISH',d:DISH},{l:'UTILITY',d:UTILITY}].forEach(({l,d})=>{
       html+=`<tr class="sched-sec-hdr"><td colspan="8">${l}</td></tr>`;
       schedSort(Object.entries(d),'boh').forEach(([name,days])=>{
-        html+=`<tr><td>${name}</td>`;
+        html+=`<tr><td>${name}${delRowBtn(l,name)}</td>`;
         days.forEach((raw,di)=>{
           if(l==='UTILITY'){
             // Utility floats between Pizza and Kitchen day to day -- the P/K
