@@ -7855,29 +7855,51 @@ function setAddPersonMode(mode) {
   document.getElementById('addp-mode-new').className = 'btn ' + (mode === 'new' ? 'btn-primary' : 'btn-secondary');
   addPersonRefreshPeople();
 }
-// Everyone who could be added to a section: the whole roster (built-in, added in Manage Roster, and
-// anyone already on some section this week), minus people removed from the roster and anyone already there.
+// Everyone who could be added to a section: the whole roster -- including people who were removed from it
+// (adding one restores them), salaried managers who cover a station, and, for Drivers, anyone who drove in an
+// earlier week -- minus whoever is already in that section this week.
+function pastDriverNames() {
+  var out = {};
+  (allWeeks || []).forEach(function(w){
+    try {
+      var d = w.driver_data ? JSON.parse(w.driver_data) : {};
+      Object.keys(d).forEach(function(n){ if(Array.isArray(d[n]) && d[n].some(function(v){ return v; })) out[n] = 1; });
+    } catch(e) {}
+  });
+  return Object.keys(out);
+}
 function addPersonCandidates(s) {
   var obj = SECTION_ARRAYS[s.arr] || {};
-  var names = {};
+  var have = {}; Object.keys(obj).forEach(function(n){ have[n.toLowerCase()] = 1; });
+  if(s.role === 'Manager' && obj['Lisa']) have['lisa b'] = 1;     // the schedule keeps Lisa under "Lisa"
   var removed = {};
-  (typeof CUSTOM_ROSTER_REMOVED !== 'undefined' ? CUSTOM_ROSTER_REMOVED : []).forEach(function(r){ removed[r.name] = true; });
+  (typeof CUSTOM_ROSTER_REMOVED !== 'undefined' ? CUSTOM_ROSTER_REMOVED : []).forEach(function(r){ removed[r.name] = r; });
+  var names = {};
+  var salaried = ['Lisa B','Mike B','Brett','Steve'];
+  (CUSTOM_ROSTER || []).forEach(function(p){ if(p.is_salaried) salaried.push(p.name); });
   if(s.role === 'Manager') {                 // managers are the salaried people
-    ['Lisa B','Mike B','Brett','Steve'].forEach(function(n){ names[n] = 1; });
-    (CUSTOM_ROSTER || []).forEach(function(p){ if(p.is_salaried) names[p.name] = 1; });
+    salaried.forEach(function(n){ names[n] = 1; });
   } else {
     Object.keys(SECTION_ARRAYS).forEach(function(k){ Object.keys(SECTION_ARRAYS[k]).forEach(function(n){ names[n] = 1; }); });
     Object.keys(DEFAULT_ROSTER).forEach(function(n){ names[n] = 1; });
     (CUSTOM_ROSTER || []).forEach(function(p){ if(!p.is_salaried) names[p.name] = 1; });
-    Object.keys(SALARIED_EMPLOYEES).forEach(function(n){ delete names[n]; });   // salaried people are added under Managers
+    salaried.forEach(function(n){ names[n] = 1; });                 // managers sometimes cover a station
+    if(s.role === 'Driver') pastDriverNames().forEach(function(n){ names[n] = 1; });
   }
-  return Object.keys(names).filter(function(n){ return !obj[n] && !removed[n]; }).sort(alphaCmp);
+  Object.keys(removed).forEach(function(n){ if(s.role !== 'Manager') names[n] = 1; });
+  var seen = {}, out = [];
+  Object.keys(names).sort(alphaCmp).forEach(function(n){
+    var l = n.toLowerCase();
+    if(have[l] || seen[l] || n === 'Trainee' || n === 'Dispatch') return;
+    seen[l] = 1; out.push({n: n, removed: !!removed[n]});
+  });
+  return out;
 }
 function addPersonRefreshPeople() {
   var s = ADD_PERSON_SECTIONS[+document.getElementById('addp-section').value];
   var list = addPersonCandidates(s);
   document.getElementById('addp-person').innerHTML = list.length
-    ? list.map(function(n){ return '<option value="' + n.replace(/"/g, '&quot;') + '">' + n + '</option>'; }).join('')
+    ? list.map(function(c){ return '<option value="' + c.n.replace(/"/g, '&quot;') + '">' + c.n + (c.removed ? ' (removed \u2014 adding restores them)' : '') + '</option>'; }).join('')
     : '<option value="">(everyone is already in ' + s.label + ')</option>';
   var mgr = (s.role === 'Manager');
   document.getElementById('addp-rate-row').style.display = (s.role === 'Driver') ? 'none' : 'block';
@@ -7912,6 +7934,14 @@ function refreshEditView() {
   var m = document.getElementById('desktop-edit-modal');
   if(m && m.style.display === 'flex') { document.getElementById('desktop-edit-body').innerHTML = ''; openDesktopEditMode(); }
 }
+// Someone who was removed from the roster comes back with the pay they had; this just un-removes them.
+async function restoreRemovedPerson(name) {
+  var rec = (typeof CUSTOM_ROSTER_REMOVED !== 'undefined' ? CUSTOM_ROSTER_REMOVED : []).find(function(r){ return r.name === name; });
+  if(!rec) return;
+  var r = await fetch(SUPABASE_URL + '/rest/v1/darien_roster_removed?id=eq.' + rec.id, {method: 'DELETE', headers: {'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY}});
+  if(!r.ok) throw new Error('HTTP ' + r.status);
+  CUSTOM_ROSTER_REMOVED = CUSTOM_ROSTER_REMOVED.filter(function(x){ return x.id !== rec.id; });
+}
 async function confirmAddPerson() {
   var s = ADD_PERSON_SECTIONS[+document.getElementById('addp-section').value];
   var obj = SECTION_ARRAYS[s.arr];
@@ -7921,12 +7951,26 @@ async function confirmAddPerson() {
   if(_addPersonMode === 'roster') {
     var who = document.getElementById('addp-person').value;
     if(!who) { alert('Pick who to add.'); return; }
+    try { await restoreRemovedPerson(who); } catch(e) { alert('Could not restore ' + who + ' to the roster: ' + e.message); return; }
     if(!obj[who]) obj[who] = blank();
   } else {
     var name = document.getElementById('addp-name').value.trim();
     var rate = parseFloat(document.getElementById('addp-rate').value);
     if(!name) { alert('Enter a name.'); return; }
-    var lower = name.toLowerCase(), taken = false;
+    var lower = name.toLowerCase();
+    var inThisSection = Object.keys(obj).some(function(n){ return n.toLowerCase() === lower; });
+    if(inThisSection) { alert(name + ' is already in ' + s.label + ' on this schedule.'); return; }
+    // typed the name of someone who was removed from the roster: bring them back instead of refusing
+    var removedRec = (typeof CUSTOM_ROSTER_REMOVED !== 'undefined' ? CUSTOM_ROSTER_REMOVED : []).find(function(r){ return r.name.toLowerCase() === lower; });
+    if(removedRec) {
+      if(!confirm(removedRec.name + ' was removed from the roster.\n\nRestore them and add them to ' + s.label + '?')) return;
+      try { await restoreRemovedPerson(removedRec.name); } catch(e) { alert('Could not restore ' + removedRec.name + ': ' + e.message); return; }
+      if(!obj[removedRec.name]) obj[removedRec.name] = blank();
+      closeAddPersonModal();
+      refreshEditView();
+      return;
+    }
+    var taken = false;
     Object.keys(SECTION_ARRAYS).forEach(function(k){ Object.keys(SECTION_ARRAYS[k]).forEach(function(n){ if(n.toLowerCase() === lower) taken = true; }); });
     Object.keys(DEFAULT_ROSTER).forEach(function(n){ if(n.toLowerCase() === lower) taken = true; });
     (CUSTOM_ROSTER || []).forEach(function(p){ if(p.name.toLowerCase() === lower) taken = true; });
