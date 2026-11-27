@@ -42,6 +42,10 @@ body{ display:flex; flex-direction:column; }
 #weeklabel{ font-family:'Bebas Neue',sans-serif; font-size:19px; letter-spacing:.07em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 #savebtn{ flex:none; height:34px; padding:0 16px; border:none; border-radius:999px; font:600 14px 'DM Sans',sans-serif; background:#3a3a3a; color:#888; }
 #savebtn.on{ background:var(--red); color:#fff; }
+#photoBtn{ width:100%; margin-top:8px; height:40px; border-radius:10px; border:2px solid var(--red); background:#1a1a1a; color:#fff; font:600 15px 'DM Sans',sans-serif; }
+.spin{ width:46px; height:46px; margin:0 auto 6px; border:5px solid #333; border-top-color:var(--red); border-radius:50%; animation:sp 0.9s linear infinite; }
+@keyframes sp{ to{ transform:rotate(360deg); } }
+.xl thead th .ev{ font-size:10px; font-weight:700; color:#ff8a8a; letter-spacing:0; margin-top:1px; white-space:normal; line-height:1.05; }
 #banner{ flex:none; background:#fff3b0; color:#5c4a00; font-size:13px; padding:8px 14px; border-bottom:1px solid #e6d98a; }
 
 /* ---- the sheet ---- */
@@ -99,6 +103,21 @@ table.xl{ border-collapse:separate; border-spacing:0; table-layout:fixed; width:
     <button id="refresh" type="button" aria-label="Reload" title="Reload from the database">⟳</button>
     <button id="savebtn" type="button" disabled>Saved</button>
   </div>
+  <button id="photoBtn" type="button">📷 Upload schedule photo</button>
+</div>
+<input type="file" id="photoFile" accept="image/*" hidden>
+<div class="gate" id="keyGate" hidden>
+  <div class="gate-card">
+    <h1>AI KEY</h1>
+    <p>Paste the Anthropic API key once so the app can read schedule photos. It is saved on this phone only.</p>
+    <input id="keyInput" class="name" type="password" placeholder="sk-ant-..." autocomplete="off" aria-label="API key">
+    <button id="keyGo" type="button">Save key</button>
+    <button id="keyCancel" type="button" style="background:#333">Cancel</button>
+    <div class="gate-err" id="keyErr"></div>
+  </div>
+</div>
+<div class="gate" id="busy" hidden style="z-index:90;background:rgba(0,0,0,.88)">
+  <div class="gate-card"><div class="spin"></div><h1 id="busyTitle">READING…</h1><p id="busyMsg"></p></div>
 </div>
 <div id="banner" hidden></div>
 <div id="sheet" hidden></div>
@@ -115,8 +134,8 @@ $('ti-apple').href = BOH_ICON; $('ti-fav').href = BOH_ICON;
 var BOH_PIN = '4821';                       // the PIN for this page -- change it here
 var DAYS = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 var MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-// the only sections this page shows or ever writes. (Managers, front of house, cashiers and drivers are never touched.)
-var BOH_SECTIONS = [['PIZZA','Pizza'],['KITCHEN','Kitchen'],['PREP','Prep'],['BUS','Bus'],['DISH','Dish'],['UTILITY','Utility']];
+// the only sections this page shows or ever writes: the Back of House schedule. (Front of house, cashiers and drivers are never touched.)
+var BOH_SECTIONS = [['MANAGERS','Managers'],['PIZZA','Pizza'],['KITCHEN','Kitchen'],['PREP','Prep'],['BUS','Bus'],['DISH','Dish'],['UTILITY','Utility']];
 var ROLE_TO_SECTION = {Pizza:'PIZZA', Kitchen:'KITCHEN', Prep:'PREP', Bus:'BUS', Dish:'DISH', Utility:'UTILITY'};
 
 /* ---- copied from the Darien app so names match exactly ---- */
@@ -287,10 +306,11 @@ function buildWeek(rec, ws){
     sections[key] = rows;
   });
   var base = {}; BOH_SECTIONS.forEach(function(s){ base[s[0]] = {}; Object.keys(sections[s[0]]).forEach(function(n){ base[s[0]][n] = sections[s[0]][n].map(normShift); }); });
-  return {week_start:ws, id: rec ? rec.id : null, exists: !!rec, sections:sections, base:base, by: rec && rec.last_edited_by, at: rec && rec.last_edited_at};
+  var evs = null; try{ evs = rec && rec.event_data ? JSON.parse(rec.event_data) : null; }catch(e){ evs = null; }
+  return {week_start:ws, id: rec ? rec.id : null, exists: !!rec, sections:sections, base:base, events:(Array.isArray(evs)?evs:null), pendingEvents:null, by: rec && rec.last_edited_by, at: rec && rec.last_edited_at};
 }
 async function loadWeeks(keepWs){
-  var recs = await getJSON('darien_schedules?order=week_start.desc&limit=12&select=id,week_start,boh_data,last_edited_by,last_edited_at');
+  var recs = await getJSON('darien_schedules?order=week_start.desc&limit=12&select=id,week_start,boh_data,event_data,last_edited_by,last_edited_at');
   var byWs = {}; recs.forEach(function(r){ byWs[r.week_start] = r; });
   var cur = mondayOf(new Date()), list = {};
   recs.forEach(function(r){ list[r.week_start] = 1; });
@@ -308,7 +328,8 @@ function render(){
   $('prevWk').disabled = idx<=0; $('nextWk').disabled = false;
   var mon = parseYmd(w.week_start);
   var h = '<table class="xl"><thead><tr><th class="nm">Name</th>';
-  for(var i=0;i<7;i++){ var d=addDays(mon,i); h += '<th>'+DAYS[i]+'<br>'+MONTHS[d.getMonth()]+' '+d.getDate()+'</th>'; }
+  var evs = w.pendingEvents || w.events || [];
+  for(var i=0;i<7;i++){ var d=addDays(mon,i); h += '<th>'+DAYS[i]+'<br>'+MONTHS[d.getMonth()]+' '+d.getDate()+(evs[i]?'<div class="ev">'+esc(evs[i])+'</div>':'')+'</th>'; }
   h += '</tr></thead><tbody>';
   BOH_SECTIONS.forEach(function(s){
     var key=s[0], names = Object.keys(w.sections[key]).sort(alphaCmp);
@@ -342,12 +363,12 @@ function collectChanges(){
   return out;
 }
 function updateDirty(){
-  var n = collectChanges().length, b = $('savebtn');
+  var w0 = weeks[idx], n = collectChanges().length + ((w0 && w0.pendingEvents) ? 1 : 0), b = $('savebtn');
   allInputs().forEach(function(inp){ var td=inp.parentNode; var w=weeks[idx]; var was=(w.base[inp.dataset.sec]&&w.base[inp.dataset.sec][inp.dataset.name])?w.base[inp.dataset.sec][inp.dataset.name][+inp.dataset.di]:''; td.classList.toggle('chg', normShift(inp.value)!==was); });
   b.disabled = saving || n===0; b.className = n>0 && !saving ? 'on' : '';
   b.textContent = saving ? 'Saving…' : (n>0 ? 'Save ('+n+')' : 'Saved');
 }
-function isDirty(){ return collectChanges().length>0; }
+function isDirty(){ var w=weeks[idx]; return collectChanges().length>0 || !!(w && w.pendingEvents); }
 
 /* ---- typing ---- */
 document.addEventListener('input', function(e){
@@ -374,7 +395,7 @@ document.addEventListener('keydown', function(e){          // Enter = next box d
 async function save(){
   if(saving) return;
   var w = weeks[idx], changes = collectChanges();
-  if(!changes.length) return;
+  if(!changes.length && !w.pendingEvents) return;
   var bad = changes.filter(function(c){ return c.bad; });
   if(bad.length && !confirm(bad.length+' box'+(bad.length>1?'es don\u2019t':' doesn\u2019t')+' look like a time ('+bad.slice(0,3).map(function(c){return c.name+' '+DAYS[c.di]+': '+c.val;}).join(', ')+(bad.length>3?'…':'')+').\n\nSave anyway?')) return;
   saving = true; updateDirty();
@@ -391,15 +412,300 @@ async function save(){
       sec[c.name][c.di] = c.val || null;
     });
     if(rec){
-      await req('darien_schedules?id=eq.'+rec.id, {method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify({boh_data: JSON.stringify(obj), last_edited_by: who, last_edited_at: now})});
+      var pbody = {boh_data: JSON.stringify(obj), last_edited_by: who, last_edited_at: now};
+      if(w.pendingEvents) pbody.event_data = JSON.stringify(w.pendingEvents);          // only when a photo's Events row was read
+      await req('darien_schedules?id=eq.'+rec.id, {method:'PATCH', headers:{'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify(pbody)});
     } else {
-      await req('darien_schedules', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify({week_start: w.week_start, boh_data: JSON.stringify(obj), foh_data: JSON.stringify({SERVERS:{},BARTENDERS:{},HOSTS:{}}), cashier_data: '{}', driver_data: '{}', created_at: now, last_edited_by: who, last_edited_at: now})});
+      await req('darien_schedules', {method:'POST', headers:{'Content-Type':'application/json','Prefer':'return=minimal'}, body: JSON.stringify({week_start: w.week_start, boh_data: JSON.stringify(obj), foh_data: JSON.stringify({SERVERS:{},BARTENDERS:{},HOSTS:{}}), cashier_data: '{}', driver_data: '{}', event_data: w.pendingEvents ? JSON.stringify(w.pendingEvents) : undefined, created_at: now, last_edited_by: who, last_edited_at: now})});
     }
     saving = false;
     await loadWeeks(w.week_start); render();
     toast('Saved \u2713');
   }catch(e){ saving = false; updateDirty(); toast('Could not save: '+e.message, true); }
 }
+
+
+/* ===== reading a schedule photo: these functions are copied unchanged from the Darien app ===== */
+function normName(n){ return String(n==null?'':n).trim().toLowerCase().replace(/\s+/g,' '); }
+
+function cellHasShift(v, cellType){
+  return cellType === 'pair' ? (Array.isArray(v) && v[0]) : !!v;
+}
+
+function emptyShiftRow(){ return [null,null,null,null,null,null,null]; }
+
+function callVision(base64, mediaType, promptText){
+  return fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-api-key': ANTHROPIC_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+    body: JSON.stringify({
+      model: 'claude-opus-4-8',
+      max_tokens: 8000,
+      messages: [{ role: 'user', content: [
+        { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+        { type: 'text', text: promptText }
+      ]}]
+    })
+  }).then(function(response){ return response.json(); }).then(function(data){
+    if(!data.content || !data.content[0]) throw new Error('No response from AI: ' + JSON.stringify(data));
+    var text = data.content.filter(function(b){ return b.type === 'text' && b.text; }).map(function(b){ return b.text; }).join('').trim();
+    text = text.replace(/```json\n?|```/g, '').trim();
+    return JSON.parse(text);
+  });
+}
+
+function mergeOrdered(schedSection, nameList){
+  schedSection = schedSection || {};
+  var byNorm = {};
+  Object.keys(schedSection).forEach(function(k){ byNorm[normName(k)] = k; });
+  var out = {}, used = {};
+  (nameList || []).forEach(function(nm){
+    if(nm == null) return;
+    var nn = normName(nm); if(!nn || used[nn]) return; used[nn] = true;
+    if(byNorm[nn]) out[byNorm[nn]] = schedSection[byNorm[nn]];
+    else out[String(nm).trim()] = emptyShiftRow();
+  });
+  Object.keys(schedSection).forEach(function(k){
+    var nn = normName(k); if(!used[nn]){ used[nn] = true; out[k] = schedSection[k]; }
+  });
+  return out;
+}
+
+function reconcileSectioned(schedObj, namesObj, sectionOrder){
+  schedObj = schedObj || {}; namesObj = namesObj || {};
+  var secs = (sectionOrder || []).slice();
+  Object.keys(schedObj).concat(Object.keys(namesObj)).forEach(function(s){ if(secs.indexOf(s) < 0) secs.push(s); });
+  var out = {};
+  secs.forEach(function(sec){ out[sec] = mergeOrdered(schedObj[sec] || {}, namesObj[sec] || []); });
+  return out;
+}
+
+async function repairRows(base64, mediaType, rows, knownNames, cellType, scopeLabel){
+  rows = rows || {};
+  var norms = {}; Object.keys(rows).forEach(function(k){ norms[normName(k)] = k; });
+  var seen = {}, toCheck = [];
+  (knownNames || []).concat(Object.keys(rows)).forEach(function(nm){
+    var nn = normName(nm); if(!nn || seen[nn]) return; seen[nn] = true;
+    var key = norms[nn]; var row = key ? rows[key] : null;
+    var empty = !Array.isArray(row) || !row.some(function(v){ return cellHasShift(v, cellType); });
+    if(empty) toCheck.push(key || String(nm).trim());
+  });
+  if(!toCheck.length) return rows;
+
+  var fmtLine = cellType === 'pair'
+    ? 'a 7-value array where each value is null or a ["start","endOrC"] pair (use "C" as the end for a closing shift), e.g. {"Jaime":[null,null,null,["4pm","C"],null,null,null]}'
+    : 'a 7-value array of strings or null, preserving shift text exactly, e.g. {"Eddie":[null,null,null,null,null,"4pm",null]}';
+  var p = 'This is a photo of a ' + scopeLabel + ' schedule grid. Rows are names (left column); '
+    + 'the 7 columns are days in order: Mon, Tue, Wed, Thu, Fri, Sat, Sun.\n\n'
+    + 'Read ONLY the rows for these specific people:\n'
+    + toCheck.map(function(n){ return '- ' + n; }).join('\n') + '\n\n'
+    + 'Each may work only a SINGLE shift the entire week, so the row is mostly blank with just one '
+    + 'filled cell — look very carefully for that one cell. Colored cell backgrounds (green, yellow, etc.) '
+    + 'are NOT empty: read the text inside them. A cell is null ONLY if it is truly blank.\n\n'
+    + 'Return ONLY a JSON object (no markdown, no explanation) mapping each name above to ' + fmtLine + '.\n'
+    + 'If a listed person truly has no shifts, return all nulls for them. If you cannot find a listed name in the image, omit that key.';
+
+  var repaired = await callVision(base64, mediaType, p);
+  if(repaired && typeof repaired === 'object' && !Array.isArray(repaired)){
+    var rNorms = {}; Object.keys(repaired).forEach(function(k){ rNorms[normName(k)] = k; });
+    toCheck.forEach(function(nm){
+      var nn = normName(nm); var rKey = rNorms[nn]; if(!rKey) return;
+      var row = repaired[rKey];
+      if(!Array.isArray(row) || row.length !== 7) return;
+      // For FOH, coerce a bare "4pm" string into ["4pm", null] so it renders.
+      if(cellType === 'pair') row = row.map(function(v){ return (typeof v === 'string') ? [v, null] : v; });
+      if(row.some(function(v){ return cellHasShift(v, cellType); })){
+        rows[ norms[nn] || String(nm).trim() ] = row;
+      }
+    });
+  }
+  return rows;
+}
+
+async function readScheduleImage(dataUrl, type) {
+  var base64 = dataUrl.split(',')[1];
+  var mediaType = dataUrl.split(';')[0].split(':')[1];
+
+  var prompt = '';
+  if(type === 'BOH') {
+    prompt = 'You are extracting a Back of House restaurant schedule from a photo or screenshot.\n\nThe schedule is a grid where rows are employee names and columns are days of the week (Monday through Sunday). Each cell contains either a shift time or is blank/off.\n\nExtract EVERY employee and EVERY day. Do not skip anyone. Do not skip any days.\n\nMany cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells. A cell is null ONLY if it is truly blank. Before you finish, re-check every row against the image and confirm you did not leave any filled cell as null.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{\n  "MANAGERS": {"EmployeeName": ["MonShift","TueShift","WedShift","ThuShift","FriShift","SatShift","SunShift"]},\n  "PIZZA": {},\n  "KITCHEN": {},\n  "DISH": {}\n}\n\nRules:\n- Use null for days off or blank cells\n- Preserve shift times exactly as written (e.g. "4pm", "9am-8pm", "4pm-c", "4pm-cl", "1pm-close", "9am")\n- "c" or "cl" or "close" at the end means closing shift — keep it as written\n- Include ALL employees listed under each section header\n- If a section has no employees visible, use an empty object {}\n- The 7 array values correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- Employee names must be first name only or first+initial — strip any phone numbers or digits in parentheses (e.g. "Jose (630-123-4567)" becomes "Jose")\n- CRITICAL: Only include employees whose name you can physically see in that section of the photo. Do NOT infer, guess, or add anyone not visibly present in a section.\n- CRITICAL: A person can appear in MULTIPLE sections (e.g. Arturo, Laura Z, Gustavo, and Jesus regularly work both Pizza and Kitchen). If you see the same name under both sections, include them in BOTH with their respective shifts. Do not deduplicate.\n- If a section appears empty or a person is not visible in it, use null for that day. Do not fill in names from memory or context.';
+  } else if(type === 'FOH') {
+    prompt = 'You are extracting a Front of House restaurant schedule from a photo or screenshot.\n\nThe schedule is a grid where rows are employee names and columns are days of the week (Monday through Sunday). Each cell contains either a start time, a start-end time range, or is blank/off.\n\nExtract EVERY employee and EVERY day. Do not skip anyone. Do not skip any days.\n\nMany cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells. A cell is null ONLY if it is truly blank. Before you finish, re-check every row against the image and confirm you did not leave any filled cell as null.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{\n  "SERVERS": {"EmployeeName": [["startTime","endTimeOrC"],null,...]},\n  "BARTENDERS": {},\n  "HOSTS": {}\n}\n\nRules:\n- Use null for days off or blank cells\n- Each working day is an array: ["startTime", "endTime"] or ["startTime", "C"] for close or ["startTime", null] if no end shown\n- Preserve times exactly as written (e.g. "4pm", "10:30am", "4:30pm")\n- "C" means closing shift\n- Include ALL employees under each section\n- The 7 array positions correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- If a section has no employees, use {}\n- Employee names must be first name only or first+last — strip any phone numbers or digits in parentheses (e.g. "Abby (630-880-4270)" becomes "Abby")\n- CRITICAL: Only include a person under a section if you can physically see their name listed under that SPECIFIC section\'s header in the photo. A person who works both Server and Bartender shifts will have TWO separate rows, one under each header, possibly with different shifts on different days -- do not copy one row\'s shifts into the other section just because it is the same person. If a name appears under only ONE section, leave them out of the others entirely.';
+  } else if(type === 'CSH') {
+    prompt = 'You are extracting a Cashier schedule from a photo or screenshot of a spreadsheet grid.\n\nCompleteness is the single most important thing. Many cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells.\n\nFollow this method exactly:\n1. Read down the left column and note EVERY cashier name, top to bottom.\n2. For each cashier, scan all 7 day columns left to right (Mon, Tue, Wed, Thu, Fri, Sat, Sun) and record the shift text in each cell.\n3. A cell is null ONLY if it is truly blank. If you can see any time or text in a cell, you MUST capture it.\n4. Before you finish, re-check every cashier row against the image and confirm you did not leave any filled cell as null.\n5. CRITICAL: Sunday is the 7th and last column. It is often cut off or hard to see. You MUST include it.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{"CashierName": ["MonShift","TueShift","WedShift","ThuShift","FriShift","SatShift","SunShift"]}\n\nRules:\n- Use null ONLY for genuinely empty cells\n- Use the cashier\'s name only (ignore phone numbers in parentheses)\n- Preserve shift text exactly as written, including ranges and closing notation (e.g. "4pm", "4pm-c", "9am-3pm")\n- "c", "cl", or "close" at the end means a closing shift — keep it as written\n- The 7 values correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- Include EVERY cashier listed, even ones with no shifts that week (use an all-null array)\n- Final check before answering: count the names in the left column of the image, then count the keys in your JSON. These two numbers MUST match.';
+  } else {
+    prompt = 'You are extracting a Driver schedule from a photo or screenshot of a spreadsheet grid.\n\nCompleteness is the single most important thing. Many cells have a colored background (green, yellow, etc.). A colored background does NOT mean the cell is empty — read the text inside colored cells exactly like white cells.\n\nFollow this method exactly:\n1. Read down the left column and note EVERY driver name, top to bottom.\n2. For each driver, scan all 7 day columns left to right (Mon, Tue, Wed, Thu, Fri, Sat, Sun) and record the shift text in each cell.\n3. A cell is null ONLY if it is truly blank. If you can see any time or text in a cell, you MUST capture it.\n4. Before you finish, re-check every driver row against the image and confirm you did not leave any filled cell as null.\n5. CRITICAL: Sunday is the 7th and last column. It is often cut off or hard to see. You MUST include it. If Sunday is blank for a driver use null, but if there is any text there you must capture it. Do not skip Sunday.\n\nReturn ONLY a valid JSON object with this exact structure — no markdown, no explanation, just raw JSON:\n{"DriverName": ["MonShift","TueShift","WedShift","ThuShift","FriShift","SatShift","SunShift"]}\n\nRules:\n- Use null ONLY for genuinely empty cells\n- Use the driver\'s name only (ignore phone numbers in parentheses)\n- Preserve shift text exactly as written, including ranges and closing notation (e.g. "4pm", "2pm-cl", "2pm - cl", "5pm -cl", "10:30am", "10:30am/4pm", "9am-4pm", "2pm-c")\n- "c", "cl", or "close" at the end means a closing shift — keep it as written\n- The 7 values correspond to Mon, Tue, Wed, Thu, Fri, Sat, Sun in order\n- Include EVERY driver listed, even drivers with no shifts that week (use an all-null array)\n- CRITICAL: Some drivers work only ONE shift the entire week, so their row has just a single filled cell and the other six are blank. These sparse single-shift rows are the easiest to accidentally skip — you MUST still include them as their own driver. Never merge or drop a row just because it is mostly empty.\n- Final check before answering: count the names in the left column of the image, then count the keys in your JSON. These two numbers MUST match. If they do not, you skipped a row — go back and find it.';
+  }
+
+  // PASS 1 — full schedule read (names + shifts)
+  var sched = await callVision(base64, mediaType, prompt);
+
+  // PASS 2 — names-only read, then reconcile so no row can be silently dropped.
+  // If this pass fails for any reason, fall back to the pass-1 result.
+  try {
+    if(type === 'BOH') {
+      var bohNames = await callVision(base64, mediaType, 'Look at this photo of a Back of House schedule. Read ONLY the employee names in the left column, grouped under their section headers. CRITICAL: Place each name ONLY in the section where it physically appears in the image. Do not move names between sections. Do not add names that do not appear in the image. Do not place a name under a section unless that name is visually listed under that section header in the photo. Ignore phone numbers or digits in parentheses. Return ONLY a JSON object, no markdown and no explanation, with exactly this structure: {"MANAGERS":[],"PIZZA":[],"KITCHEN":[],"DISH":[]} — put each name as a string in its section array, and use an empty array for any section that has no names.');
+      sched = reconcileSectioned(sched, bohNames, ['MANAGERS','PIZZA','KITCHEN','DISH']);
+    } else if(type === 'FOH') {
+      var fohNames = await callVision(base64, mediaType, 'Look at this photo of a Front of House schedule. Read ONLY the employee names in the left column, grouped under their section headers. Do not read any day or shift columns. Include EVERY name in every section, even rows that look mostly blank. Ignore phone numbers or digits in parentheses. Return ONLY a JSON object, no markdown and no explanation, with exactly this structure: {"SERVERS":[],"BARTENDERS":[],"HOSTS":[]} — put each name as a string in its section array, and use an empty array for any section that has no names.');
+      sched = reconcileSectioned(sched, fohNames, ['SERVERS','BARTENDERS','HOSTS']);
+    } else if(type === 'CSH') {
+      var cshNames = await callVision(base64, mediaType, 'Look at this photo of a cashier schedule. Read ONLY the left-most column (the list of cashier names), top to bottom. Do not read any day or shift columns. Include EVERY name, even rows where the rest of the row looks blank. Ignore any phone numbers or digits in parentheses. Return ONLY a JSON array of strings in top-to-bottom order, no markdown and no explanation, for example: ["Alyssa","Mayra","Jackson"]');
+      if(Array.isArray(cshNames)) sched = mergeOrdered(sched, cshNames);
+    } else {
+      var drvNames = await callVision(base64, mediaType, 'Look at this photo of a driver schedule. Read ONLY the left-most column (the list of driver names), top to bottom. Do not read any day or shift columns. Include EVERY name, even rows where the rest of the row looks blank — a driver with only one shift all week still gets a row. Ignore any phone numbers or digits in parentheses. Return ONLY a JSON array of strings in top-to-bottom order, no markdown and no explanation, for example: ["AJ","Alex D","Andrew"]');
+      if(Array.isArray(drvNames)) sched = mergeOrdered(sched, drvNames);
+    }
+  } catch(e) {
+    console.warn('Name reconciliation pass failed; using single-pass result.', e);
+  }
+
+  // PASS 3 — targeted repair for rows that came back empty. Runs identically for
+  // all three schedule types via the shared repairRows helper: any roster/seen
+  // name with an all-empty row gets re-read in a focused call. This recovers the
+  // classic "sparse single-shift row got skipped" case (e.g. a driver, cook, or
+  // server who works one shift all week). It only ADDS shifts to empty rows.
+  try {
+    if(type === 'BOH') {
+      var bohSecs = Object.keys(KNOWN_BOH);
+      for(var bi=0; bi<bohSecs.length; bi++){
+        var bsec = bohSecs[bi];
+        var bohKnown = KNOWN_BOH[bsec].concat(customNamesForSection(bsec));
+        sched[bsec] = await repairRows(base64, mediaType, sched[bsec] || {}, bohKnown, 'string', bsec + ' (Back of House)');
+      }
+    } else if(type === 'FOH') {
+      var fohSecs = Object.keys(KNOWN_FOH);
+      for(var fi=0; fi<fohSecs.length; fi++){
+        var fsec = fohSecs[fi];
+        var fohKnown = KNOWN_FOH[fsec].concat(customNamesForSection(fsec));
+        sched[fsec] = await repairRows(base64, mediaType, sched[fsec] || {}, fohKnown, 'pair', fsec + ' (Front of House)');
+      }
+    } else if(type === 'CSH') {
+      sched = await repairRows(base64, mediaType, sched, KNOWN_CASHIERS.concat(customNamesForSection('CASHIERS')), 'string', 'cashier');
+    } else {
+      sched = await repairRows(base64, mediaType, sched, KNOWN_DRIVER_NAMES.concat(customNamesForSection('DRIVERS')), 'string', 'driver');
+    }
+  } catch(e) {
+    console.warn('Row repair pass failed; keeping reconciled result.', e);
+  }
+
+
+    return sched;
+}
+
+async function readEventsFromBOH(dataUrl) {
+  var base64 = dataUrl.split(',')[1];
+  var mediaType = dataUrl.split(';')[0].split(':')[1];
+  var prompt = 'Look at this Back of House schedule photo. Near the top of the schedule grid, there is a row labeled "Events" in the leftmost column. This row lists special events (like Trivia, Bingo, Live Music, etc.) for specific days of the week. Look carefully for this row — it appears directly under the Date and Day rows, before the employee names begin.\n\nFor each of the 7 day columns (Monday through Sunday), read the event text in the Events row. If a day has no event text, use null.\n\nReturn ONLY a valid JSON array of exactly 7 values in Monday-to-Sunday order. No markdown, no explanation, just the array. Example: ["Trivia","Bingo","Live Music",null,null,null,null]\n\nIf you cannot find an Events row at all, return: [null,null,null,null,null,null,null]';
+  try {
+    var result = await callVision(base64, mediaType, prompt);
+    if(Array.isArray(result) && result.length === 7) return result;
+    return [null,null,null,null,null,null,null];
+  } catch(e) {
+    return [null,null,null,null,null,null,null];
+  }
+}
+/* the few things those functions expect to exist */
+var ANTHROPIC_KEY = '';
+var KNOWN_BOH = {}, KNOWN_FOH = {}, KNOWN_CASHIERS = [], KNOWN_DRIVER_NAMES = [];
+function refreshKnownBoh(){                       // the names the reader double-checks for an empty row
+  var seeded = seededNames(), w = weeks[idx], mg = {'Mike B':1,'Lisa B':1,'Brett':1,'Steve':1};
+  CUSTOM.forEach(function(p){ if(p.is_salaried) mg[p.name] = 1; });
+  if(w) Object.keys(w.sections.MANAGERS||{}).forEach(function(n){ mg[n] = 1; });
+  KNOWN_BOH = {MANAGERS:Object.keys(mg), PIZZA:Object.keys(seeded.PIZZA), KITCHEN:Object.keys(seeded.KITCHEN), PREP:Object.keys(seeded.PREP), BUS:Object.keys(seeded.BUS), DISH:Object.keys(seeded.DISH)};
+}
+function customNamesForSection(sec){
+  var out = [], rev = {}; Object.keys(ROLE_TO_SECTION).forEach(function(r){ rev[ROLE_TO_SECTION[r]] = r; });
+  CUSTOM.forEach(function(p){ if(p.is_salaried || REMOVED[p.name]) return; var roles=[]; try{ roles = JSON.parse(p.roles_json||'[]'); }catch(e){} if(roles.indexOf(rev[sec])>=0) out.push(p.name); });
+  return out;
+}
+
+/* ---- the key (kept on this phone, same place the Darien app keeps it) ---- */
+function loadKey(){
+  try{ var q = new URLSearchParams(location.search).get('key'); if(q && q.indexOf('sk-ant-')===0){ localStorage.setItem('zp_anthropic_key', q); history.replaceState(null,'',location.pathname); } }catch(e){}
+  ANTHROPIC_KEY = localStorage.getItem('zp_anthropic_key') || '';
+}
+function askKey(){
+  return new Promise(function(resolve){
+    var g = $('keyGate'); g.hidden = false; $('keyErr').textContent=''; $('keyInput').value=''; setTimeout(function(){ $('keyInput').focus(); }, 50);
+    $('keyGo').onclick = function(){ var v=$('keyInput').value.trim(); if(v.indexOf('sk-ant-')!==0){ $('keyErr').textContent='That doesn\u2019t look right \u2014 it should start with sk-ant-'; return; } localStorage.setItem('zp_anthropic_key', v); ANTHROPIC_KEY=v; g.hidden=true; resolve(true); };
+    $('keyCancel').onclick = function(){ g.hidden=true; resolve(false); };
+  });
+}
+function setBusy(on, title, msg){ $('busy').hidden = !on; if(on){ $('busyTitle').textContent = title||'READING\u2026'; $('busyMsg').textContent = msg||''; } }
+
+/* ---- photo -> a sized JPEG the AI can take ---- */
+function prepImage(file){
+  return new Promise(function(resolve, reject){
+    var done = false; function fin(v){ if(done) return; done = true; resolve(v); }
+    var fr = new FileReader();
+    fr.onerror = function(){ if(!done){ done = true; reject(new Error('Could not open that photo')); } };
+    fr.onload = function(){
+      var url = fr.result, img = new Image();
+      setTimeout(function(){ fin(url); }, 6000);          // if the phone stalls decoding it, send the photo as it is
+      img.onload = function(){
+        try{
+          var max = 2400, w = img.naturalWidth, h = img.naturalHeight;
+          if(!(Math.max(w,h) > max || file.size > 1800000)){ fin(url); return; }
+          var s = Math.min(1, max/Math.max(w,h)), c = document.createElement('canvas'); c.width = Math.round(w*s); c.height = Math.round(h*s);
+          c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); fin(c.toDataURL('image/jpeg', 0.9));
+        }catch(e){ fin(url); }
+      };
+      img.onerror = function(){ fin(url); };
+      img.src = url;
+    };
+    fr.readAsDataURL(file);
+  });
+}
+
+/* ---- what the AI read goes INTO the grid for her to check; nothing is saved until she taps Save ---- */
+function applyParsed(data, events){
+  var w = weeks[idx], cleaned = {}, changed = 0;
+  BOH_SECTIONS.forEach(function(s){ cleaned[s[0]] = cleanNames((data && data[s[0]]) || {}); });
+  BOH_SECTIONS.forEach(function(s){
+    var key = s[0], rows = w.sections[key], parsed = cleaned[key];
+    Object.keys(parsed).forEach(function(n){ if(!rows[n]){ rows[n] = ['','','','','','','']; w.base[key][n] = ['','','','','','','']; } });
+    Object.keys(rows).forEach(function(n){          // the photo is the whole schedule: anything not in it is cleared
+      var arr = parsed[n];
+      for(var i=0;i<7;i++){ var v = (arr && arr[i]!=null && arr[i]!=='') ? String(arr[i]) : ''; rows[n][i] = v; }
+    });
+  });
+  if(Array.isArray(events) && events.length===7 && events.some(function(e){ return e; })) w.pendingEvents = events.map(function(e){ return e ? String(e) : null; });
+  render();
+}
+function seenAnyShift(data){ var any=false; BOH_SECTIONS.forEach(function(s){ var sec=data&&data[s[0]]; if(sec) Object.keys(sec).forEach(function(n){ if(Array.isArray(sec[n]) && sec[n].some(function(v){return v;})) any=true; }); }); return any; }
+
+$('photoBtn').addEventListener('click', async function(){
+  if(!ANTHROPIC_KEY){ var got = await askKey(); if(!got) return; }
+  var w = weeks[idx];
+  if(isDirty() && !confirm('You have changes that aren\u2019t saved. A photo will replace what\u2019s on screen.\n\nContinue?')) return;
+  if(!confirm('Read a schedule photo into the week of '+weekLabel(w.week_start)+'?\n\nIt fills in the grid so you can check it. Nothing is saved until you tap Save.')) return;
+  $('photoFile').value = ''; $('photoFile').click();
+});
+$('photoFile').addEventListener('change', async function(){
+  var f = this.files && this.files[0]; if(!f) return;
+  var w = weeks[idx];
+  try{
+    setBusy(true, 'READING THE PHOTO', 'This takes about a minute. Keep this screen open.');
+    var dataUrl = await prepImage(f);
+    refreshKnownBoh();
+    var data = await readScheduleImage(dataUrl, 'BOH');
+    if(!data || typeof data !== 'object' || !seenAnyShift(data)) throw new Error('I couldn\u2019t find a schedule in that photo. Try a clearer, straight-on picture of the whole grid.');
+    $('busyMsg').textContent = 'Reading the events line\u2026';
+    var ev = null; try{ ev = await readEventsFromBOH(dataUrl); }catch(e){ ev = null; }
+    setBusy(false);
+    applyParsed(data, ev);
+    var n = collectChanges().length;
+    toast('Photo read \u2014 check it, then tap Save ('+n+' change'+(n===1?'':'s')+')');
+    $('sheet').scrollTop = 0;
+  }catch(e){
+    setBusy(false);
+    var msg = String(e && e.message || e);
+    if(/authentication|invalid x-api-key|invalid api key|401/i.test(msg)){ localStorage.removeItem('zp_anthropic_key'); ANTHROPIC_KEY=''; toast('That AI key was refused. Tap the photo button to enter it again.', true); }
+    else toast('Could not read the photo: '+msg.slice(0,140), true);
+  }
+});
+loadKey();
 
 /* ---- buttons ---- */
 function leaveOk(){ return !isDirty() || confirm('Throw away the changes you haven\u2019t saved?'); }
