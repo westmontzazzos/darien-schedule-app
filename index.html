@@ -324,6 +324,11 @@ body {
 .xl-table input.xl-in:focus{ outline:2px solid var(--red); outline-offset:-2px; background:rgba(255,255,255,0.75); }
 /* the PIN prompt must sit above the Excel view (tapping Edit inside it asks for the PIN) */
 #pin-modal{ z-index:100003; }
+#sheet-add-btn{ flex:none; height:26px; margin-left:6px; padding:0 10px; font:600 12px 'DM Sans',Arial,sans-serif; border:2px solid var(--red); border-radius:999px; background:var(--white); color:var(--red); -webkit-appearance:none; cursor:pointer; white-space:nowrap; }
+@media (orientation:landscape) and (max-height:500px){ #sheet-add-btn{ height:22px; font-size:11px; padding:0 8px; } }
+/* a little more room in the name column while editing, for the red x */
+#sheet-view.xl-editing{ --nm-w:calc(86px*var(--z)); }
+.xl-table .xl-nm .sched-del-row{ float:right; margin-left:2px; }
 
 .sched-wrap { overflow-x: auto; overflow-y: auto; max-height: calc(100vh - 180px); border-radius: var(--radius); box-shadow: var(--shadow); }
 .sched-table {
@@ -4764,7 +4769,7 @@ document.addEventListener("DOMContentLoaded",function(){
   </div>
 
   <!-- Add Person (Edit mode): someone already on the roster, or a new hire with a rate / salary -->
-  <div id="add-person-modal" style="display:none;position:fixed;inset:0;z-index:9600;background:rgba(0,0,0,0.55);align-items:flex-end;justify-content:center;">
+  <div id="add-person-modal" style="display:none;position:fixed;inset:0;z-index:100004;background:rgba(0,0,0,0.55);align-items:flex-end;justify-content:center;">
     <div style="background:#fff;border-radius:16px 16px 0 0;width:100%;max-width:520px;padding:18px 18px calc(24px + env(safe-area-inset-bottom, 0px));max-height:90vh;overflow-y:auto;box-sizing:border-box;">
       <div style="width:36px;height:4px;background:#e0e0e0;border-radius:2px;margin:0 auto 14px;"></div>
       <div style="font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:0.06em;color:var(--black);margin-bottom:10px;">ADD PERSON TO THIS SCHEDULE</div>
@@ -7669,6 +7674,14 @@ function handleSchedTitleTap() {
 function isDesktopWidth() { return window.innerWidth > 900; }
 
 async function toggleSchedEditMode() {
+  // Edit opens the same full-screen sheet as the Excel view, with the cells ready to type in.
+  // (Save / Cancel / Add Person / remove-a-row are all in that sheet.)
+  if(!window._schedEditMode && !window._sheetEditing) {
+    window._sheetFromEditBtn = true;
+    await sheetEnterEdit();
+    if(!window._sheetEditing) window._sheetFromEditBtn = false;   // PIN cancelled / wrong
+    return;
+  }
   if(!window._schedEditMode) {
     // Ask PIN
     if(!window._editorUnlocked) {
@@ -7886,6 +7899,15 @@ function openAddPersonModal() {
 function closeAddPersonModal() { document.getElementById('add-person-modal').style.display = 'none'; }
 // Redraw the editable schedule (also inside the full-screen editor if that is what is open).
 function refreshEditView() {
+  if(window._sheetEditing) {            // the Excel-style edit sheet is open: rebuild it from memory, keeping zoom and scroll
+    var _sc = document.getElementById('sheet-scroll');
+    var _z = _sheetZoom, _uz = _sheetUserZoomed, _st = _sc ? _sc.scrollTop : 0, _sl = _sc ? _sc.scrollLeft : 0, _key = sheetActiveKey();
+    openSheetView(true, _key);
+    _sheetUserZoomed = _uz; sheetApplyZoom(_z);
+    _sc = document.getElementById('sheet-scroll'); if(_sc) { _sc.scrollTop = _st; _sc.scrollLeft = _sl; }
+    sheetShrinkToFit();
+    return;
+  }
   renderSchedule();
   var m = document.getElementById('desktop-edit-modal');
   if(m && m.style.display === 'flex') { document.getElementById('desktop-edit-body').innerHTML = ''; openDesktopEditMode(); }
@@ -8029,7 +8051,7 @@ function buildSheetHtml(editMode) {
       if(!cells.length) return;
       rn++;
       var _nmEl = cells[0].cloneNode(true);
-      Array.prototype.forEach.call(_nmEl.querySelectorAll('.sched-del-row'), function(b){ b.parentNode.removeChild(b); });
+      if(!editMode) Array.prototype.forEach.call(_nmEl.querySelectorAll('.sched-del-row'), function(b){ b.parentNode.removeChild(b); });   // the red x only exists while editing
       var h = '<tr><th class="xl-rn">'+rn+'</th><th class="xl-nm">'+_nmEl.innerHTML+'</th>';
       for(var i=1; i<cells.length && i<=7; i++) {
         var _inp = editMode ? cells[i].querySelector('input.sched-inline-input') : null;
@@ -8050,8 +8072,9 @@ function buildSheetHtml(editMode) {
     });
     groups.push({key: g[0], label: g[1], rows: rows});
   });
-  currentSchedView = savedView; window._schedEditMode = savedEdit;
-  renderSchedule();   // put the normal grid back exactly as it was
+  currentSchedView = savedView; window._schedEditMode = false;
+  renderSchedule();   // put the normal grid back exactly as it was (read-only: the typing boxes live only in the sheet)
+  window._schedEditMode = savedEdit;
   window._sheetGroups = groups.map(function(g){ return {key: g.key, label: g.label}; });
   var letters = ['A','B','C','D','E','F','G','H'];
   var hc = headCells || ['Name'];
@@ -8063,7 +8086,7 @@ function buildSheetHtml(editMode) {
       + hc.slice(1).map(function(x){ return '<th>'+x.replace(/<div/g,'<div class="xl-ev"')+'</th>'; }).join('') + '</tr></thead><tbody>'
       + g.rows.join('') + '</tbody></table>';
   });
-  return out.replace(/\sonclick="[^"]*"/g,'');   // header event links open modals that would sit behind the sheet
+  return out.replace(/\sonclick="(?!deleteSchedRow)[^"]*"/g,'');   // header event links open modals that would sit behind the sheet (the red x keeps working)
 }
 
 // Show one schedule (Drivers / Front of House / Back of House) at a time in the Excel view.
@@ -8073,6 +8096,8 @@ function sheetShowTab(key) {
   Array.prototype.forEach.call(sc.querySelectorAll('.xl-table'), function(t){ t.style.display = (t.getAttribute('data-grp') === key) ? '' : 'none'; });
   Array.prototype.forEach.call(document.querySelectorAll('#sheet-tabs button'), function(b){ b.classList.toggle('on', b.getAttribute('data-grp') === key); });
   sc.scrollTop = 0; sc.scrollLeft = 0;
+  var _on = document.querySelector('#sheet-tabs button.on');
+  if(_on && typeof _on.scrollIntoView === 'function') { try { _on.scrollIntoView({inline:'center', block:'nearest'}); } catch(e) {} }
   sheetShrinkToFit();
 }
 
@@ -8153,7 +8178,7 @@ function openSheetView(editMode, keepKey) {
   if(!v) {
     v = document.createElement('div');
     v.id = 'sheet-view';
-    v.innerHTML = '<div id="sheet-topbar"><button id="sheet-close-btn" type="button" onclick="closeSheetView()" aria-label="Close">\u2715</button><div id="sheet-tabs"></div><button id="sheet-edit-btn" type="button" onclick="sheetEnterEdit()">\u270F\uFE0F Edit</button><button id="sheet-save-btn" type="button" onclick="sheetSaveEdit()" style="display:none">Save</button><button id="sheet-cancel-btn" type="button" onclick="sheetCancelEdit()" style="display:none">Cancel</button></div><div id="sheet-scroll"></div>';
+    v.innerHTML = '<div id="sheet-topbar"><button id="sheet-close-btn" type="button" onclick="closeSheetView()" aria-label="Close">\u2715</button><div id="sheet-tabs"></div><button id="sheet-add-btn" type="button" onclick="openAddPersonModal()" style="display:none">\u2795 Add</button><button id="sheet-edit-btn" type="button" onclick="sheetEnterEdit()">\u270F\uFE0F Edit</button><button id="sheet-save-btn" type="button" onclick="sheetSaveEdit()" style="display:none">Save</button><button id="sheet-cancel-btn" type="button" onclick="sheetCancelEdit()" style="display:none">Cancel</button></div><div id="sheet-scroll"></div>';
     document.body.appendChild(v);
     sheetInitGestures(document.getElementById('sheet-scroll'));
     document.getElementById('sheet-scroll').addEventListener('input', sheetOnCellInput);
@@ -8185,6 +8210,9 @@ function sheetActiveKey() {
 function sheetSyncButtons() {
   var ed = !!window._sheetEditing;
   var e = document.getElementById('sheet-edit-btn'), s = document.getElementById('sheet-save-btn'), c = document.getElementById('sheet-cancel-btn');
+  var a = document.getElementById('sheet-add-btn'), sv = document.getElementById('sheet-view');
+  if(a) a.style.display = ed ? '' : 'none';
+  if(sv) sv.classList.toggle('xl-editing', ed);
   if(e) e.style.display = ed ? 'none' : '';
   if(s) s.style.display = ed ? '' : 'none';
   if(c) c.style.display = ed ? '' : 'none';
@@ -8225,10 +8253,14 @@ async function sheetSaveEdit() {
   if(btn) { btn.disabled = true; btn.textContent = 'Saving...'; }
   await saveSchedInlineEdits();       // the Edit screen's own save (shows its own success / failure message)
   if(btn) { btn.disabled = false; btn.textContent = 'Save'; }
-  if(window._schedEditMode === false) sheetExitEdit(true);   // it saved: show the sheet again with the saved values
+  if(window._schedEditMode === false) {                      // it saved
+    if(window._sheetFromEditBtn) { window._sheetFromEditBtn = false; sheetExitEdit(false); closeSheetView(); }   // started from Edit: back to the Schedule screen
+    else sheetExitEdit(true);                                // started inside the Excel view: show the sheet again with the saved values
+  }
 }
 function sheetCancelEdit() {
   if(_sheetDirty && !confirm('Discard your unsaved changes?')) return;
+  if(window._sheetFromEditBtn) { window._sheetFromEditBtn = false; sheetExitEdit(false); closeSheetView(); return; }
   sheetExitEdit(true);
 }
 function closeSheetView() {
@@ -8236,6 +8268,7 @@ function closeSheetView() {
     if(_sheetDirty && !confirm('Discard your unsaved changes?')) return;
     sheetExitEdit(false);
   }
+  window._sheetFromEditBtn = false;
   var v = document.getElementById('sheet-view');
   if(v) v.style.display = 'none';
 }
